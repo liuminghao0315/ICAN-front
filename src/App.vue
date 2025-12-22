@@ -2,7 +2,7 @@
   <Test/>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" name="App">
   import Test from "@/components/Test.vue"
 </script>
 
