@@ -108,3 +108,96 @@ export const logout = async (): Promise<ApiResponse<string>> => {
   return response.data
 }
 
+// =============================================
+// 视频相关接口
+// =============================================
+
+// 视频信息
+export interface VideoInfo {
+  id: string
+  title: string
+  description: string | null
+  fileName: string
+  fileSize: number
+  fileType: string
+  duration: number | null
+  width: number | null
+  height: number | null
+  thumbnailUrl: string | null
+  videoUrl: string
+  status: 'UPLOADED' | 'ANALYZING' | 'COMPLETED' | 'FAILED'
+  gmtCreated: string
+}
+
+// 分片上传响应
+export interface ChunkUploadResponse {
+  needUpload: boolean
+  uploadedChunks: number[]
+  finished: boolean
+  videoId: string | null
+  videoUrl: string | null
+  message: string
+}
+
+// 分页响应
+export interface PageResponse<T> {
+  records: T[]
+  total: number
+  size: number
+  current: number
+  pages: number
+}
+
+// 检查分片上传状态
+export const checkChunkUpload = async (
+  fileIdentifier: string,
+  fileName: string,
+  totalChunks: number
+): Promise<ApiResponse<ChunkUploadResponse>> => {
+  const response = await api.get<ApiResponse<ChunkUploadResponse>>('/api/video/check-chunk', {
+    params: { fileIdentifier, fileName, totalChunks }
+  })
+  return response.data
+}
+
+// 上传分片
+export const uploadChunk = async (formData: FormData): Promise<ApiResponse<ChunkUploadResponse>> => {
+  const response = await api.post<ApiResponse<ChunkUploadResponse>>('/api/video/upload-chunk', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000 // 分片上传超时时间设长一些
+  })
+  return response.data
+}
+
+// 简单上传视频
+export const uploadVideoSimple = async (formData: FormData): Promise<ApiResponse<VideoInfo>> => {
+  const response = await api.post<ApiResponse<VideoInfo>>('/api/video/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000 // 5分钟超时
+  })
+  return response.data
+}
+
+// 获取视频详情
+export const getVideoById = async (videoId: string): Promise<ApiResponse<VideoInfo>> => {
+  const response = await api.get<ApiResponse<VideoInfo>>(`/api/video/${videoId}`)
+  return response.data
+}
+
+// 获取视频列表
+export const getVideoList = async (
+  page: number = 1,
+  size: number = 10
+): Promise<ApiResponse<PageResponse<VideoInfo>>> => {
+  const response = await api.get<ApiResponse<PageResponse<VideoInfo>>>('/api/video/list', {
+    params: { page, size }
+  })
+  return response.data
+}
+
+// 删除视频
+export const deleteVideo = async (videoId: string): Promise<ApiResponse<void>> => {
+  const response = await api.delete<ApiResponse<void>>(`/api/video/${videoId}`)
+  return response.data
+}
+
