@@ -201,3 +201,35 @@ export const deleteVideo = async (videoId: string): Promise<ApiResponse<void>> =
   return response.data
 }
 
+// =============================================
+// 统计相关接口
+// =============================================
+
+// 上传趋势数据项
+export interface UploadTrendItem {
+  date: string
+  displayDate: string
+  count: number
+  size: number
+}
+
+// 获取上传趋势
+export const getUploadTrend = async (days: number = 7): Promise<ApiResponse<UploadTrendItem[]>> => {
+  const response = await api.get<ApiResponse<UploadTrendItem[]>>('/api/statistics/upload-trend', {
+    params: { days }
+  })
+  return response.data
+}
+
+// 获取总体统计
+export const getTotalStats = async (): Promise<ApiResponse<{
+  totalUploadCount: number
+  totalUploadSize: number
+}>> => {
+  const response = await api.get<ApiResponse<{
+    totalUploadCount: number
+    totalUploadSize: number
+  }>>('/api/statistics/total')
+  return response.data
+}
+

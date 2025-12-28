@@ -6,6 +6,8 @@
 </script>
 
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -15,6 +17,4 @@
 body {
   font-family: 'Montserrat', sans-serif;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap');
 </style>

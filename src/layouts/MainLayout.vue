@@ -3,8 +3,10 @@
     <!-- 侧边栏 -->
     <el-aside :width="isCollapse ? '64px' : '220px'" class="sidebar">
       <div class="logo" @click="router.push('/')">
-        <el-icon :size="28"><VideoCamera /></el-icon>
-        <span v-show="!isCollapse" class="logo-text">视频分析平台</span>
+        <div class="logo-icon">
+          <el-icon :size="24"><VideoCamera /></el-icon>
+        </div>
+        <span v-show="!isCollapse" class="logo-text">甄视频</span>
       </div>
       
       <el-menu
@@ -12,13 +14,10 @@
         :collapse="isCollapse"
         :router="true"
         class="sidebar-menu"
-        background-color="#1e1e2d"
-        text-color="#a2a3b7"
-        active-text-color="#ffffff"
       >
         <el-menu-item index="/dashboard">
           <el-icon><DataAnalysis /></el-icon>
-          <template #title>仪表盘</template>
+          <template #title>工作台</template>
         </el-menu-item>
         
         <el-menu-item index="/videos">
@@ -39,7 +38,7 @@
       
       <!-- 折叠按钮 -->
       <div class="collapse-btn" @click="isCollapse = !isCollapse">
-        <el-icon :size="18">
+        <el-icon :size="16">
           <DArrowLeft v-if="!isCollapse" />
           <DArrowRight v-else />
         </el-icon>
@@ -60,9 +59,9 @@
         <div class="header-right">
           <el-dropdown trigger="click">
             <div class="user-info">
-              <el-avatar :size="36" class="avatar">
-                <el-icon :size="20"><User /></el-icon>
-              </el-avatar>
+              <div class="user-avatar">
+                {{ (userStore.userInfo?.username || '用户').charAt(0).toUpperCase() }}
+              </div>
               <span class="username">{{ userStore.userInfo?.username || '用户' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </div>
@@ -117,65 +116,110 @@ const handleLogout = async () => {
 </script>
 
 <style scoped lang="scss">
+// 新拟态配色 - 与登录页保持一致
+$bg: #edf2f0;
+$neu-1: #ecf0f3;
+$neu-2: #d1d9e6;
+$white: #f9f9f9;
+$gray: #a0a5a8;
+$black: #181818;
+$purple: #4b70e2;
+
 .main-layout {
   height: 100vh;
-  background-color: #f5f7fa;
+  background-color: $neu-1;
 }
 
 .sidebar {
-  background-color: #1e1e2d;
+  background-color: $neu-1;
   transition: width 0.3s;
   display: flex;
   flex-direction: column;
   position: relative;
+  box-shadow: 4px 0 10px $neu-2;
   
   .logo {
-    height: 60px;
+    height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    color: #fff;
+    gap: 12px;
     cursor: pointer;
-    border-bottom: 1px solid #2d2d3f;
+    padding: 0 16px;
+    
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+    }
     
     .logo-text {
-      font-size: 16px;
-      font-weight: 600;
+      font-size: 18px;
+      font-weight: 700;
+      color: $black;
       white-space: nowrap;
+      letter-spacing: 1px;
     }
   }
   
   .sidebar-menu {
     flex: 1;
     border-right: none;
+    background-color: transparent;
+    padding: 10px;
     
     :deep(.el-menu-item) {
+      height: 48px;
+      line-height: 48px;
+      margin-bottom: 8px;
+      border-radius: 12px;
+      color: $gray;
+      background-color: $neu-1;
+      box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+      transition: all 0.3s;
+      
       &:hover {
-        background-color: #2d2d3f !important;
+        color: $purple;
+        box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
       }
       
       &.is-active {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        border-radius: 8px;
-        margin: 4px 8px;
-        width: calc(100% - 16px);
+        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+        color: #fff;
+        box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+      }
+    }
+    
+    :deep(.el-menu--collapse) {
+      .el-menu-item {
+        padding: 0 !important;
+        justify-content: center;
       }
     }
   }
   
   .collapse-btn {
-    height: 40px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #a2a3b7;
+    color: $gray;
     cursor: pointer;
-    border-top: 1px solid #2d2d3f;
+    margin: 10px;
+    border-radius: 12px;
+    background-color: $neu-1;
+    box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+    transition: all 0.3s;
     
     &:hover {
-      color: #fff;
-      background-color: #2d2d3f;
+      color: $purple;
+      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
     }
   }
 }
@@ -186,30 +230,69 @@ const handleLogout = async () => {
 }
 
 .header {
-  background-color: #fff;
+  background-color: $neu-1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: 0 24px;
+  margin: 16px 16px 0 0;
+  border-radius: 16px;
+  box-shadow: 6px 6px 12px $neu-2, -6px -6px 12px $white;
+  
+  :deep(.el-breadcrumb__item) {
+    .el-breadcrumb__inner {
+      color: $gray;
+      font-weight: 500;
+      
+      &.is-link:hover {
+        color: $purple;
+      }
+    }
+    
+    &:last-child {
+      .el-breadcrumb__inner {
+        color: $black;
+      }
+    }
+  }
   
   .header-right {
     .user-info {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       cursor: pointer;
-      padding: 8px 12px;
-      border-radius: 8px;
-      transition: background-color 0.3s;
+      padding: 8px 16px;
+      border-radius: 12px;
+      background-color: $neu-1;
+      box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+      transition: all 0.3s;
       
       &:hover {
-        background-color: #f5f7fa;
+        box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+      }
+      
+      .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .username {
         font-size: 14px;
-        color: #303133;
+        color: $black;
+        font-weight: 500;
+      }
+      
+      .el-icon {
+        color: $gray;
       }
     }
   }
@@ -217,7 +300,27 @@ const handleLogout = async () => {
 
 .main-content {
   padding: 20px;
+  padding-right: 20px;
+  margin-right: 4px;
   overflow-y: auto;
+  background-color: $neu-1;
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: $neu-1;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: $neu-2;
+    border-radius: 4px;
+    
+    &:hover {
+      background: darken($neu-2, 10%);
+    }
+  }
 }
 </style>
-

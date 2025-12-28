@@ -14,7 +14,11 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      'resize-detector': 'element-resize-detector'
     },
+  },
+  optimizeDeps: {
+    include: ['echarts', 'vue-echarts', 'element-resize-detector']
   },
 })
