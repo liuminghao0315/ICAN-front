@@ -1,9 +1,20 @@
 <template>
-  <Test/>
+  <router-view />
 </template>
 
 <script setup lang="ts" name="App">
-  import Test from "@/components/Test.vue"
 </script>
 
-<style scoped></style>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap');
+</style>

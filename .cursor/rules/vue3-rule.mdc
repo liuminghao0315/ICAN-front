@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+# 遵循以下
+下载依赖时，使用cnpm，而不是npm
