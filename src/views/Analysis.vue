@@ -6,7 +6,7 @@
         <el-select 
           v-model="selectedVideoId" 
           placeholder="选择视频" 
-          @change="loadAnalysis" 
+          @change="loadAnalysisByVideo" 
           clearable 
           class="neu-select"
         >
@@ -31,7 +31,7 @@
         <div class="empty-icon">
           <el-icon :size="48"><DataAnalysis /></el-icon>
         </div>
-        <h3>请选择一个视频</h3>
+        <h3>{{ emptyMessage }}</h3>
         <p>选择已分析的视频即可查看详细的多模态分析结果</p>
         <button class="neu-btn primary-btn" @click="$router.push('/videos')">
           <el-icon><VideoPlay /></el-icon>
@@ -42,6 +42,21 @@
     
     <!-- 分析结果展示 -->
     <div v-else class="analysis-content">
+      <!-- 视频信息 -->
+      <div class="video-info-bar">
+        <div class="video-icon">
+          <el-icon :size="24"><VideoPlay /></el-icon>
+        </div>
+        <div class="video-details">
+          <div class="video-title">{{ analysisData.videoTitle }}</div>
+          <div class="video-meta">分析时间：{{ formatDate(analysisData.gmtCreated) }}</div>
+        </div>
+        <button class="neu-btn" @click="playVideo" v-if="analysisData.videoUrl">
+          <el-icon><VideoPlay /></el-icon>
+          播放视频
+        </button>
+      </div>
+      
       <!-- 风险评分卡片 -->
       <div class="risk-cards-grid">
         <div class="neu-card risk-card" :class="getRiskClass(analysisData.riskLevel)">
@@ -51,7 +66,7 @@
           <div class="risk-info">
             <div class="risk-score">{{ formatScore(analysisData.riskScore) }}</div>
             <div class="risk-label">风险评分</div>
-            <div class="risk-level">{{ getRiskLevelText(analysisData.riskLevel) }}</div>
+            <div class="risk-level">{{ analysisData.riskLevelDesc || getRiskLevelText(analysisData.riskLevel) }}</div>
           </div>
         </div>
         
@@ -63,20 +78,20 @@
             <div class="stat-value">{{ analysisData.isUniversityRelated ? '是' : '否' }}</div>
             <div class="stat-label">高校相关</div>
             <div class="stat-detail" v-if="analysisData.universityName">
-              {{ analysisData.universityName }}
+              {{ analysisData.universityName }} ({{ formatScore(analysisData.universityConfidence) }})
             </div>
           </div>
         </div>
         
         <div class="neu-card stat-card">
-          <div class="stat-icon success">
+          <div class="stat-icon" :class="getSentimentClass(analysisData.sentimentLabel)">
             <el-icon :size="24"><ChatDotRound /></el-icon>
           </div>
           <div class="stat-info">
-            <div class="stat-value">{{ getSentimentText(analysisData.sentimentLabel) }}</div>
+            <div class="stat-value">{{ analysisData.sentimentLabelDesc || getSentimentText(analysisData.sentimentLabel) }}</div>
             <div class="stat-label">情感倾向</div>
             <div class="stat-detail">
-              评分: {{ formatScore(analysisData.sentimentScore) }}
+              评分: {{ (analysisData.sentimentScore * 100).toFixed(1) }}%
             </div>
           </div>
         </div>
@@ -88,6 +103,9 @@
           <div class="stat-info">
             <div class="stat-value">{{ analysisData.topicCategory || '未分类' }}</div>
             <div class="stat-label">主题分类</div>
+            <div class="stat-detail" v-if="analysisData.spreadPotential">
+              传播潜力: {{ formatScore(analysisData.spreadPotential) }}
+            </div>
           </div>
         </div>
       </div>
@@ -103,9 +121,9 @@
         
         <div class="neu-card">
           <div class="card-header">
-            <span class="card-title">多模态特征分析</span>
+            <span class="card-title">受众年龄分布</span>
           </div>
-          <v-chart :option="featureChartOption" class="chart" />
+          <v-chart :option="audienceChartOption" class="chart" />
         </div>
       </div>
       
@@ -118,22 +136,33 @@
               视频特征
             </span>
           </div>
-          <div class="feature-details" v-if="videoFeatures">
+          <div class="feature-details" v-if="analysisData.videoFeatures">
             <div class="feature-item">
               <span class="feature-label">视频时长</span>
-              <span class="feature-value">{{ videoFeatures.duration }}秒</span>
+              <span class="feature-value">{{ formatDuration(analysisData.videoFeatures.duration) }}</span>
             </div>
             <div class="feature-item">
-              <span class="feature-label">帧数</span>
-              <span class="feature-value">{{ videoFeatures.frameCount }}</span>
+              <span class="feature-label">分辨率</span>
+              <span class="feature-value">{{ analysisData.videoFeatures.width }} x {{ analysisData.videoFeatures.height }}</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">帧率</span>
+              <span class="feature-value">{{ analysisData.videoFeatures.fps }} fps</span>
             </div>
             <div class="feature-item">
               <span class="feature-label">场景类型</span>
-              <span class="feature-value">{{ videoFeatures.sceneType || '未知' }}</span>
+              <span class="feature-value">{{ analysisData.videoFeatures.sceneType || '未知' }}</span>
             </div>
             <div class="feature-item">
-              <span class="feature-label">是否有人物</span>
-              <span class="feature-value">{{ videoFeatures.hasPerson ? '是' : '否' }}</span>
+              <span class="feature-label">人物检测</span>
+              <span class="feature-value">
+                {{ analysisData.videoFeatures.hasPerson ? '是' : '否' }}
+                <span v-if="analysisData.videoFeatures.faceCount">({{ analysisData.videoFeatures.faceCount }}人)</span>
+              </span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">画面质量</span>
+              <span class="feature-value">{{ formatScore(analysisData.videoFeatures.qualityScore) }}</span>
             </div>
           </div>
           <div v-else class="empty-feature">
@@ -149,20 +178,32 @@
               音频分析
             </span>
           </div>
-          <div class="feature-details" v-if="audioFeatures">
-            <div class="feature-item full">
+          <div class="feature-details" v-if="analysisData.audioFeatures">
+            <div class="feature-item">
+              <span class="feature-label">音频检测</span>
+              <span class="feature-value">{{ analysisData.audioFeatures.hasAudio ? '有音频' : '无音频' }}</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">音频质量</span>
+              <span class="feature-value">{{ formatScore(analysisData.audioFeatures.audioQuality) }}</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">语音占比</span>
+              <span class="feature-value">{{ formatScore(analysisData.audioFeatures.speechRatio) }}</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">音乐占比</span>
+              <span class="feature-value">{{ formatScore(analysisData.audioFeatures.musicRatio) }}</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">语音情感</span>
+              <span class="feature-value">{{ analysisData.audioFeatures.emotionInVoice || '未知' }}</span>
+            </div>
+            <div class="feature-item full" v-if="analysisData.transcription">
               <span class="feature-label">语音转文字</span>
               <div class="feature-value transcription">
-                {{ analysisData.transcription || '暂无转录内容' }}
+                {{ analysisData.transcription }}
               </div>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">音频时长</span>
-              <span class="feature-value">{{ audioFeatures.duration }}秒</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">说话人数量</span>
-              <span class="feature-value">{{ audioFeatures.speakerCount || 1 }}</span>
             </div>
           </div>
           <div v-else class="empty-feature">
@@ -172,48 +213,57 @@
         </div>
       </div>
       
-      <!-- 文本分析 -->
-      <div class="neu-card text-analysis-card">
+      <!-- 主题关键词 -->
+      <div class="neu-card keywords-card" v-if="analysisData.topicKeywords && analysisData.topicKeywords.length > 0">
         <div class="card-header">
           <span class="card-title">
-            <el-icon><Document /></el-icon>
-            文本分析
+            <el-icon><Collection /></el-icon>
+            主题关键词
           </span>
         </div>
-        <div class="text-analysis-content" v-if="textFeatures">
-          <div class="keywords-section">
-            <h4>主题关键词</h4>
-            <div class="keywords-list">
-              <span
-                v-for="(keyword, index) in textFeatures.keywords"
+        <div class="keywords-content">
+          <span
+            v-for="(keyword, index) in analysisData.topicKeywords"
+            :key="index"
+            class="keyword-tag"
+            :class="{ primary: index < 3 }"
+          >
+            {{ keyword }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- 受众分析 -->
+      <div class="neu-card audience-card" v-if="analysisData.audienceAnalysis">
+        <div class="card-header">
+          <span class="card-title">
+            <el-icon><User /></el-icon>
+            受众预测
+          </span>
+        </div>
+        <div class="audience-content">
+          <div class="audience-stats">
+            <div class="stat-box">
+              <div class="stat-number">{{ analysisData.audienceAnalysis.predictedViews?.toLocaleString() }}</div>
+              <div class="stat-name">预计播放量</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-number">{{ formatScore(analysisData.audienceAnalysis.predictedEngagement) }}</div>
+              <div class="stat-name">预计互动率</div>
+            </div>
+          </div>
+          <div class="interests-section" v-if="analysisData.audienceAnalysis.predictedInterests">
+            <h4>预测受众兴趣</h4>
+            <div class="interests-list">
+              <span 
+                v-for="(interest, index) in analysisData.audienceAnalysis.predictedInterests" 
                 :key="index"
-                class="keyword-tag"
-                :class="{ primary: Number(index) < 3 }"
+                class="interest-tag"
               >
-                {{ keyword }}
+                {{ interest }}
               </span>
             </div>
           </div>
-          <div class="topic-section" v-if="textFeatures.topics">
-            <h4>主题分布</h4>
-            <div class="topics-list">
-              <div
-                v-for="(topic, index) in textFeatures.topics"
-                :key="index"
-                class="topic-item"
-              >
-                <span class="topic-name">{{ topic.name }}</span>
-                <div class="topic-bar">
-                  <div class="topic-fill" :style="{ width: (topic.score * 100) + '%' }"></div>
-                </div>
-                <span class="topic-score">{{ (topic.score * 100).toFixed(1) }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else class="empty-feature centered">
-          <el-icon :size="36"><Document /></el-icon>
-          <span>暂无文本特征数据</span>
         </div>
       </div>
       
@@ -229,14 +279,31 @@
         </button>
       </div>
     </div>
+    
+    <!-- 视频播放对话框 -->
+    <el-dialog
+      v-model="videoDialogVisible"
+      :title="analysisData?.videoTitle"
+      width="800px"
+      destroy-on-close
+    >
+      <video
+        v-if="analysisData?.videoUrl"
+        :src="analysisData.videoUrl"
+        controls
+        autoplay
+        class="video-player"
+      ></video>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart, BarChart, RadarChart } from 'echarts/charts'
+import { PieChart, BarChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
@@ -245,78 +312,34 @@ import {
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { ElMessage } from 'element-plus'
-import { getVideoList, type VideoInfo } from '@/api'
+import { 
+  getVideoList, 
+  getResultByVideoId,
+  getResultById,
+  type VideoInfo 
+} from '@/api'
+import type { AnalysisResultVO, RiskLevel, SentimentLabel } from '@/types'
 
 // 注册ECharts组件
 use([
   CanvasRenderer,
   PieChart,
   BarChart,
-  RadarChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent
 ])
 
+const route = useRoute()
+const router = useRouter()
+
 const loading = ref(false)
 const selectedVideoId = ref<string>('')
 const videoList = ref<VideoInfo[]>([])
-const analysisData = ref<any>(null)
-
-// 模拟分析数据
-const mockAnalysisData = {
-  riskScore: 0.65,
-  riskLevel: 'MEDIUM',
-  isUniversityRelated: true,
-  universityName: '清华大学',
-  universityConfidence: 0.92,
-  topicCategory: '学习生活',
-  sentimentScore: -0.3,
-  sentimentLabel: 'NEGATIVE',
-  transcription: '大家好，今天想和大家分享一下我在大学的学习经历...',
-  videoFeatures: {
-    duration: 120.5,
-    frameCount: 2892,
-    sceneType: 'indoor',
-    hasPerson: true
-  },
-  audioFeatures: {
-    duration: 120.5,
-    speakerCount: 1
-  },
-  textFeatures: {
-    keywords: ['大学', '学习', '生活', '经验', '分享', '校园'],
-    topics: [
-      { name: '学习生活', score: 0.45 },
-      { name: '校园恋爱', score: 0.15 },
-      { name: '考试经验', score: 0.25 },
-      { name: '专业介绍', score: 0.15 }
-    ]
-  }
-}
-
-// 计算属性
-const videoFeatures = computed(() => {
-  if (!analysisData.value) return null
-  return typeof analysisData.value.videoFeatures === 'string'
-    ? JSON.parse(analysisData.value.videoFeatures)
-    : analysisData.value.videoFeatures
-})
-
-const audioFeatures = computed(() => {
-  if (!analysisData.value) return null
-  return typeof analysisData.value.audioFeatures === 'string'
-    ? JSON.parse(analysisData.value.audioFeatures)
-    : analysisData.value.audioFeatures
-})
-
-const textFeatures = computed(() => {
-  if (!analysisData.value) return null
-  return typeof analysisData.value.textFeatures === 'string'
-    ? JSON.parse(analysisData.value.textFeatures)
-    : analysisData.value.textFeatures
-})
+const analysisData = ref<AnalysisResultVO | null>(null)
+const videoDialogVisible = ref(false)
+const emptyMessage = ref('请选择一个视频')
 
 // 新拟态配色
 const neuColors = {
@@ -328,85 +351,46 @@ const neuColors = {
 }
 
 // 风险评分图表配置
-const riskChartOption = computed(() => ({
-  tooltip: {
-    trigger: 'item',
-    formatter: '{b}: {c} ({d}%)'
-  },
-  series: [
-    {
-      type: 'pie',
-      radius: ['45%', '70%'],
-      avoidLabelOverlap: false,
-      itemStyle: {
-        borderRadius: 8,
-        borderColor: neuColors.neu1,
-        borderWidth: 3
-      },
-      label: {
-        show: true,
-        formatter: '{b}\n{d}%',
-        color: neuColors.black
-      },
-      emphasis: {
-        label: {
-          show: true,
-          fontSize: 14,
-          fontWeight: 'bold'
-        }
-      },
-      data: [
-        { value: analysisData.value?.riskScore || 0, name: '风险评分', itemStyle: { color: '#f56c6c' } },
-        { value: 1 - (analysisData.value?.riskScore || 0), name: '安全评分', itemStyle: { color: '#52c41a' } }
-      ]
-    }
-  ]
-}))
-
-// 多模态特征雷达图配置
-const featureChartOption = computed(() => {
-  const data = analysisData.value
-  if (!data) return {}
+const riskChartOption = computed(() => {
+  if (!analysisData.value) return {}
   
   return {
-    tooltip: {},
-    radar: {
-      indicator: [
-        { name: '视频特征', max: 1 },
-        { name: '音频特征', max: 1 },
-        { name: '文本特征', max: 1 },
-        { name: '高校关联', max: 1 },
-        { name: '情感分析', max: 1 }
-      ],
-      center: ['50%', '50%'],
-      radius: '70%',
-      axisLine: { lineStyle: { color: neuColors.neu2 } },
-      splitLine: { lineStyle: { color: neuColors.neu2 } },
-      splitArea: { areaStyle: { color: ['rgba(75, 112, 226, 0.02)', 'rgba(75, 112, 226, 0.05)'] } }
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c}%'
     },
     series: [
       {
-        type: 'radar',
+        type: 'pie',
+        radius: ['45%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 8,
+          borderColor: neuColors.neu1,
+          borderWidth: 3
+        },
+        label: {
+          show: true,
+          formatter: '{b}\n{d}%',
+          color: neuColors.black
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 14,
+            fontWeight: 'bold'
+          }
+        },
         data: [
-          {
-            value: [
-              data.riskScore || 0,
-              Math.abs(data.sentimentScore || 0),
-              data.universityConfidence || 0,
-              data.isUniversityRelated ? 1 : 0,
-              Math.abs(data.sentimentScore || 0)
-            ],
-            name: '综合评分',
-            areaStyle: {
-              color: 'rgba(75, 112, 226, 0.2)'
-            },
-            lineStyle: {
-              color: neuColors.purple,
-              width: 2
-            },
-            itemStyle: {
-              color: neuColors.purple
-            }
+          { 
+            value: Math.round(analysisData.value.riskScore * 100), 
+            name: '风险评分', 
+            itemStyle: { color: '#f56c6c' } 
+          },
+          { 
+            value: Math.round((1 - analysisData.value.riskScore) * 100), 
+            name: '安全评分', 
+            itemStyle: { color: '#52c41a' } 
           }
         ]
       }
@@ -414,20 +398,100 @@ const featureChartOption = computed(() => {
   }
 })
 
+// 受众年龄分布图表
+const audienceChartOption = computed(() => {
+  if (!analysisData.value?.audienceAnalysis?.ageDistribution) return {}
+  
+  const dist = analysisData.value.audienceAnalysis.ageDistribution
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      top: '10%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: ['18-24岁', '25-34岁', '35-44岁', '45岁+'],
+      axisLine: { lineStyle: { color: neuColors.neu2 } },
+      axisLabel: { color: neuColors.gray, fontSize: 11 }
+    },
+    yAxis: {
+      type: 'value',
+      max: 100,
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: '#e8edf3' } },
+      axisLabel: { 
+        color: neuColors.gray, 
+        fontSize: 11,
+        formatter: '{value}%'
+      }
+    },
+    series: [
+      {
+        type: 'bar',
+        barWidth: '50%',
+        data: [
+          { value: Math.round(dist['18-24'] * 100), itemStyle: { color: neuColors.purple } },
+          { value: Math.round(dist['25-34'] * 100), itemStyle: { color: '#7c9df7' } },
+          { value: Math.round(dist['35-44'] * 100), itemStyle: { color: '#a3bef9' } },
+          { value: Math.round(dist['45+'] * 100), itemStyle: { color: '#c5d5fb' } }
+        ],
+        itemStyle: {
+          borderRadius: [6, 6, 0, 0]
+        }
+      }
+    ]
+  }
+})
+
 // 方法
-const loadAnalysis = async () => {
+const loadAnalysisByVideo = async () => {
   if (!selectedVideoId.value) {
     analysisData.value = null
+    emptyMessage.value = '请选择一个视频'
     return
   }
   
   loading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    analysisData.value = mockAnalysisData
+    const response = await getResultByVideoId(selectedVideoId.value)
+    if (response.code === 200 && response.data) {
+      analysisData.value = response.data
+    } else {
+      analysisData.value = null
+      emptyMessage.value = '该视频尚未分析或分析未完成'
+    }
   } catch (error) {
+    console.error('加载分析结果失败:', error)
     ElMessage.error('加载分析结果失败')
-    console.error(error)
+    analysisData.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadAnalysisById = async (resultId: string) => {
+  loading.value = true
+  try {
+    const response = await getResultById(resultId)
+    if (response.code === 200 && response.data) {
+      analysisData.value = response.data
+      selectedVideoId.value = response.data.videoId
+    } else {
+      analysisData.value = null
+      emptyMessage.value = '分析结果不存在'
+    }
+  } catch (error) {
+    console.error('加载分析结果失败:', error)
+    ElMessage.error('加载分析结果失败')
+    analysisData.value = null
   } finally {
     loading.value = false
   }
@@ -437,6 +501,7 @@ const fetchVideos = async () => {
   try {
     const response = await getVideoList(1, 100)
     if (response.code === 200) {
+      // 只显示已完成分析的视频
       videoList.value = response.data.records.filter(v => v.status === 'COMPLETED')
     }
   } catch (error) {
@@ -444,13 +509,27 @@ const fetchVideos = async () => {
   }
 }
 
-const formatScore = (score: number | null | undefined): string => {
-  if (score === null || score === undefined) return '0.00'
-  return (score * 100).toFixed(2) + '%'
+const playVideo = () => {
+  videoDialogVisible.value = true
 }
 
-const getRiskClass = (level: string): string => {
-  const classes: Record<string, string> = {
+const formatScore = (score: number | null | undefined): string => {
+  if (score === null || score === undefined) return '0%'
+  return (score * 100).toFixed(1) + '%'
+}
+
+const formatDate = (dateStr: string): string => {
+  return new Date(dateStr).toLocaleString('zh-CN')
+}
+
+const formatDuration = (seconds: number): string => {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}分${s}秒`
+}
+
+const getRiskClass = (level: RiskLevel): string => {
+  const classes: Record<RiskLevel, string> = {
     'LOW': 'risk-low',
     'MEDIUM': 'risk-medium',
     'HIGH': 'risk-high'
@@ -458,8 +537,8 @@ const getRiskClass = (level: string): string => {
   return classes[level] || 'risk-medium'
 }
 
-const getRiskLevelText = (level: string): string => {
-  const texts: Record<string, string> = {
+const getRiskLevelText = (level: RiskLevel): string => {
+  const texts: Record<RiskLevel, string> = {
     'LOW': '低风险',
     'MEDIUM': '中风险',
     'HIGH': '高风险'
@@ -467,8 +546,17 @@ const getRiskLevelText = (level: string): string => {
   return texts[level] || '未知'
 }
 
-const getSentimentText = (label: string): string => {
-  const texts: Record<string, string> = {
+const getSentimentClass = (label: SentimentLabel): string => {
+  const classes: Record<SentimentLabel, string> = {
+    'POSITIVE': 'success',
+    'NEUTRAL': 'primary',
+    'NEGATIVE': 'danger'
+  }
+  return classes[label] || 'primary'
+}
+
+const getSentimentText = (label: SentimentLabel): string => {
+  const texts: Record<SentimentLabel, string> = {
     'POSITIVE': '积极',
     'NEUTRAL': '中性',
     'NEGATIVE': '消极'
@@ -480,8 +568,26 @@ const exportReport = () => {
   ElMessage.info('PDF报告导出功能开发中...')
 }
 
+// 监听路由参数变化
+watch(() => route.query, (query) => {
+  if (query.videoId) {
+    selectedVideoId.value = query.videoId as string
+    loadAnalysisByVideo()
+  } else if (query.resultId) {
+    loadAnalysisById(query.resultId as string)
+  }
+}, { immediate: true })
+
 onMounted(() => {
   fetchVideos()
+  
+  // 如果有路由参数，加载对应数据
+  if (route.query.videoId) {
+    selectedVideoId.value = route.query.videoId as string
+    loadAnalysisByVideo()
+  } else if (route.query.resultId) {
+    loadAnalysisById(route.query.resultId as string)
+  }
 })
 </script>
 
@@ -520,6 +626,45 @@ $purple: #4b70e2;
           border-radius: 12px;
         }
       }
+    }
+  }
+}
+
+// 视频信息栏
+.video-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 24px;
+  background: $neu-1;
+  border-radius: 16px;
+  box-shadow: 6px 6px 12px $neu-2, -6px -6px 12px $white;
+  margin-bottom: 24px;
+  
+  .video-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+  
+  .video-details {
+    flex: 1;
+    
+    .video-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: $black;
+      margin-bottom: 4px;
+    }
+    
+    .video-meta {
+      font-size: 13px;
+      color: $gray;
     }
   }
 }
@@ -565,7 +710,7 @@ $purple: #4b70e2;
   box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
   color: $gray;
   font-family: 'Montserrat', sans-serif;
-  padding: 14px 28px;
+  padding: 12px 24px;
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -730,6 +875,11 @@ $purple: #4b70e2;
         background: rgba(250, 173, 20, 0.12);
         color: #faad14;
       }
+      
+      &.danger {
+        background: rgba(245, 108, 108, 0.12);
+        color: #f56c6c;
+      }
     }
     
     .stat-info {
@@ -817,6 +967,7 @@ $purple: #4b70e2;
           padding: 12px 16px;
           border-radius: 12px;
           box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+          width: 100%;
         }
       }
     }
@@ -837,90 +988,90 @@ $purple: #4b70e2;
   }
 }
 
-// 文本分析卡片
-.text-analysis-card {
+// 关键词卡片
+.keywords-card {
   margin-bottom: 24px;
   
-  .text-analysis-content {
+  .keywords-content {
+    padding: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    
+    .keyword-tag {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      background: $neu-1;
+      color: $gray;
+      box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
+      
+      &.primary {
+        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+        color: #fff;
+        box-shadow: 3px 3px 8px $neu-2, -2px -2px 6px $white;
+      }
+    }
+  }
+}
+
+// 受众分析卡片
+.audience-card {
+  margin-bottom: 24px;
+  
+  .audience-content {
     padding: 24px;
     
-    h4 {
-      font-size: 14px;
-      font-weight: 600;
-      color: $black;
-      margin: 0 0 14px;
+    .audience-stats {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 24px;
+      
+      .stat-box {
+        flex: 1;
+        text-align: center;
+        padding: 20px;
+        background: $neu-1;
+        border-radius: 16px;
+        box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+        
+        .stat-number {
+          font-size: 28px;
+          font-weight: 700;
+          color: $purple;
+        }
+        
+        .stat-name {
+          font-size: 13px;
+          color: $gray;
+          margin-top: 6px;
+        }
+      }
     }
     
-    .keywords-section {
-      margin-bottom: 28px;
+    .interests-section {
+      h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: $black;
+        margin: 0 0 14px;
+      }
       
-      .keywords-list {
+      .interests-list {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
         
-        .keyword-tag {
-          padding: 8px 16px;
-          border-radius: 20px;
-          font-size: 13px;
-          font-weight: 500;
-          background: $neu-1;
-          color: $gray;
-          box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
-          
-          &.primary {
-            background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-            color: #fff;
-            box-shadow: 3px 3px 8px $neu-2, -2px -2px 6px $white;
-          }
+        .interest-tag {
+          padding: 6px 14px;
+          border-radius: 16px;
+          font-size: 12px;
+          background: rgba($purple, 0.1);
+          color: $purple;
         }
       }
     }
-    
-    .topic-section {
-      .topics-list {
-        .topic-item {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          margin-bottom: 14px;
-          
-          .topic-name {
-            width: 90px;
-            font-size: 13px;
-            color: $black;
-            font-weight: 500;
-          }
-          
-          .topic-bar {
-            flex: 1;
-            height: 10px;
-            background: $neu-1;
-            border-radius: 5px;
-            box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
-            overflow: hidden;
-            
-            .topic-fill {
-              height: 100%;
-              background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-              border-radius: 5px;
-            }
-          }
-          
-          .topic-score {
-            width: 50px;
-            text-align: right;
-            font-size: 13px;
-            color: $gray;
-            font-weight: 500;
-          }
-        }
-      }
-    }
-  }
-  
-  .empty-feature.centered {
-    padding: 64px 20px;
   }
 }
 
@@ -930,5 +1081,27 @@ $purple: #4b70e2;
   gap: 16px;
   justify-content: center;
   padding-top: 8px;
+}
+
+// 视频播放器
+.video-player {
+  width: 100%;
+  max-height: 450px;
+  background: #000;
+  border-radius: 12px;
+}
+
+:deep(.el-dialog) {
+  border-radius: 20px;
+  
+  .el-dialog__header {
+    border-bottom: 1px solid rgba($neu-2, 0.5);
+    padding: 20px 24px;
+    margin: 0;
+  }
+  
+  .el-dialog__body {
+    padding: 24px;
+  }
 }
 </style>

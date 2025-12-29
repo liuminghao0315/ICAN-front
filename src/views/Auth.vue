@@ -127,8 +127,10 @@ import type { LoginParams, RegisterParams, SendRegisterCodeParams } from '@/api'
 import Toast from '@/components/Toast.vue'
 import { useToast } from '@/composables/useToast'
 import { validateUsername, validatePassword, validateEmail } from '@/utils/validation'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 表单状态
 const isLogin = ref(false)
@@ -321,8 +323,30 @@ const handleLogin = async () => {
     const response = await login(loginForm.value)
 
     if (response.code === 200) {
-      // 登录成功，保存token
-      localStorage.setItem('token', response.data)
+      // 登录成功，保存token到store（store会自动同步到localStorage）
+      const token = response.data
+      userStore.setToken(token)
+      
+      // 从token中解析用户信息
+      try {
+        const parts = token.split('.')
+        if (parts.length === 3 && parts[1]) {
+          const payload = JSON.parse(atob(parts[1]))
+          // token subject 格式为 "userId:xxx"
+          let userId = payload.sub || payload.id || ''
+          if (userId.startsWith('userId:')) {
+            userId = userId.replace('userId:', '')
+          }
+          userStore.setUserInfo({
+            id: userId,
+            username: loginForm.value.username,
+            email: ''
+          })
+        }
+      } catch (e) {
+        console.warn('解析token失败:', e)
+      }
+      
       // 跳转到首页或其他页面
       router.push('/')
     } else {

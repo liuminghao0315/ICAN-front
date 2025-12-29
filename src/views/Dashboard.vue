@@ -14,12 +14,12 @@
       
       <div class="banner-stats">
         <div class="stat-item">
-          <div class="stat-icon warning">
+          <div class="stat-icon danger">
             <el-icon><Warning /></el-icon>
           </div>
           <div class="stat-content">
-            <div class="stat-label">风险预警数</div>
-            <div class="stat-value warning">{{ stats.riskCount }}</div>
+            <div class="stat-label">高风险数</div>
+            <div class="stat-value danger">{{ stats.highRiskCount }}</div>
           </div>
         </div>
         
@@ -72,12 +72,12 @@
       <div class="left-section">
         <div class="neu-card">
           <div class="card-header">
-            <span class="card-title">视频状态分布</span>
+            <span class="card-title">风险等级分布</span>
             <button class="neu-btn icon-btn" @click="fetchData">
               <el-icon><Refresh /></el-icon>
             </button>
           </div>
-          <v-chart :option="statusChartOption" class="chart" />
+          <v-chart :option="riskChartOption" class="chart" />
         </div>
         
         <!-- 快捷操作 -->
@@ -100,6 +100,31 @@
             </button>
           </div>
         </div>
+        
+        <!-- 分析统计 -->
+        <div class="neu-card analysis-stats" v-if="analysisStats">
+          <div class="card-header">
+            <span class="card-title">分析统计</span>
+          </div>
+          <div class="stats-content">
+            <div class="stats-row">
+              <span class="label">平均风险评分</span>
+              <span class="value">{{ formatPercent(analysisStats.averageRiskScore ?? analysisStats.avgRiskScore) }}</span>
+            </div>
+            <div class="stats-row">
+              <span class="label">高校相关内容</span>
+              <span class="value">{{ analysisStats.universityRelatedCount ?? 0 }} 个</span>
+            </div>
+            <div class="stats-row">
+              <span class="label">正面情感内容</span>
+              <span class="value positive">{{ analysisStats.positiveSentimentCount ?? 0 }} 个</span>
+            </div>
+            <div class="stats-row">
+              <span class="label">负面情感内容</span>
+              <span class="value negative">{{ analysisStats.negativeSentimentCount ?? 0 }} 个</span>
+            </div>
+          </div>
+        </div>
       </div>
       
       <!-- 中间视频列表 -->
@@ -115,7 +140,7 @@
               class="video-item" 
               v-for="video in recentVideos" 
               :key="video.id"
-              @click="router.push('/videos')"
+              @click="handleVideoClick(video)"
             >
               <div class="video-icon">
                 <el-icon><VideoPlay /></el-icon>
@@ -140,6 +165,50 @@
             </div>
           </div>
         </div>
+        
+        <!-- 最近任务 -->
+        <div class="neu-card">
+          <div class="card-header">
+            <span class="card-title">最近任务 <span class="count">{{ recentTasks.length }} 条</span></span>
+            <button class="neu-btn text-btn" @click="router.push('/tasks')">查看全部</button>
+          </div>
+          
+          <div class="task-list" v-loading="tasksLoading">
+            <div 
+              class="task-item" 
+              v-for="task in recentTasks" 
+              :key="task.id"
+              @click="router.push(`/tasks?taskId=${task.id}`)"
+            >
+              <div class="task-icon" :class="getTaskStatusClass(task.status)">
+                <el-icon><DataAnalysis /></el-icon>
+              </div>
+              <div class="task-info">
+                <div class="task-title">{{ task.videoTitle }}</div>
+                <div class="task-meta">
+                  {{ task.taskTypeDesc || getTaskTypeText(task.taskType) }} · {{ formatDate(task.gmtCreated) }}
+                </div>
+              </div>
+              <div class="task-status">
+                <span class="status-tag" :class="getTaskStatusClass(task.status)">
+                  {{ task.statusDesc || getTaskStatusText(task.status) }}
+                </span>
+                <div class="task-progress" v-if="task.status === 'PROCESSING'">
+                  <el-progress 
+                    :percentage="task.progress" 
+                    :stroke-width="4"
+                    :show-text="false"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="!tasksLoading && recentTasks.length === 0" class="empty-state small">
+              <el-icon :size="32"><DataAnalysis /></el-icon>
+              <p>暂无分析任务</p>
+            </div>
+          </div>
+        </div>
       </div>
       
       <!-- 右侧趋势图 -->
@@ -149,6 +218,14 @@
             <span class="card-title">上传趋势</span>
           </div>
           <v-chart :option="trendChartOption" class="chart" />
+        </div>
+        
+        <!-- 视频状态分布 -->
+        <div class="neu-card">
+          <div class="card-header">
+            <span class="card-title">视频状态分布</span>
+          </div>
+          <v-chart :option="statusChartOption" class="chart" />
         </div>
       </div>
     </div>
@@ -160,7 +237,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart, LineChart } from 'echarts/charts'
+import { PieChart, LineChart, BarChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
@@ -176,7 +253,16 @@ import {
   DataAnalysis,
   Refresh
 } from '@element-plus/icons-vue'
-import { getVideoList, getUploadTrend, type VideoInfo, type UploadTrendItem } from '@/api'
+import { 
+  getVideoList, 
+  getUploadTrend, 
+  getAnalysisTaskList,
+  getAnalysisStats,
+  getRiskDistribution,
+  type VideoInfo, 
+  type UploadTrendItem 
+} from '@/api'
+import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskType, TaskStatus } from '@/types'
 import { useUserStore } from '@/stores/user'
 
 // 注册ECharts组件
@@ -184,6 +270,7 @@ use([
   CanvasRenderer,
   PieChart,
   LineChart,
+  BarChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
@@ -194,15 +281,20 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
+const tasksLoading = ref(false)
 const recentVideos = ref<VideoInfo[]>([])
+const recentTasks = ref<AnalysisTaskVO[]>([])
 const allVideos = ref<VideoInfo[]>([])
 const uploadTrendData = ref<UploadTrendItem[]>([])
+const analysisStats = ref<AnalysisStats | null>(null)
+const riskDistribution = ref<RiskDistribution | null>(null)
 
 const stats = ref({
   totalVideos: 0,
   analyzedCount: 0,
   pendingCount: 0,
-  riskCount: 0
+  highRiskCount: 0,
+  analyzingCount: 0
 })
 
 // 计算属性
@@ -213,8 +305,7 @@ const completionRate = computed(() => {
 
 const analysisRate = computed(() => {
   if (stats.value.totalVideos === 0) return 0
-  const analyzing = allVideos.value.filter(v => v.status === 'ANALYZING').length
-  return Math.round((analyzing / stats.value.totalVideos) * 100)
+  return Math.round((stats.value.analyzingCount / stats.value.totalVideos) * 100)
 })
 
 const pendingRate = computed(() => {
@@ -224,21 +315,26 @@ const pendingRate = computed(() => {
 
 const fetchData = async () => {
   loading.value = true
+  tasksLoading.value = true
+  
   try {
+    // 获取最近视频
     const response = await getVideoList(1, 5)
     if (response.code === 200) {
       recentVideos.value = response.data.records
       stats.value.totalVideos = response.data.total
     }
     
+    // 获取所有视频用于统计
     const allResponse = await getVideoList(1, 100)
     if (allResponse.code === 200) {
       allVideos.value = allResponse.data.records
       stats.value.analyzedCount = allVideos.value.filter(v => v.status === 'COMPLETED').length
-      stats.value.pendingCount = allVideos.value.filter(v => v.status === 'UPLOADED' || v.status === 'ANALYZING').length
-      stats.value.riskCount = 0
+      stats.value.pendingCount = allVideos.value.filter(v => v.status === 'UPLOADED').length
+      stats.value.analyzingCount = allVideos.value.filter(v => v.status === 'ANALYZING').length
     }
     
+    // 获取上传趋势
     try {
       const trendResponse = await getUploadTrend(7)
       if (trendResponse.code === 200) {
@@ -248,10 +344,51 @@ const fetchData = async () => {
       console.warn('获取上传趋势失败:', e)
       uploadTrendData.value = []
     }
+    
+    // 获取分析统计
+    try {
+      const statsResponse = await getAnalysisStats()
+      if (statsResponse.code === 200) {
+        analysisStats.value = statsResponse.data
+        stats.value.highRiskCount = statsResponse.data.highRiskCount
+      }
+    } catch (e) {
+      console.warn('获取分析统计失败:', e)
+    }
+    
+    // 获取风险分布
+    try {
+      const riskResponse = await getRiskDistribution()
+      if (riskResponse.code === 200) {
+        riskDistribution.value = riskResponse.data
+      }
+    } catch (e) {
+      console.warn('获取风险分布失败:', e)
+    }
+    
+    // 获取最近任务
+    try {
+      const tasksResponse = await getAnalysisTaskList({ page: 1, pageSize: 5 })
+      if (tasksResponse.code === 200) {
+        recentTasks.value = tasksResponse.data.records
+      }
+    } catch (e) {
+      console.warn('获取任务列表失败:', e)
+    }
+    
   } catch (error) {
     console.error('获取数据失败:', error)
   } finally {
     loading.value = false
+    tasksLoading.value = false
+  }
+}
+
+const handleVideoClick = (video: VideoInfo) => {
+  if (video.status === 'COMPLETED') {
+    router.push(`/analysis?videoId=${video.id}`)
+  } else {
+    router.push('/videos')
   }
 }
 
@@ -266,6 +403,11 @@ const formatFileSize = (bytes: number): string => {
 const formatDate = (dateStr: string): string => {
   const date = new Date(dateStr)
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+const formatPercent = (value: number | undefined | null): string => {
+  if (value === undefined || value === null || isNaN(value)) return '0%'
+  return (value * 100).toFixed(1) + '%'
 }
 
 const getStatusText = (status: string) => {
@@ -288,12 +430,111 @@ const getStatusClass = (status: string) => {
   return classes[status] || 'pending'
 }
 
-// 状态分布饼图
+const getTaskTypeText = (type: TaskType) => {
+  const texts: Record<TaskType, string> = {
+    'FULL_ANALYSIS': '完整分析',
+    'VIDEO_ONLY': '视频分析',
+    'AUDIO_ONLY': '音频分析',
+    'TEXT_ONLY': '文字分析'
+  }
+  return texts[type] || type
+}
+
+const getTaskStatusText = (status: TaskStatus) => {
+  const texts: Record<TaskStatus, string> = {
+    'PENDING': '等待中',
+    'PROCESSING': '处理中',
+    'COMPLETED': '已完成',
+    'FAILED': '失败',
+    'CANCELLED': '已取消'
+  }
+  return texts[status] || status
+}
+
+const getTaskStatusClass = (status: TaskStatus) => {
+  const classes: Record<TaskStatus, string> = {
+    'PENDING': 'pending',
+    'PROCESSING': 'processing',
+    'COMPLETED': 'completed',
+    'FAILED': 'failed',
+    'CANCELLED': 'cancelled'
+  }
+  return classes[status] || 'pending'
+}
+
+// 风险分布饼图
+const riskChartOption = computed(() => {
+  // 优先使用风险分布API数据
+  let data = []
+  if (riskDistribution.value) {
+    const low = riskDistribution.value.lowRiskCount || riskDistribution.value.LOW || 0
+    const medium = riskDistribution.value.mediumRiskCount || riskDistribution.value.MEDIUM || 0
+    const high = riskDistribution.value.highRiskCount || riskDistribution.value.HIGH || 0
+    data = [
+      { value: low, name: '低风险', itemStyle: { color: '#52c41a' } },
+      { value: medium, name: '中风险', itemStyle: { color: '#faad14' } },
+      { value: high, name: '高风险', itemStyle: { color: '#f56c6c' } }
+    ]
+  } else if (stats.value.analyzedCount > 0) {
+    // 使用本地统计
+    const lowMedium = stats.value.analyzedCount - stats.value.highRiskCount
+    data = [
+      { value: lowMedium > 0 ? lowMedium : 0, name: '低/中风险', itemStyle: { color: '#52c41a' } },
+      { value: stats.value.highRiskCount, name: '高风险', itemStyle: { color: '#f56c6c' } }
+    ]
+  } else {
+    // 无数据时显示占位
+    data = [
+      { value: 1, name: '暂无数据', itemStyle: { color: '#d1d9e6' } }
+    ]
+  }
+  
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c} ({d}%)'
+    },
+    legend: {
+      bottom: 0,
+      left: 'center',
+      textStyle: { color: '#a0a5a8' },
+      itemGap: 16
+    },
+    series: [
+      {
+        type: 'pie',
+        radius: ['35%', '55%'],
+        center: ['50%', '40%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 8,
+          borderColor: '#ecf0f3',
+          borderWidth: 3
+        },
+        label: {
+          show: true,
+          formatter: '{b}\n{d}%',
+          color: '#181818'
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 14,
+            fontWeight: 'bold'
+          }
+        },
+        data: data
+      }
+    ]
+  }
+})
+
+// 视频状态分布
 const statusChartOption = computed(() => {
   const data = [
     { value: stats.value.analyzedCount, name: '已完成', itemStyle: { color: '#4b70e2' } },
-    { value: stats.value.pendingCount, name: '待处理', itemStyle: { color: '#e6a23c' } },
-    { value: stats.value.riskCount, name: '风险预警', itemStyle: { color: '#f56c6c' } }
+    { value: stats.value.analyzingCount, name: '分析中', itemStyle: { color: '#e6a23c' } },
+    { value: stats.value.pendingCount, name: '待处理', itemStyle: { color: '#909399' } }
   ]
   
   return {
@@ -503,9 +744,9 @@ $purple: #4b70e2;
         font-size: 20px;
         box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
         
-        &.warning {
-          background: rgba(250, 173, 20, 0.12);
-          color: #faad14;
+        &.danger {
+          background: rgba(245, 108, 108, 0.12);
+          color: #f56c6c;
         }
         
         &.success {
@@ -532,7 +773,7 @@ $purple: #4b70e2;
           color: $black;
           line-height: 1;
           
-          &.warning { color: #faad14; }
+          &.danger { color: #f56c6c; }
           &.success { color: #52c41a; }
         }
       }
@@ -709,6 +950,39 @@ $purple: #4b70e2;
   }
 }
 
+// 分析统计卡片
+.analysis-stats {
+  .stats-content {
+    padding: 20px 24px;
+    
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba($neu-2, 0.5);
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .label {
+        font-size: 13px;
+        color: $gray;
+      }
+      
+      .value {
+        font-size: 14px;
+        font-weight: 600;
+        color: $black;
+        
+        &.positive { color: #52c41a; }
+        &.negative { color: #f56c6c; }
+      }
+    }
+  }
+}
+
 // 快捷操作
 .quick-actions {
   .action-buttons {
@@ -765,7 +1039,7 @@ $purple: #4b70e2;
 
 // 视频列表
 .video-list {
-  max-height: 400px;
+  max-height: 300px;
   overflow-y: auto;
   padding: 16px;
   
@@ -828,6 +1102,108 @@ $purple: #4b70e2;
   }
 }
 
+// 任务列表
+.task-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 16px;
+  
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 10px;
+    background: $neu-1;
+    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
+    
+    &:hover {
+      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    }
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    .task-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      
+      &.pending {
+        background: rgba($gray, 0.12);
+        color: $gray;
+      }
+      
+      &.processing {
+        background: rgba(230, 162, 60, 0.12);
+        color: #e6a23c;
+      }
+      
+      &.completed {
+        background: rgba($purple, 0.12);
+        color: $purple;
+      }
+      
+      &.failed {
+        background: rgba(245, 108, 108, 0.12);
+        color: #f56c6c;
+      }
+      
+      &.cancelled {
+        background: rgba($gray, 0.12);
+        color: $gray;
+      }
+    }
+    
+    .task-info {
+      flex: 1;
+      min-width: 0;
+      
+      .task-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: $black;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .task-meta {
+        font-size: 11px;
+        color: $gray;
+      }
+    }
+    
+    .task-status {
+      flex-shrink: 0;
+      text-align: right;
+      
+      .task-progress {
+        margin-top: 6px;
+        width: 60px;
+        
+        :deep(.el-progress__outer) {
+          background: $neu-2;
+        }
+        
+        :deep(.el-progress__inner) {
+          background: linear-gradient(90deg, $purple 0%, #7c9df7 100%);
+        }
+      }
+    }
+  }
+}
+
 // 状态标签
 .status-tag {
   display: inline-block;
@@ -855,6 +1231,11 @@ $purple: #4b70e2;
     background: rgba(245, 108, 108, 0.12);
     color: #f56c6c;
   }
+  
+  &.cancelled {
+    background: rgba($gray, 0.12);
+    color: $gray;
+  }
 }
 
 // 空状态
@@ -865,6 +1246,15 @@ $purple: #4b70e2;
   justify-content: center;
   padding: 48px 20px;
   color: $gray;
+  
+  &.small {
+    padding: 32px 20px;
+    
+    p {
+      margin: 12px 0 0;
+      font-size: 12px;
+    }
+  }
   
   p {
     margin: 16px 0 20px;

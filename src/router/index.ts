@@ -50,6 +50,12 @@ const router = createRouter({
           name: 'Analysis',
           component: () => import('@/views/Analysis.vue'),
           meta: { title: '分析结果' }
+        },
+        {
+          path: 'tasks',
+          name: 'Tasks',
+          component: () => import('@/views/TaskList.vue'),
+          meta: { title: '分析任务' }
         }
       ]
     },
@@ -62,9 +68,23 @@ const router = createRouter({
   ]
 })
 
+// 获取存储的 token
+function getStoredToken(): string | null {
+  try {
+    const stored = localStorage.getItem('user-store')
+    if (stored) {
+      const data = JSON.parse(stored)
+      return data.token || null
+    }
+  } catch {
+    // 解析失败
+  }
+  return null
+}
+
 // 路由守卫
 router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('token')
+  const token = getStoredToken()
   
   if (to.meta.requiresAuth !== false && !token) {
     // 需要登录但未登录，跳转到登录页

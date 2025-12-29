@@ -30,6 +30,11 @@
           <template #title>上传视频</template>
         </el-menu-item>
         
+        <el-menu-item index="/tasks">
+          <el-icon><List /></el-icon>
+          <template #title>分析任务</template>
+        </el-menu-item>
+        
         <el-menu-item index="/analysis">
           <el-icon><TrendCharts /></el-icon>
           <template #title>分析结果</template>
@@ -88,16 +93,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores'
+import { useWebSocketStore } from '@/stores/websocket'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const wsStore = useWebSocketStore()
 
 const isCollapse = ref(false)
+
+// 监听登录状态变化，自动连接/断开 WebSocket
+// 这样可以处理 Pinia 持久化数据异步恢复的问题
+watch(
+  () => userStore.isLoggedIn,
+  (isLoggedIn) => {
+    console.log('[MainLayout] 登录状态变化:', isLoggedIn)
+    if (isLoggedIn) {
+      console.log('[MainLayout] 用户已登录，连接 WebSocket')
+      wsStore.connect()
+    }
+  },
+  { immediate: true } // 立即执行一次，处理已登录状态
+)
+
+// 同时在 onMounted 中也尝试连接（双重保险）
+onMounted(() => {
+  console.log('[MainLayout] onMounted - isLoggedIn:', userStore.isLoggedIn)
+  if (userStore.isLoggedIn && !wsStore.isConnected) {
+    console.log('[MainLayout] onMounted 触发 WebSocket 连接')
+    wsStore.connect()
+  }
+})
 
 const handleLogout = async () => {
   try {
@@ -107,6 +137,8 @@ const handleLogout = async () => {
       type: 'warning'
     })
     
+    // 退出时断开 WebSocket
+    wsStore.disconnect()
     userStore.logout()
     router.push('/login')
   } catch {
