@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import type { AxiosInstance, AxiosResponse } from 'axios'
 import type {
   Result,
   PageResult,
@@ -15,33 +15,14 @@ import type {
   TaskStatus,
   RiskLevel
 } from '@/types'
-import { useUserStore, type TokenInfo } from '@/stores/user'
 
 // ==================== 基础配置 ====================
-
-// Token响应接口
-export interface TokenVO {
-  accessToken: string
-  refreshToken: string
-  accessTokenExpireTime: number
-  refreshTokenExpireTime: number
-  userId: string
-  username: string
-}
 
 // 响应数据接口
 export interface ApiResponse<T = any> {
   code: number
   message: string | null
   data: T
-}
-
-// 错误码常量
-const CODE = {
-  SUCCESS: 200,
-  AUTH_FAILURE: 401,
-  TOKEN_EXPIRED: 4011,        // AccessToken过期
-  REFRESH_TOKEN_EXPIRED: 4012 // RefreshToken过期
 }
 
 // 创建axios实例
@@ -53,96 +34,25 @@ const api: AxiosInstance = axios.create({
   }
 })
 
-// ==================== Token刷新机制 ====================
-
-// 是否正在刷新Token
-let isRefreshing = false
-
-// 等待刷新的请求队列
-let refreshSubscribers: Array<(token: string) => void> = []
-
-/**
- * 将请求加入等待队列
- */
-const subscribeTokenRefresh = (callback: (token: string) => void) => {
-  refreshSubscribers.push(callback)
-}
-
-/**
- * 刷新完成后，执行队列中的请求
- */
-const onTokenRefreshed = (newToken: string) => {
-  refreshSubscribers.forEach(callback => callback(newToken))
-  refreshSubscribers = []
-}
-
-/**
- * 刷新失败，清空队列
- */
-const onRefreshFailed = () => {
-  refreshSubscribers = []
-}
-
-/**
- * 刷新Token
- */
-const refreshToken = async (): Promise<TokenVO | null> => {
-  const userStore = useUserStore()
-  const currentRefreshToken = userStore.refreshToken
-  
-  if (!currentRefreshToken) {
-    return null
-  }
-
+// 获取存储的 token
+function getStoredToken(): string | null {
   try {
-    // 直接使用axios，不经过拦截器
-    const response = await axios.post<ApiResponse<TokenVO>>(
-      'http://localhost:8080/auth/refresh',
-      { refreshToken: currentRefreshToken },
-      { timeout: 10000 }
-    )
-
-    if (response.data.code === CODE.SUCCESS && response.data.data) {
-      const tokenData = response.data.data
-      // 更新store中的token
-      userStore.setTokenInfo({
-        accessToken: tokenData.accessToken,
-        refreshToken: tokenData.refreshToken,
-        accessTokenExpireTime: tokenData.accessTokenExpireTime,
-        refreshTokenExpireTime: tokenData.refreshTokenExpireTime
-      })
-      userStore.setUserInfo({
-        id: tokenData.userId,
-        username: tokenData.username
-      })
-      return tokenData
+    // 从 pinia persist 存储的位置读取
+    const stored = localStorage.getItem('user-store')
+    if (stored) {
+      const data = JSON.parse(stored)
+      return data.token || null
     }
-    return null
-  } catch (error) {
-    console.error('Token刷新失败:', error)
-    return null
+  } catch {
+    // 解析失败
   }
+  return null
 }
 
-/**
- * 处理登出
- */
-const handleLogout = () => {
-  const userStore = useUserStore()
-  userStore.logout()
-  // 跳转到登录页
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login'
-  }
-}
-
-// ==================== 请求拦截器 ====================
-
+// 请求拦截器 - 自动添加Token
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const userStore = useUserStore()
-    const token = userStore.accessToken
-    
+  (config) => {
+    const token = getStoredToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -153,69 +63,17 @@ api.interceptors.request.use(
   }
 )
 
-// ==================== 响应拦截器 ====================
-
+// 响应拦截器 - 统一处理错误
 api.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     return response
   },
-  async (error) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
-    
-    // 如果没有响应，直接返回错误
-    if (!error.response) {
-      return Promise.reject(error)
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token过期，清除并跳转到登录页
+      localStorage.removeItem('user-store')
+      window.location.href = '/login'
     }
-
-    const responseData = error.response.data as ApiResponse
-    const errorCode = responseData?.code || error.response.status
-
-    // AccessToken过期（4011）- 需要刷新
-    if (errorCode === CODE.TOKEN_EXPIRED && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      // 如果正在刷新，将请求加入队列
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((newToken: string) => {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`
-            resolve(api(originalRequest))
-          })
-        })
-      }
-
-      isRefreshing = true
-
-      try {
-        const tokenData = await refreshToken()
-        
-        if (tokenData) {
-          // 刷新成功，通知队列中的请求
-          onTokenRefreshed(tokenData.accessToken)
-          // 重新发送原请求
-          originalRequest.headers.Authorization = `Bearer ${tokenData.accessToken}`
-          return api(originalRequest)
-        } else {
-          // 刷新失败，清空队列并登出
-          onRefreshFailed()
-          handleLogout()
-          return Promise.reject(error)
-        }
-      } catch (refreshError) {
-        onRefreshFailed()
-        handleLogout()
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
-      }
-    }
-
-    // RefreshToken过期（4012）或普通401 - 需要重新登录
-    if (errorCode === CODE.REFRESH_TOKEN_EXPIRED || errorCode === CODE.AUTH_FAILURE) {
-      handleLogout()
-      return Promise.reject(error)
-    }
-
     return Promise.reject(error)
   }
 )
@@ -228,8 +86,8 @@ export interface LoginParams {
   password: string
 }
 
-export const login = async (params: LoginParams): Promise<ApiResponse<TokenVO>> => {
-  const response = await api.post<ApiResponse<TokenVO>>('/auth/login', params)
+export const login = async (params: LoginParams): Promise<ApiResponse<string>> => {
+  const response = await api.post<ApiResponse<string>>('/auth/login', params)
   return response.data
 }
 

@@ -45,35 +45,6 @@ export interface RegisterDTO {
 }
 
 /**
- * 刷新Token请求
- */
-export interface RefreshTokenDTO {
-  refreshToken: string
-}
-
-/**
- * Token响应（双Token机制）
- */
-export interface TokenVO {
-  accessToken: string
-  refreshToken: string
-  accessTokenExpireTime: number
-  refreshTokenExpireTime: number
-  userId: string
-  username: string
-}
-
-/**
- * Token信息（存储用）
- */
-export interface TokenInfo {
-  accessToken: string
-  refreshToken: string
-  accessTokenExpireTime: number
-  refreshTokenExpireTime: number
-}
-
-/**
  * 用户信息
  */
 export interface UserInfo {

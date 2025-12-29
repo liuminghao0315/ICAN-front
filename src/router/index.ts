@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -69,15 +68,28 @@ const router = createRouter({
   ]
 })
 
+// 获取存储的 token
+function getStoredToken(): string | null {
+  try {
+    const stored = localStorage.getItem('user-store')
+    if (stored) {
+      const data = JSON.parse(stored)
+      return data.token || null
+    }
+  } catch {
+    // 解析失败
+  }
+  return null
+}
+
 // 路由守卫
 router.beforeEach((to, _from, next) => {
-  const userStore = useUserStore()
-  const isLoggedIn = userStore.isLoggedIn
+  const token = getStoredToken()
   
-  if (to.meta.requiresAuth !== false && !isLoggedIn) {
+  if (to.meta.requiresAuth !== false && !token) {
     // 需要登录但未登录，跳转到登录页
     next('/login')
-  } else if (to.path === '/login' && isLoggedIn) {
+  } else if (to.path === '/login' && token) {
     // 已登录但访问登录页，跳转到首页
     next('/dashboard')
   } else {
