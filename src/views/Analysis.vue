@@ -2,21 +2,54 @@
   <div class="analysis-page">
     <div class="header-actions">
       <h2 class="page-title">分析结果</h2>
-      <div class="header-select">
-        <el-select 
-          v-model="selectedVideoId" 
-          placeholder="选择视频" 
-          @change="loadAnalysisByVideo" 
-          clearable 
-          class="neu-select"
-        >
-          <el-option
-            v-for="video in videoList"
+      <button class="neu-btn primary-btn video-selector-btn" @click="showVideoDrawer = true">
+        <el-icon><VideoPlay /></el-icon>
+        选择视频
+      </button>
+    </div>
+    
+    <!-- 视频选择侧边栏 -->
+    <div class="video-drawer-overlay" :class="{ active: showVideoDrawer }" @click="showVideoDrawer = false"></div>
+    <div class="video-drawer" :class="{ active: showVideoDrawer }">
+      <div class="drawer-header">
+        <h3>选择视频</h3>
+        <button class="close-btn" @click="showVideoDrawer = false">
+          <el-icon><Close /></el-icon>
+        </button>
+      </div>
+      <div class="drawer-content">
+        <div class="video-list-container">
+          <div 
+            v-for="video in videoList" 
             :key="video.id"
-            :label="video.title"
-            :value="video.id"
-          />
-        </el-select>
+            class="video-item"
+            :class="{ active: selectedVideoId === video.id }"
+            @click="selectVideo(video)"
+          >
+            <div class="video-item-icon">
+              <el-icon :size="20"><VideoPlay /></el-icon>
+            </div>
+            <div class="video-item-info">
+              <div class="video-item-title">{{ video.title }}</div>
+              <div class="video-item-meta">
+                {{ video.fileName }} · {{ formatFileSize(video.fileSize) }}
+              </div>
+            </div>
+            <div class="video-item-status">
+              <span class="status-badge" :class="getStatusClass(video.status)">
+                {{ getStatusText(video.status) }}
+              </span>
+            </div>
+          </div>
+          
+          <div v-if="videoList.length === 0" class="empty-video-list">
+            <el-icon :size="48"><VideoPlay /></el-icon>
+            <p>暂无已分析的视频</p>
+            <button class="neu-btn primary-btn" @click="$router.push('/videos')">
+              去上传视频
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -35,23 +68,28 @@
         <p>选择已分析的视频即可查看详细的多模态分析结果</p>
         <button class="neu-btn primary-btn" @click="$router.push('/videos')">
           <el-icon><VideoPlay /></el-icon>
-          去选择视频
+          去我的视频
         </button>
       </div>
     </div>
     
     <!-- 分析结果展示 -->
-    <div v-else class="analysis-content">
+    <div v-else class="analysis-content" ref="reportContentRef">
       <!-- 视频信息 -->
       <div class="video-info-bar">
         <div class="video-icon">
           <el-icon :size="24"><VideoPlay /></el-icon>
         </div>
         <div class="video-details">
-          <div class="video-title">{{ analysisData.videoTitle }}</div>
-          <div class="video-meta">分析时间：{{ formatDate(analysisData.gmtCreated) }}</div>
+          <div class="video-title-row">
+            <span class="video-title">{{ analysisData.videoTitle }}</span>
+            <span class="video-meta">分析时间：{{ formatDate(analysisData.gmtCreated) }}</span>
+          </div>
+          <div class="video-description" v-if="analysisData.videoDescription">
+            {{ analysisData.videoDescription }}
+          </div>
         </div>
-        <button class="neu-btn" @click="playVideo" v-if="analysisData.videoUrl">
+        <button class="neu-btn play-video-btn" @click="playVideo" v-if="analysisData.videoUrl" ref="playVideoBtnRef">
           <el-icon><VideoPlay /></el-icon>
           播放视频
         </button>
@@ -197,7 +235,7 @@
             </div>
             <div class="feature-item">
               <span class="feature-label">语音情感</span>
-              <span class="feature-value">{{ analysisData.audioFeatures.emotionInVoice || '未知' }}</span>
+              <span class="feature-value">{{ getEmotionText(analysisData.audioFeatures.emotionInVoice) }}</span>
             </div>
             <div class="feature-item full" v-if="analysisData.transcription">
               <span class="feature-label">语音转文字</span>
@@ -267,8 +305,8 @@
         </div>
       </div>
       
-      <!-- 操作按钮 -->
-      <div class="action-buttons">
+      <!-- 操作按钮 - 导出PDF时隐藏 -->
+      <div class="action-buttons" ref="actionButtonsRef">
         <button class="neu-btn primary-btn" @click="exportReport">
           <el-icon><Download /></el-icon>
           导出PDF报告
@@ -301,6 +339,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useWebSocket } from '@/composables/useWebSocket'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { PieChart, BarChart } from 'echarts/charts'
@@ -334,12 +373,16 @@ use([
 const route = useRoute()
 const router = useRouter()
 
+// WebSocket - 当任务完成时刷新视频列表
+const { subscribeCompleted } = useWebSocket()
+
 const loading = ref(false)
 const selectedVideoId = ref<string>('')
 const videoList = ref<VideoInfo[]>([])
 const analysisData = ref<AnalysisResultVO | null>(null)
 const videoDialogVisible = ref(false)
 const emptyMessage = ref('请选择一个视频')
+const showVideoDrawer = ref(false)
 
 // 新拟态配色
 const neuColors = {
@@ -452,6 +495,12 @@ const audienceChartOption = computed(() => {
 })
 
 // 方法
+const selectVideo = (video: VideoInfo) => {
+  selectedVideoId.value = video.id
+  showVideoDrawer.value = false
+  loadAnalysisByVideo()
+}
+
 const loadAnalysisByVideo = async () => {
   if (!selectedVideoId.value) {
     analysisData.value = null
@@ -528,6 +577,34 @@ const formatDuration = (seconds: number): string => {
   return `${m}分${s}秒`
 }
 
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+}
+
+const getStatusText = (status: string): string => {
+  const texts: Record<string, string> = {
+    'UPLOADED': '待分析',
+    'ANALYZING': '分析中',
+    'COMPLETED': '已完成',
+    'FAILED': '失败'
+  }
+  return texts[status] || status
+}
+
+const getStatusClass = (status: string): string => {
+  const classes: Record<string, string> = {
+    'UPLOADED': 'pending',
+    'ANALYZING': 'processing',
+    'COMPLETED': 'completed',
+    'FAILED': 'failed'
+  }
+  return classes[status] || 'pending'
+}
+
 const getRiskClass = (level: RiskLevel): string => {
   const classes: Record<RiskLevel, string> = {
     'LOW': 'risk-low',
@@ -564,8 +641,158 @@ const getSentimentText = (label: SentimentLabel): string => {
   return texts[label] || '未知'
 }
 
-const exportReport = () => {
-  ElMessage.info('PDF报告导出功能开发中...')
+// 语音情感英文转中文映射
+const getEmotionText = (emotion: string | null | undefined): string => {
+  if (!emotion) return '未知'
+  const emotionMap: Record<string, string> = {
+    'energetic': '充满活力',
+    'calm': '平静',
+    'happy': '开心',
+    'sad': '悲伤',
+    'angry': '愤怒',
+    'fear': '恐惧',
+    'surprise': '惊讶',
+    'disgust': '厌恶',
+    'neutral': '中性',
+    'excited': '兴奋',
+    'relaxed': '放松',
+    'tense': '紧张',
+    'bored': '无聊',
+    'confident': '自信',
+    'nervous': '紧张不安',
+    'passionate': '热情',
+    'melancholic': '忧郁',
+    'cheerful': '欢快',
+    'serious': '严肃',
+    'humorous': '幽默'
+  }
+  return emotionMap[emotion.toLowerCase()] || emotion
+}
+
+// PDF导出状态
+const exportingPdf = ref(false)
+
+// 报告内容区域引用
+const reportContentRef = ref<HTMLElement | null>(null)
+// 操作按钮区域引用（导出时需要隐藏）
+const actionButtonsRef = ref<HTMLElement | null>(null)
+// 播放视频按钮引用（导出时需要隐藏）
+const playVideoBtnRef = ref<HTMLElement | null>(null)
+
+// 导出PDF报告 - 使用 html2canvas 截图方式，完美支持中文
+const exportReport = async () => {
+  if (!analysisData.value) {
+    ElMessage.warning('没有可导出的分析数据')
+    return
+  }
+  
+  if (!reportContentRef.value) {
+    ElMessage.error('无法获取报告内容')
+    return
+  }
+  
+  exportingPdf.value = true
+  ElMessage.info('正在生成PDF报告，请稍候...')
+  
+  // 隐藏操作按钮区域和播放视频按钮
+  const actionButtons = actionButtonsRef.value
+  const playVideoBtn = playVideoBtnRef.value
+  if (actionButtons) {
+    actionButtons.style.display = 'none'
+  }
+  if (playVideoBtn) {
+    playVideoBtn.style.display = 'none'
+  }
+  
+  try {
+    // 动态导入 html2canvas 和 jsPDF
+    const html2canvasModule = await import('html2canvas')
+    const html2canvas = html2canvasModule.default
+    // @ts-ignore
+    const jsPDFModule = await import('jspdf')
+    const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF
+    
+    const element = reportContentRef.value
+    
+    // 使用 html2canvas 将内容渲染为图片
+    const canvas = await html2canvas(element, {
+      scale: 2, // 提高清晰度
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ecf0f3', // 背景色
+      logging: false
+    })
+    
+    const imgData = canvas.toDataURL('image/png')
+    const imgWidth = canvas.width
+    const imgHeight = canvas.height
+    
+    // 创建 PDF
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const margin = 10
+    const contentWidth = pageWidth - margin * 2
+    
+    // 计算图片在PDF中的尺寸
+    const ratio = contentWidth / imgWidth
+    const scaledHeight = imgHeight * ratio
+    
+    // 如果内容超过一页，需要分页
+    let yPos = margin
+    let remainingHeight = scaledHeight
+    let sourceY = 0
+    
+    while (remainingHeight > 0) {
+      const availableHeight = pageHeight - margin * 2
+      const heightToDraw = Math.min(remainingHeight, availableHeight)
+      
+      // 计算源图片中的对应区域
+      const sourceHeight = heightToDraw / ratio
+      
+      // 创建临时画布来裁剪图片
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = imgWidth
+      tempCanvas.height = sourceHeight
+      const ctx = tempCanvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(
+          canvas,
+          0, sourceY, imgWidth, sourceHeight,
+          0, 0, imgWidth, sourceHeight
+        )
+        const tempImgData = tempCanvas.toDataURL('image/png')
+        pdf.addImage(tempImgData, 'PNG', margin, yPos, contentWidth, heightToDraw)
+      }
+      
+      remainingHeight -= heightToDraw
+      sourceY += sourceHeight
+      
+      if (remainingHeight > 0) {
+        pdf.addPage()
+        yPos = margin
+      }
+    }
+    
+    // 保存PDF
+    const data = analysisData.value
+    const fileName = `分析报告_${data.videoTitle || '视频'}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.pdf`
+    pdf.save(fileName)
+    
+    ElMessage.success('PDF报告导出成功！')
+  } catch (error) {
+    console.error('PDF导出失败:', error)
+    ElMessage.error('PDF导出失败，请稍后重试')
+  } finally {
+    // 恢复按钮显示
+    if (actionButtons) {
+      actionButtons.style.display = ''
+    }
+    if (playVideoBtn) {
+      playVideoBtn.style.display = ''
+    }
+    exportingPdf.value = false
+  }
 }
 
 // 监听路由参数变化
@@ -577,6 +804,17 @@ watch(() => route.query, (query) => {
     loadAnalysisById(query.resultId as string)
   }
 }, { immediate: true })
+
+// 订阅任务完成事件，自动刷新视频列表
+subscribeCompleted((data) => {
+  console.log('[Analysis] 收到任务完成通知，刷新视频列表', data)
+  fetchVideos()
+  
+  // 如果当前选中的视频刚完成分析，自动加载结果
+  if (selectedVideoId.value === data.videoId) {
+    loadAnalysisByVideo()
+  }
+})
 
 onMounted(() => {
   fetchVideos()
@@ -615,16 +853,259 @@ $purple: #4b70e2;
       color: $black;
     }
     
-    .header-select {
-      .neu-select {
-        width: 280px;
+    .video-selector-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+  
+  // 视频选择侧边栏
+  .video-drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 998;
+    pointer-events: none;
+    transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &.active {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      pointer-events: all;
+    }
+  }
+  
+  .video-drawer {
+    position: fixed;
+    top: 0;
+    right: -420px;
+    width: 400px;
+    height: 100vh;
+    background: linear-gradient(145deg, #f5f7fa, #e8ecef);
+    box-shadow: 
+      -8px 0 24px rgba(0, 0, 0, 0.15),
+      -4px 0 12px rgba(0, 0, 0, 0.1);
+    z-index: 999;
+    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    
+    &.active {
+      right: 0;
+    }
+    
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(209, 217, 230, 0.5);
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(10px);
+      
+      h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: $black;
+      }
+      
+      .close-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 10px;
+        background: $neu-1;
+        color: $gray;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 
+          3px 3px 6px rgba(163, 177, 198, 0.4),
+          -3px -3px 6px rgba(255, 255, 255, 0.9);
         
-        :deep(.el-input__wrapper) {
-          background: $neu-1;
-          box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
-          border: none;
-          border-radius: 12px;
+        .el-icon {
+          font-size: 18px;
         }
+        
+        &:hover {
+          color: $purple;
+          transform: rotate(90deg);
+        }
+        
+        &:active {
+          box-shadow: 
+            inset 3px 3px 6px rgba(163, 177, 198, 0.5),
+            inset -3px -3px 6px rgba(255, 255, 255, 0.8);
+        }
+      }
+    }
+    
+    .drawer-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      
+      &::-webkit-scrollbar-thumb {
+        background: rgba(160, 165, 168, 0.3);
+        border-radius: 3px;
+        
+        &:hover {
+          background: rgba(160, 165, 168, 0.5);
+        }
+      }
+    }
+    
+    .video-list-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .video-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 16px;
+      background: $neu-1;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 
+        4px 4px 8px rgba(163, 177, 198, 0.3),
+        -4px -4px 8px rgba(255, 255, 255, 0.9);
+      border: 2px solid transparent;
+      
+      .video-item-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, $purple, #6b8be8);
+        color: white;
+        flex-shrink: 0;
+        box-shadow: 
+          0 4px 12px rgba(75, 112, 226, 0.3),
+          inset 0 1px 2px rgba(255, 255, 255, 0.2);
+      }
+      
+      .video-item-info {
+        flex: 1;
+        min-width: 0;
+        
+        .video-item-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: $black;
+          margin-bottom: 4px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .video-item-meta {
+          font-size: 12px;
+          color: $gray;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+      
+      .video-item-status {
+        flex-shrink: 0;
+        
+        .status-badge {
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 500;
+          
+          &.pending {
+            background: rgba(144, 147, 153, 0.15);
+            color: #909399;
+          }
+          
+          &.processing {
+            background: rgba(230, 162, 60, 0.15);
+            color: #e6a23c;
+          }
+          
+          &.completed {
+            background: rgba(103, 194, 58, 0.15);
+            color: #67c23a;
+          }
+          
+          &.failed {
+            background: rgba(245, 108, 108, 0.15);
+            color: #f56c6c;
+          }
+        }
+      }
+      
+      &:hover {
+        transform: translateX(-4px);
+        border-color: rgba($purple, 0.3);
+        box-shadow: 
+          6px 6px 12px rgba(163, 177, 198, 0.4),
+          -6px -6px 12px rgba(255, 255, 255, 1),
+          0 0 0 3px rgba($purple, 0.1);
+      }
+      
+      &.active {
+        background: linear-gradient(135deg, rgba($purple, 0.1), rgba(107, 139, 232, 0.05));
+        border-color: $purple;
+        box-shadow: 
+          inset 2px 2px 4px rgba(0, 0, 0, 0.05),
+          0 6px 16px rgba(75, 112, 226, 0.2),
+          0 0 0 2px rgba($purple, 0.15);
+        
+        .video-item-icon {
+          box-shadow: 
+            0 6px 16px rgba(75, 112, 226, 0.4),
+            inset 0 1px 2px rgba(255, 255, 255, 0.3);
+        }
+      }
+      
+      &:active {
+        transform: translateX(-2px) scale(0.98);
+      }
+    }
+    
+    .empty-video-list {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+      color: $gray;
+      
+      .el-icon {
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+      
+      p {
+        margin: 0 0 20px 0;
+        font-size: 14px;
       }
     }
   }
@@ -655,16 +1136,29 @@ $purple: #4b70e2;
   .video-details {
     flex: 1;
     
-    .video-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: $black;
-      margin-bottom: 4px;
+    .video-title-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      
+      .video-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: $black;
+      }
+      
+      .video-meta {
+        font-size: 13px;
+        color: $gray;
+      }
     }
     
-    .video-meta {
+    .video-description {
+      margin-top: 8px;
       font-size: 13px;
       color: $gray;
+      line-height: 1.5;
     }
   }
 }

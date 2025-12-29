@@ -219,10 +219,13 @@ export const getVideoById = async (videoId: string): Promise<ApiResponse<VideoIn
 // 获取视频列表
 export const getVideoList = async (
   page: number = 1,
-  size: number = 10
+  size: number = 10,
+  status?: string,
+  sortBy: string = 'gmtCreated',
+  sortOrder: string = 'desc'
 ): Promise<ApiResponse<PageResponse<VideoInfo>>> => {
   const response = await api.get<ApiResponse<PageResponse<VideoInfo>>>('/api/video/list', {
-    params: { page, size }
+    params: { page, size, status, sortBy, sortOrder }
   })
   return response.data
 }
@@ -265,9 +268,11 @@ export interface TaskListParams {
 export const getTaskList = async (
   page: number = 1,
   size: number = 10,
-  status?: TaskStatus
+  status?: TaskStatus,
+  sortBy: string = 'gmtCreated',
+  sortOrder: string = 'desc'
 ): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
-  const params: Record<string, any> = { page, size }
+  const params: Record<string, any> = { page, size, sortBy, sortOrder }
   if (status) {
     params.status = status
   }

@@ -31,24 +31,22 @@ export const useWebSocketStore = defineStore('websocket', () => {
   
   // 获取用户ID - 优先从 userStore 获取
   function getUserId(): string | null {
-    // 方式1: 从 userStore 获取（最可靠）
     const userStore = useUserStore()
+    
+    // 方式1: 从 userStore 获取
     if (userStore.userInfo?.id) {
-      console.log('[WebSocket] 从 userStore 获取 userId:', userStore.userInfo.id)
       return userStore.userInfo.id
     }
     
     // 方式2: 从 userStore.token 解析
     const token = userStore.token
     if (!token) {
-      console.warn('[WebSocket] token 不存在')
       return null
     }
 
     try {
       const parts = token.split('.')
       if (parts.length !== 3) {
-        console.warn('[WebSocket] token 格式无效')
         return null
       }
       const payload = JSON.parse(atob(parts[1]!))
@@ -59,43 +57,36 @@ export const useWebSocketStore = defineStore('websocket', () => {
         userId = userId.replace('userId:', '')
       }
       
-      console.log('[WebSocket] 从 token 解析 userId:', userId)
       return userId
-    } catch (e) {
-      console.warn('[WebSocket] 无法解析Token获取用户ID:', e)
+    } catch {
       return null
     }
   }
   
   // 连接 WebSocket
   function connect() {
-    console.log('[WebSocket] connect() 被调用')
     const userId = getUserId()
     if (!userId) {
-      console.warn('[WebSocket] 无法获取 userId，无法连接')
       return
     }
 
     // 已连接则跳过
     if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] 已连接，跳过')
       return
     }
     
     // 正在连接中则跳过
     if (ws && ws.readyState === WebSocket.CONNECTING) {
-      console.log('[WebSocket] 正在连接中，跳过')
       return
     }
 
     const wsUrl = `ws://localhost:8080/ws/task-progress/${userId}`
-    console.log('[WebSocket] 正在连接:', wsUrl)
 
     try {
       ws = new WebSocket(wsUrl)
 
       ws.onopen = () => {
-        console.log('[WebSocket] ✅ 连接成功!')
+        console.log('[WebSocket] 连接成功, userId:', userId)
         isConnected.value = true
         reconnectCount.value = 0
         startHeartbeat()
@@ -106,7 +97,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
       }
 
       ws.onclose = (event) => {
-        console.log('WebSocket连接关闭:', event.code, event.reason)
         isConnected.value = false
         stopHeartbeat()
         // 只有非正常关闭才尝试重连
@@ -115,12 +105,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
         }
       }
 
-      ws.onerror = (error) => {
-        console.error('WebSocket错误:', error)
+      ws.onerror = () => {
         isConnected.value = false
       }
-    } catch (error) {
-      console.error('WebSocket连接失败:', error)
+    } catch {
       attemptReconnect()
     }
   }
@@ -128,28 +116,24 @@ export const useWebSocketStore = defineStore('websocket', () => {
   // 处理消息
   function handleMessage(data: string) {
     if (data === 'pong') {
-      console.debug('收到心跳响应')
       return
     }
 
     try {
       const message: WSMessage = JSON.parse(data)
-      console.log('收到WebSocket消息:', message.type, message)
 
       switch (message.type) {
         case 'connected':
-          console.log('WebSocket连接确认')
           break
 
         case 'task_progress':
           if (message.data) {
             const progressData = message.data as TaskProgressData
-            console.log('分发任务进度更新给', taskProgressHandlers.value.length, '个订阅者')
             taskProgressHandlers.value.forEach(handler => {
               try {
                 handler(progressData)
-              } catch (e) {
-                console.error('任务进度处理器执行失败:', e)
+              } catch {
+                // 忽略处理器错误
               }
             })
           }
@@ -157,19 +141,14 @@ export const useWebSocketStore = defineStore('websocket', () => {
 
         case 'task_completed':
           if (message.data) {
+            console.log('[WebSocket] 收到任务完成通知:', message.data)
             const completedData = message.data as TaskCompletedData
-            console.log('[WebSocket] 任务完成通知 - videoId:', completedData.videoId, 
-                        ', taskId:', completedData.taskId,
-                        ', 订阅者数量:', taskCompletedHandlers.value.length)
-            if (taskCompletedHandlers.value.length === 0) {
-              console.warn('[WebSocket] 警告: 没有订阅者接收任务完成通知!')
-            }
-            taskCompletedHandlers.value.forEach((handler, index) => {
+            console.log('[WebSocket] 订阅者数量:', taskCompletedHandlers.value.length)
+            taskCompletedHandlers.value.forEach(handler => {
               try {
-                console.log('[WebSocket] 调用第', index + 1, '个订阅者')
                 handler(completedData)
-              } catch (e) {
-                console.error('[WebSocket] 任务完成处理器执行失败:', e)
+              } catch {
+                // 忽略处理器错误
               }
             })
           }
@@ -177,23 +156,23 @@ export const useWebSocketStore = defineStore('websocket', () => {
 
         case 'task_failed':
           if (message.data) {
+            console.log('[WebSocket] 收到任务失败通知:', message.data)
             const failedData = message.data as TaskFailedData
-            console.log('分发任务失败通知给', taskFailedHandlers.value.length, '个订阅者')
             taskFailedHandlers.value.forEach(handler => {
               try {
                 handler(failedData)
-              } catch (e) {
-                console.error('任务失败处理器执行失败:', e)
+              } catch {
+                // 忽略处理器错误
               }
             })
           }
           break
 
         default:
-          console.log('未知消息类型:', message.type)
+          break
       }
-    } catch (e) {
-      console.warn('WebSocket消息解析失败:', data, e)
+    } catch {
+      // 忽略解析错误
     }
   }
   
@@ -225,13 +204,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
     if (reconnectCount.value < maxReconnect) {
       reconnectCount.value++
       const delay = reconnectInterval * reconnectCount.value
-      console.log(`尝试重连 (${reconnectCount.value}/${maxReconnect})，${delay / 1000}秒后...`)
 
       reconnectTimer = setTimeout(() => {
         connect()
       }, delay)
-    } else {
-      console.error('WebSocket重连失败，已达最大重试次数')
     }
   }
   
@@ -256,13 +232,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
   // 订阅任务进度
   function onTaskProgress(handler: (data: TaskProgressData) => void) {
     taskProgressHandlers.value.push(handler)
-    console.log('[WebSocket] 添加进度订阅者，当前数量:', taskProgressHandlers.value.length)
-    // 返回取消订阅函数
     return () => {
       const index = taskProgressHandlers.value.indexOf(handler)
       if (index > -1) {
         taskProgressHandlers.value.splice(index, 1)
-        console.log('[WebSocket] 移除进度订阅者，剩余数量:', taskProgressHandlers.value.length)
       }
     }
   }
@@ -270,12 +243,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
   // 订阅任务完成
   function onTaskCompleted(handler: (data: TaskCompletedData) => void) {
     taskCompletedHandlers.value.push(handler)
-    console.log('[WebSocket] 添加完成订阅者，当前数量:', taskCompletedHandlers.value.length)
     return () => {
       const index = taskCompletedHandlers.value.indexOf(handler)
       if (index > -1) {
         taskCompletedHandlers.value.splice(index, 1)
-        console.log('[WebSocket] 移除完成订阅者，剩余数量:', taskCompletedHandlers.value.length)
       }
     }
   }
@@ -283,12 +254,10 @@ export const useWebSocketStore = defineStore('websocket', () => {
   // 订阅任务失败
   function onTaskFailed(handler: (data: TaskFailedData) => void) {
     taskFailedHandlers.value.push(handler)
-    console.log('[WebSocket] 添加失败订阅者，当前数量:', taskFailedHandlers.value.length)
     return () => {
       const index = taskFailedHandlers.value.indexOf(handler)
       if (index > -1) {
         taskFailedHandlers.value.splice(index, 1)
-        console.log('[WebSocket] 移除失败订阅者，剩余数量:', taskFailedHandlers.value.length)
       }
     }
   }
@@ -298,8 +267,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       const message = typeof data === 'string' ? data : JSON.stringify(data)
       ws.send(message)
-    } else {
-      console.warn('WebSocket未连接，无法发送消息')
     }
   }
   
@@ -314,4 +281,3 @@ export const useWebSocketStore = defineStore('websocket', () => {
     onTaskFailed
   }
 })
-

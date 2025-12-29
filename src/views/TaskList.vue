@@ -3,15 +3,164 @@
     <!-- 顶部操作栏 -->
     <div class="header-actions">
       <h2 class="page-title">分析任务</h2>
-      <div class="header-btns">
-        <el-select v-model="statusFilter" placeholder="全部状态" clearable class="status-filter" @change="fetchTasks">
-          <el-option value="PENDING" label="排队中" />
-          <el-option value="PROCESSING" label="处理中" />
-          <el-option value="COMPLETED" label="已完成" />
-          <el-option value="FAILED" label="失败" />
-          <el-option value="CANCELLED" label="已取消" />
-        </el-select>
-        <button class="neu-btn icon-btn" @click="fetchTasks">
+    </div>
+    
+    <!-- 筛选工具栏 -->
+    <div class="filter-toolbar">
+      <div class="filter-group">
+        <div class="filter-label">
+          <el-icon><Filter /></el-icon>
+          <span>筛选</span>
+        </div>
+        <div class="filter-chips">
+          <div 
+            class="filter-chip" 
+            :class="{ active: statusFilter === '' }"
+            @click="statusFilter = ''; fetchTasks()"
+          >
+            全部
+          </div>
+          <div 
+            class="filter-chip" 
+            :class="{ active: statusFilter === 'COMPLETED' }"
+            @click="statusFilter = 'COMPLETED'; fetchTasks()"
+          >
+            <span class="chip-dot success"></span>
+            已完成
+          </div>
+          <div 
+            class="filter-chip" 
+            :class="{ active: statusFilter === 'PROCESSING' }"
+            @click="statusFilter = 'PROCESSING'; fetchTasks()"
+          >
+            <span class="chip-dot warning"></span>
+            处理中
+          </div>
+          <div 
+            class="filter-chip" 
+            :class="{ active: statusFilter === 'PENDING' }"
+            @click="statusFilter = 'PENDING'; fetchTasks()"
+          >
+            <span class="chip-dot info"></span>
+            排队中
+          </div>
+          <div 
+            class="filter-chip" 
+            :class="{ active: statusFilter === 'FAILED' }"
+            @click="statusFilter = 'FAILED'; fetchTasks()"
+          >
+            <span class="chip-dot danger"></span>
+            失败
+          </div>
+        </div>
+      </div>
+      
+      <div class="filter-divider"></div>
+      
+      <div class="filter-group">
+        <div class="filter-label">
+          <el-icon><Warning /></el-icon>
+          <span>风险</span>
+        </div>
+        <div class="filter-chips">
+          <div 
+            class="filter-chip" 
+            :class="{ active: riskFilter === '' }"
+            @click="riskFilter = ''"
+          >
+            全部
+          </div>
+          <div 
+            class="filter-chip risk-high" 
+            :class="{ active: riskFilter === 'HIGH' }"
+            @click="riskFilter = 'HIGH'"
+          >
+            🔴 高风险
+          </div>
+          <div 
+            class="filter-chip risk-medium" 
+            :class="{ active: riskFilter === 'MEDIUM' }"
+            @click="riskFilter = 'MEDIUM'"
+          >
+            🟡 中风险
+          </div>
+          <div 
+            class="filter-chip risk-low" 
+            :class="{ active: riskFilter === 'LOW' }"
+            @click="riskFilter = 'LOW'"
+          >
+            🟢 低风险
+          </div>
+        </div>
+      </div>
+      
+      <div class="filter-divider"></div>
+      
+      <div class="filter-group">
+        <div class="filter-label">
+          <el-icon><Sort /></el-icon>
+          <span>排序</span>
+        </div>
+        <div class="sort-buttons">
+          <button 
+            class="sort-btn" 
+            :class="{ 
+              active: sortBy.startsWith('gmtCreated'),
+              'sort-desc': sortBy.startsWith('gmtCreated') && sortBy.endsWith('_desc'),
+              'sort-asc': sortBy.startsWith('gmtCreated') && sortBy.endsWith('_asc')
+            }"
+            @click="toggleSort('gmtCreated')"
+            title="点击切换排序方向"
+          >
+            <el-icon><Clock /></el-icon>
+            <span class="sort-label">时间</span>
+            <span class="sort-indicator">
+              <el-icon v-if="!sortBy.startsWith('gmtCreated')" class="sort-icon-placeholder"><Sort /></el-icon>
+              <el-icon v-else-if="sortBy.endsWith('_desc')" class="sort-icon-desc"><ArrowDown /></el-icon>
+              <el-icon v-else class="sort-icon-asc"><ArrowUp /></el-icon>
+            </span>
+          </button>
+          <button 
+            class="sort-btn" 
+            :class="{ 
+              active: sortBy.startsWith('riskScore'),
+              'sort-desc': sortBy.startsWith('riskScore') && sortBy.endsWith('_desc'),
+              'sort-asc': sortBy.startsWith('riskScore') && sortBy.endsWith('_asc')
+            }"
+            @click="toggleSort('riskScore')"
+            title="点击切换排序方向"
+          >
+            <el-icon><Warning /></el-icon>
+            <span class="sort-label">风险</span>
+            <span class="sort-indicator">
+              <el-icon v-if="!sortBy.startsWith('riskScore')" class="sort-icon-placeholder"><Sort /></el-icon>
+              <el-icon v-else-if="sortBy.endsWith('_desc')" class="sort-icon-desc"><ArrowDown /></el-icon>
+              <el-icon v-else class="sort-icon-asc"><ArrowUp /></el-icon>
+            </span>
+          </button>
+          <button 
+            class="sort-btn" 
+            :class="{ 
+              active: sortBy.startsWith('videoDuration'),
+              'sort-desc': sortBy.startsWith('videoDuration') && sortBy.endsWith('_desc'),
+              'sort-asc': sortBy.startsWith('videoDuration') && sortBy.endsWith('_asc')
+            }"
+            @click="toggleSort('videoDuration')"
+            title="点击切换排序方向"
+          >
+            <el-icon><Timer /></el-icon>
+            <span class="sort-label">时长</span>
+            <span class="sort-indicator">
+              <el-icon v-if="!sortBy.startsWith('videoDuration')" class="sort-icon-placeholder"><Sort /></el-icon>
+              <el-icon v-else-if="sortBy.endsWith('_desc')" class="sort-icon-desc"><ArrowDown /></el-icon>
+              <el-icon v-else class="sort-icon-asc"><ArrowUp /></el-icon>
+            </span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="filter-actions">
+        <button class="refresh-btn" @click="fetchTasks" title="刷新">
           <el-icon><Refresh /></el-icon>
         </button>
       </div>
@@ -26,7 +175,7 @@
       <div class="task-list" v-loading="loading">
         <div 
           class="task-item" 
-          v-for="task in taskList" 
+          v-for="task in filteredTasks" 
           :key="task.id"
         >
           <div class="task-icon" :class="getStatusClass(task.status)">
@@ -45,14 +194,34 @@
               <span class="task-type">{{ getTaskTypeText(task.taskType) }}</span>
               <span class="separator">·</span>
               <span>{{ formatDate(task.gmtCreated) }}</span>
+              <template v-if="task.videoDuration">
+                <span class="separator">·</span>
+                <span>{{ formatDuration(task.videoDuration) }}</span>
+              </template>
             </div>
           </div>
           
-          <div class="task-progress" v-if="task.status === 'PROCESSING'">
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: task.progress + '%' }"></div>
+          <!-- 分析结果/进度区域 - 统一位置 -->
+          <div class="task-result-area">
+            <!-- 已完成任务显示分析结果摘要 -->
+            <div class="task-result-summary" v-if="task.status === 'COMPLETED' && task.hasResult">
+              <div class="risk-badge" :class="getRiskClass(task.riskLevel)">
+                <span class="risk-icon">{{ getRiskIcon(task.riskLevel) }}</span>
+                <span class="risk-text">{{ getRiskText(task.riskLevel) }}</span>
+                <span class="risk-score" v-if="task.riskScore !== null">{{ Math.round((task.riskScore || 0) * 100) }}%</span>
+              </div>
+              <div class="sentiment-badge" :class="getSentimentClass(task.sentimentLabel)" v-if="task.sentimentLabel">
+                {{ getSentimentText(task.sentimentLabel) }}
+              </div>
             </div>
-            <span class="progress-text">{{ task.progress }}%</span>
+            
+            <!-- 处理中显示进度条 -->
+            <div class="task-progress" v-else-if="task.status === 'PROCESSING'">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: task.progress + '%' }"></div>
+              </div>
+              <span class="progress-text">{{ task.progress }}%</span>
+            </div>
           </div>
           
           <div class="task-status">
@@ -90,11 +259,11 @@
         </div>
         
         <!-- 空状态 -->
-        <div v-if="!loading && taskList.length === 0" class="empty-state">
+        <div v-if="!loading && filteredTasks.length === 0" class="empty-state">
           <el-icon :size="64"><TrendCharts /></el-icon>
           <p>暂无分析任务</p>
           <button class="neu-btn primary-btn" @click="router.push('/videos')">
-            去选择视频
+            去我的视频
           </button>
         </div>
       </div>
@@ -132,6 +301,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   getTaskList, 
+  getTaskById,
   cancelTask, 
   retryTask
 } from '@/api'
@@ -146,15 +316,24 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const statusFilter = ref<TaskStatus | ''>('')
+const riskFilter = ref<string>('')
+const sortBy = ref<string>('gmtCreated_desc')
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
+
+// 前端风险等级筛选（风险筛选仍保留前端过滤，因为后端暂不支持）
+const filteredTasks = computed(() => {
+  if (!riskFilter.value) {
+    return taskList.value
+  }
+  return taskList.value.filter(task => task.riskLevel === riskFilter.value)
+})
 
 // WebSocket 连接 - 使用订阅模式
 const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
 
 // 订阅任务进度更新
 subscribeProgress((data) => {
-  console.log('TaskList: 任务进度更新:', data)
   const task = taskList.value.find(t => t.id === data.taskId)
   if (task) {
     task.status = data.status
@@ -163,21 +342,35 @@ subscribeProgress((data) => {
 })
 
 // 订阅任务完成通知
-subscribeCompleted((data) => {
-  console.log('TaskList: 任务完成:', data)
+subscribeCompleted(async (data) => {
   const task = taskList.value.find(t => t.id === data.taskId)
   if (task) {
     task.status = 'COMPLETED'
     task.progress = 100
     task.resultId = data.resultId
     task.hasResult = true
+    
+    // 重新获取任务详情，更新风险等级等完整信息
+    try {
+      const response = await getTaskById(data.taskId)
+      if (response.code === 200 && response.data) {
+        // 更新任务的完整信息，包括风险等级、情感标签等
+        Object.assign(task, {
+          riskScore: response.data.riskScore,
+          riskLevel: response.data.riskLevel,
+          sentimentLabel: response.data.sentimentLabel,
+          videoDuration: response.data.videoDuration
+        })
+      }
+    } catch (error) {
+      // 静默失败，不影响用户体验
+    }
   }
   ElMessage.success('分析任务已完成！')
 })
 
 // 订阅任务失败通知
 subscribeFailed((data) => {
-  console.log('TaskList: 任务失败:', data)
   const task = taskList.value.find(t => t.id === data.taskId)
   if (task) {
     task.status = 'FAILED'
@@ -191,7 +384,8 @@ const fetchTasks = async () => {
   loading.value = true
   try {
     const status = statusFilter.value || undefined
-    const response = await getTaskList(currentPage.value, pageSize.value, status as TaskStatus | undefined)
+    const [field, order] = sortBy.value.split('_')
+    const response = await getTaskList(currentPage.value, pageSize.value, status as TaskStatus | undefined, field, order)
     if (response.code === 200) {
       taskList.value = response.data.records
       total.value = response.data.total
@@ -298,6 +492,84 @@ const getTaskTypeText = (type: TaskType) => {
   return texts[type] || type
 }
 
+// 风险等级相关
+const getRiskClass = (level: string | null | undefined) => {
+  if (!level) return 'unknown'
+  const classes: Record<string, string> = {
+    'HIGH': 'high',
+    'MEDIUM': 'medium',
+    'LOW': 'low'
+  }
+  return classes[level] || 'unknown'
+}
+
+const getRiskIcon = (level: string | null | undefined) => {
+  if (!level) return '❓'
+  const icons: Record<string, string> = {
+    'HIGH': '🔴',
+    'MEDIUM': '🟡',
+    'LOW': '🟢'
+  }
+  return icons[level] || '❓'
+}
+
+const getRiskText = (level: string | null | undefined) => {
+  if (!level) return '未知'
+  const texts: Record<string, string> = {
+    'HIGH': '高风险',
+    'MEDIUM': '中风险',
+    'LOW': '低风险'
+  }
+  return texts[level] || '未知'
+}
+
+// 情感相关
+const getSentimentClass = (label: string | null | undefined) => {
+  if (!label) return 'neutral'
+  const classes: Record<string, string> = {
+    'POSITIVE': 'positive',
+    'NEUTRAL': 'neutral',
+    'NEGATIVE': 'negative'
+  }
+  return classes[label] || 'neutral'
+}
+
+const getSentimentText = (label: string | null | undefined) => {
+  if (!label) return '中性'
+  const texts: Record<string, string> = {
+    'POSITIVE': '😊 积极',
+    'NEUTRAL': '😐 中性',
+    'NEGATIVE': '😞 消极'
+  }
+  return texts[label] || '中性'
+}
+
+// 格式化时长
+const formatDuration = (seconds: number | null | undefined) => {
+  if (!seconds) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// 切换排序 - 同时重新从后端获取数据
+const toggleSort = (field: string) => {
+  const currentField = sortBy.value.split('_')[0]
+  const currentOrder = sortBy.value.split('_')[1]
+  
+  if (currentField === field) {
+    // 同一字段，切换升降序
+    sortBy.value = `${field}_${currentOrder === 'desc' ? 'asc' : 'desc'}`
+  } else {
+    // 不同字段，默认降序
+    sortBy.value = `${field}_desc`
+  }
+  
+  // 重置到第一页并重新获取数据
+  currentPage.value = 1
+  fetchTasks()
+}
+
 onMounted(() => {
   fetchTasks()
 })
@@ -326,20 +598,305 @@ $purple: #4b70e2;
       margin: 0;
       color: $black;
     }
+  }
+  
+  // 美化的筛选工具栏
+  .filter-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 24px;
+    margin-bottom: 20px;
+    background: linear-gradient(145deg, #f5f7fa, #e8ecef);
+    border-radius: 16px;
+    box-shadow: 
+      6px 6px 12px rgba(163, 177, 198, 0.35),
+      -6px -6px 12px rgba(255, 255, 255, 0.8);
+    flex-wrap: wrap;
     
-    .header-btns {
+    .filter-group {
       display: flex;
-      gap: 12px;
       align-items: center;
+      gap: 12px;
       
-      .status-filter {
-        width: 140px;
+      .filter-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: $gray;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
         
-        :deep(.el-input__wrapper) {
+        .el-icon {
+          font-size: 14px;
+        }
+      }
+      
+      .filter-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      
+      .filter-chip {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        background: $neu-1;
+        color: $gray;
+        box-shadow: 
+          3px 3px 6px rgba(163, 177, 198, 0.4),
+          -3px -3px 6px rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        user-select: none;
+        
+        .chip-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          
+          &.success { background: #67c23a; }
+          &.warning { background: #e6a23c; }
+          &.info { background: #909399; }
+          &.danger { background: #f56c6c; }
+        }
+        
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: 
+            4px 4px 8px rgba(163, 177, 198, 0.5),
+            -4px -4px 8px rgba(255, 255, 255, 1);
+        }
+        
+        &.active {
+          background: linear-gradient(135deg, $purple, #6b8be8);
+          color: white;
+          box-shadow: 
+            inset 2px 2px 4px rgba(0, 0, 0, 0.1),
+            0 4px 12px rgba(75, 112, 226, 0.3);
+          
+          .chip-dot {
+            background: white;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+          }
+        }
+        
+        &.risk-high.active {
+          background: linear-gradient(135deg, #f56c6c, #e74c3c);
+        }
+        
+        &.risk-medium.active {
+          background: linear-gradient(135deg, #e6a23c, #f39c12);
+        }
+        
+        &.risk-low.active {
+          background: linear-gradient(135deg, #67c23a, #27ae60);
+        }
+      }
+      
+      .sort-buttons {
+        display: flex;
+        gap: 8px;
+        
+        .sort-btn {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border: 2px solid transparent;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           background: $neu-1;
-          box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
-          border: none;
-          border-radius: 10px;
+          color: $gray;
+          box-shadow: 
+            4px 4px 8px rgba(163, 177, 198, 0.4),
+            -4px -4px 8px rgba(255, 255, 255, 0.9);
+          min-width: 90px;
+          justify-content: space-between;
+          
+          .el-icon {
+            font-size: 14px;
+            transition: transform 0.3s ease;
+          }
+          
+          .sort-label {
+            flex: 1;
+            text-align: left;
+          }
+          
+          .sort-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba($purple, 0.1);
+            transition: all 0.3s ease;
+            
+            .el-icon {
+              font-size: 12px;
+              color: $purple;
+            }
+            
+            .sort-icon-placeholder {
+              opacity: 0.5;
+              color: $gray;
+            }
+            
+            .sort-icon-desc,
+            .sort-icon-asc {
+              animation: pulse 1.5s ease-in-out infinite;
+            }
+          }
+          
+          &:hover {
+            transform: translateY(-2px);
+            color: $purple;
+            border-color: rgba($purple, 0.3);
+            box-shadow: 
+              6px 6px 12px rgba(163, 177, 198, 0.5),
+              -6px -6px 12px rgba(255, 255, 255, 1),
+              0 0 0 3px rgba($purple, 0.1);
+            
+            .sort-indicator {
+              background: rgba($purple, 0.2);
+              transform: scale(1.1);
+              
+              .el-icon {
+                color: $purple;
+              }
+            }
+          }
+          
+          &:active {
+            transform: translateY(0);
+            box-shadow: 
+              inset 3px 3px 6px rgba(163, 177, 198, 0.5),
+              inset -3px -3px 6px rgba(255, 255, 255, 0.8);
+          }
+          
+          &.active {
+            background: linear-gradient(135deg, $purple, #6b8be8);
+            color: white;
+            border-color: $purple;
+            box-shadow: 
+              inset 2px 2px 4px rgba(0, 0, 0, 0.15),
+              0 6px 16px rgba(75, 112, 226, 0.4),
+              0 0 0 2px rgba(255, 255, 255, 0.1);
+            
+            .el-icon {
+              color: white;
+            }
+            
+            .sort-indicator {
+              background: rgba(255, 255, 255, 0.25);
+              backdrop-filter: blur(4px);
+              
+              .el-icon {
+                color: white;
+                animation: bounce 0.6s ease;
+              }
+            }
+            
+            &.sort-desc .sort-indicator .el-icon {
+              animation: bounceDown 0.6s ease;
+            }
+            
+            &.sort-asc .sort-indicator .el-icon {
+              animation: bounceUp 0.6s ease;
+            }
+          }
+        }
+      }
+      
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.7;
+          transform: scale(0.95);
+        }
+      }
+      
+      @keyframes bounce {
+        0%, 100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-3px);
+        }
+      }
+      
+      @keyframes bounceDown {
+        0%, 100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(3px);
+        }
+      }
+      
+      @keyframes bounceUp {
+        0%, 100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-3px);
+        }
+      }
+    }
+    
+    .filter-divider {
+      width: 1px;
+      height: 32px;
+      background: linear-gradient(to bottom, transparent, rgba(160, 165, 168, 0.3), transparent);
+    }
+    
+    .filter-actions {
+      margin-left: auto;
+      
+      .refresh-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        background: $neu-1;
+        color: $gray;
+        box-shadow: 
+          4px 4px 8px rgba(163, 177, 198, 0.4),
+          -4px -4px 8px rgba(255, 255, 255, 0.9);
+        
+        .el-icon {
+          font-size: 18px;
+        }
+        
+        &:hover {
+          color: $purple;
+          transform: rotate(180deg);
+        }
+        
+        &:active {
+          box-shadow: 
+            inset 3px 3px 6px rgba(163, 177, 198, 0.5),
+            inset -3px -3px 6px rgba(255, 255, 255, 0.8);
         }
       }
     }
@@ -539,12 +1096,86 @@ $purple: #4b70e2;
       }
     }
     
+    .task-result-area {
+      min-width: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+    
+    .task-result-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      .risk-badge {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+        
+        &.high {
+          background: rgba(#f56c6c, 0.15);
+          color: #f56c6c;
+        }
+        
+        &.medium {
+          background: rgba(#e6a23c, 0.15);
+          color: #e6a23c;
+        }
+        
+        &.low {
+          background: rgba(#67c23a, 0.15);
+          color: #67c23a;
+        }
+        
+        &.unknown {
+          background: rgba($gray, 0.15);
+          color: $gray;
+        }
+        
+        .risk-icon {
+          font-size: 10px;
+        }
+        
+        .risk-score {
+          font-weight: 600;
+          margin-left: 2px;
+        }
+      }
+      
+      .sentiment-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        
+        &.positive {
+          background: rgba(#67c23a, 0.1);
+          color: #67c23a;
+        }
+        
+        &.neutral {
+          background: rgba($gray, 0.1);
+          color: $gray;
+        }
+        
+        &.negative {
+          background: rgba(#f56c6c, 0.1);
+          color: #f56c6c;
+        }
+      }
+    }
+    
     .task-progress {
-      width: 150px;
+      width: 100%;
+      max-width: 180px;
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-shrink: 0;
       
       .progress-bar {
         flex: 1;

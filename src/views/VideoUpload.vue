@@ -35,7 +35,7 @@
         </div>
         
         <!-- 视频信息填写 -->
-        <div class="video-form" v-else>
+        <div class="video-form" v-else-if="uploadState.status !== 'success'">
           <div class="file-preview">
             <div class="file-icon">
               <el-icon :size="36"><VideoPlay /></el-icon>
@@ -75,6 +75,7 @@
                 class="neu-input"
                 placeholder="请输入视频标题"
                 maxlength="100"
+                :disabled="uploadState.status === 'uploading'"
               />
             </div>
             
@@ -86,13 +87,14 @@
                 placeholder="请输入视频描述（可选）"
                 rows="4"
                 maxlength="500"
+                :disabled="uploadState.status === 'uploading'"
               ></textarea>
             </div>
             
             <div class="form-actions">
               <button
                 class="neu-btn primary-btn"
-                :disabled="uploadState.status === 'uploading' || uploadState.status === 'success' || !videoForm.title"
+                :disabled="uploadState.status === 'uploading' || !videoForm.title"
                 @click="handleUpload"
               >
                 <el-icon v-if="uploadState.status !== 'uploading'"><Upload /></el-icon>
@@ -115,7 +117,7 @@
             <el-icon :size="48"><CircleCheck /></el-icon>
           </div>
           <h3>上传成功！</h3>
-          <p>视频已上传，系统将自动进行分析</p>
+          <p>视频已上传，可以进行分析了</p>
           <div class="success-actions">
             <button class="neu-btn primary-btn" @click="goToVideos">查看视频</button>
             <button class="neu-btn" @click="uploadAnother">继续上传</button>
@@ -634,6 +636,26 @@ $purple: #4b70e2;
 .neu-textarea {
   resize: vertical;
   min-height: 100px;
+  
+  // 美化滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba($neu-2, 0.6);
+    border-radius: 3px;
+    transition: background 0.2s;
+    
+    &:hover {
+      background: rgba($neu-2, 0.8);
+    }
+  }
 }
 
 // 新拟态按钮

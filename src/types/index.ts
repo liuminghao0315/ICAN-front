@@ -109,6 +109,7 @@ export type TaskStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CA
 export interface AnalysisTaskDTO {
   videoId: string
   taskType?: TaskType
+  forceRestart?: boolean
 }
 
 /**
@@ -130,6 +131,11 @@ export interface AnalysisTaskVO {
   gmtCreated: string
   hasResult: boolean
   resultId: string | null
+  // 分析结果摘要信息（已完成任务显示）
+  riskScore?: number | null
+  riskLevel?: RiskLevel | null
+  sentimentLabel?: SentimentLabel | null
+  videoDuration?: number | null
 }
 
 // ==================== 分析结果模块 ====================
@@ -209,6 +215,7 @@ export interface AnalysisResultVO {
   taskId: string
   videoId: string
   videoTitle: string
+  videoDescription: string | null
   videoUrl: string
   
   // 风险评估
@@ -259,6 +266,7 @@ export interface AnalysisStats {
   positiveSentimentCount: number
   negativeSentimentCount: number
   neutralSentimentCount: number
+  analysisCount: number  // 累计分析次数（只增不减）
 }
 
 /**

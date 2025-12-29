@@ -42,13 +42,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   }
   
   // 监听登录状态变化，自动连接 WebSocket
-  // 使用 immediate: true 确保在 store 数据恢复后立即触发
   watch(
     () => userStore.isLoggedIn,
     (isLoggedIn) => {
-      console.log('[useWebSocket] 登录状态变化:', isLoggedIn, ', autoConnect:', autoConnect)
       if (isLoggedIn && autoConnect) {
-        console.log('[useWebSocket] 触发 WebSocket 连接')
         wsStore.connect()
       } else if (!isLoggedIn) {
         wsStore.disconnect()

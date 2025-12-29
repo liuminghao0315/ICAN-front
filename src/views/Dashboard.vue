@@ -8,7 +8,7 @@
         </div>
         <div class="welcome-text">
           <h2>您好，{{ userStore.userInfo?.username || '用户' }}</h2>
-          <p>甄视频工作台已为您服务 <strong>{{ stats.totalVideos }}</strong> 次</p>
+          <p>ICAN视频工作台已为您服务 <strong>{{ stats.analysisCount }}</strong> 次</p>
         </div>
       </div>
       
@@ -264,6 +264,7 @@ import {
 } from '@/api'
 import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskType, TaskStatus } from '@/types'
 import { useUserStore } from '@/stores/user'
+import { useWebSocket } from '@/composables/useWebSocket'
 
 // 注册ECharts组件
 use([
@@ -280,6 +281,9 @@ use([
 const router = useRouter()
 const userStore = useUserStore()
 
+// WebSocket - 使用 composable，自动处理订阅和取消订阅
+const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
+
 const loading = ref(false)
 const tasksLoading = ref(false)
 const recentVideos = ref<VideoInfo[]>([])
@@ -294,7 +298,8 @@ const stats = ref({
   analyzedCount: 0,
   pendingCount: 0,
   highRiskCount: 0,
-  analyzingCount: 0
+  analyzingCount: 0,
+  analysisCount: 0  // 累计分析次数（只增不减）
 })
 
 // 计算属性
@@ -348,9 +353,26 @@ const fetchData = async () => {
     // 获取分析统计
     try {
       const statsResponse = await getAnalysisStats()
-      if (statsResponse.code === 200) {
-        analysisStats.value = statsResponse.data
-        stats.value.highRiskCount = statsResponse.data.highRiskCount
+      console.log('[Dashboard] 分析统计响应:', statsResponse)
+      if (statsResponse.code === 200 && statsResponse.data) {
+        const data = statsResponse.data
+        // 处理可能的数据结构差异
+        analysisStats.value = {
+          ...data,
+          averageRiskScore: data.averageRiskScore ?? data.avgRiskScore ?? 0,
+          avgRiskScore: data.avgRiskScore ?? data.averageRiskScore ?? 0,
+          universityRelatedCount: data.universityRelatedCount ?? 0,
+          positiveSentimentCount: data.positiveSentimentCount ?? 0,
+          negativeSentimentCount: data.negativeSentimentCount ?? 0,
+          neutralSentimentCount: data.neutralSentimentCount ?? 0,
+          highRiskCount: data.highRiskCount ?? 0,
+          mediumRiskCount: data.mediumRiskCount ?? 0,
+          lowRiskCount: data.lowRiskCount ?? 0,
+          analysisCount: data.analysisCount ?? data.totalResults ?? 0
+        }
+        stats.value.highRiskCount = analysisStats.value.highRiskCount
+        stats.value.analysisCount = analysisStats.value.analysisCount
+        console.log('[Dashboard] 处理后的分析统计:', analysisStats.value)
       }
     } catch (e) {
       console.warn('获取分析统计失败:', e)
@@ -543,14 +565,16 @@ const statusChartOption = computed(() => {
       formatter: '{b}: {c} ({d}%)'
     },
     legend: {
-      bottom: '5%',
+      bottom: 0,
       left: 'center',
-      textStyle: { color: '#a0a5a8' }
+      textStyle: { color: '#a0a5a8' },
+      itemGap: 16
     },
     series: [
       {
         type: 'pie',
-        radius: ['45%', '70%'],
+        radius: ['35%', '55%'],
+        center: ['50%', '45%'],
         avoidLabelOverlap: false,
         itemStyle: {
           borderRadius: 8,
@@ -646,6 +670,27 @@ const trendChartOption = computed(() => {
   }
 })
 
+// 订阅 WebSocket 事件，当任务状态变化时自动刷新数据
+// useWebSocket composable 会在组件卸载时自动取消订阅
+subscribeProgress((data) => {
+  // 更新任务列表中的进度
+  const task = recentTasks.value.find(t => t.id === data.taskId)
+  if (task) {
+    task.progress = data.progress
+    task.status = 'PROCESSING'
+  }
+})
+
+subscribeCompleted(() => {
+  console.log('[Dashboard] 收到任务完成通知，刷新数据')
+  fetchData()
+})
+
+subscribeFailed(() => {
+  console.log('[Dashboard] 收到任务失败通知，刷新数据')
+  fetchData()
+})
+
 onMounted(() => {
   fetchData()
 })
@@ -694,6 +739,8 @@ $purple: #4b70e2;
       align-items: center;
       justify-content: center;
       box-shadow: 4px 4px 10px $neu-2, -4px -4px 10px $white;
+      cursor: default;
+      user-select: none;
     }
     
     .welcome-text {
@@ -1043,6 +1090,26 @@ $purple: #4b70e2;
   overflow-y: auto;
   padding: 16px;
   
+  // 美化滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba($neu-2, 0.5);
+    border-radius: 3px;
+    transition: background 0.2s;
+    
+    &:hover {
+      background: rgba($neu-2, 0.7);
+    }
+  }
+  
   .video-item {
     display: flex;
     align-items: center;
@@ -1107,6 +1174,26 @@ $purple: #4b70e2;
   max-height: 260px;
   overflow-y: auto;
   padding: 16px;
+  
+  // 美化滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba($neu-2, 0.5);
+    border-radius: 3px;
+    transition: background 0.2s;
+    
+    &:hover {
+      background: rgba($neu-2, 0.7);
+    }
+  }
   
   .task-item {
     display: flex;
