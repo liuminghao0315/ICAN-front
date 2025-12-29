@@ -46,7 +46,7 @@ const CODE = {
 
 // 创建axios实例
 const api: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: '/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -97,7 +97,7 @@ const refreshToken = async (): Promise<TokenVO | null> => {
   try {
     // 直接使用axios，不经过拦截器
     const response = await axios.post<ApiResponse<TokenVO>>(
-      'http://localhost:8080/auth/refresh',
+      '/api/auth/refresh',
       { refreshToken: currentRefreshToken },
       { timeout: 10000 }
     )

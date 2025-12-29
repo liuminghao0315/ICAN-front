@@ -63,24 +63,25 @@ export const useWebSocketStore = defineStore('websocket', () => {
     }
   }
   
-  // 连接 WebSocket
+    // 连接 WebSocket
   function connect() {
     const userId = getUserId()
     if (!userId) {
       return
     }
 
-    // 已连接则跳过
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      return
-    }
-    
-    // 正在连接中则跳过
-    if (ws && ws.readyState === WebSocket.CONNECTING) {
-      return
-    }
+    // ... (中间省略的代码不用动) ...
 
-    const wsUrl = `ws://localhost:8080/ws/task-progress/${userId}`
+    // 🔴 删掉这一行：
+    // const wsUrl = `ws:///api/ws/task-progress/${userId}`
+
+    // 🟢 换成下面这段动态获取的逻辑：
+    // 1. 判断是 ws 还是 wss (如果网站上了 https 就是 wss)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    // 2. 获取当前浏览器地址栏的 域名:端口 (例如 47.110.33.16 或 localhost:5173)
+    const host = window.location.host
+    // 3. 拼接完整地址。这里必须带上 /api，让 Nginx 捕获到它
+    const wsUrl = `${protocol}//${host}/api/ws/task-progress/${userId}`
 
     try {
       ws = new WebSocket(wsUrl)
