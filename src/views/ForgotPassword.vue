@@ -2,7 +2,7 @@
   <div class="forgot-password-container">
     <div class="forgot-password-box">
       <h2 class="title">找回密码</h2>
-      <p class="description">请输入您的用户名，我们将向您的注册邮箱发送验证码</p>
+      <p class="description">请输入您的验证码，我们将向您的注册邮箱发送验证码</p>
 
       <!-- 第一步：输入用户名 -->
       <div v-if="step === 1" class="step-content">
