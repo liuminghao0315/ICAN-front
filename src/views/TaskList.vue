@@ -66,28 +66,28 @@
           <div 
             class="filter-chip" 
             :class="{ active: riskFilter === '' }"
-            @click="riskFilter = ''"
+            @click="riskFilter = ''; currentPage = 1; fetchTasks()"
           >
             全部
           </div>
           <div 
             class="filter-chip risk-high" 
             :class="{ active: riskFilter === 'HIGH' }"
-            @click="riskFilter = 'HIGH'"
+            @click="riskFilter = 'HIGH'; currentPage = 1; fetchTasks()"
           >
             🔴 高风险
           </div>
           <div 
             class="filter-chip risk-medium" 
             :class="{ active: riskFilter === 'MEDIUM' }"
-            @click="riskFilter = 'MEDIUM'"
+            @click="riskFilter = 'MEDIUM'; currentPage = 1; fetchTasks()"
           >
             🟡 中风险
           </div>
           <div 
             class="filter-chip risk-low" 
             :class="{ active: riskFilter === 'LOW' }"
-            @click="riskFilter = 'LOW'"
+            @click="riskFilter = 'LOW'; currentPage = 1; fetchTasks()"
           >
             🟢 低风险
           </div>
@@ -321,13 +321,8 @@ const sortBy = ref<string>('gmtCreated_desc')
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
-// 前端风险等级筛选（风险筛选仍保留前端过滤，因为后端暂不支持）
-const filteredTasks = computed(() => {
-  if (!riskFilter.value) {
-    return taskList.value
-  }
-  return taskList.value.filter(task => task.riskLevel === riskFilter.value)
-})
+// 直接使用后端返回的数据（后端已支持风险等级全局筛选）
+const filteredTasks = computed(() => taskList.value)
 
 // WebSocket 连接 - 使用订阅模式
 const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
@@ -384,8 +379,9 @@ const fetchTasks = async () => {
   loading.value = true
   try {
     const status = statusFilter.value || undefined
+    const riskLevel = riskFilter.value || undefined
     const [field, order] = sortBy.value.split('_')
-    const response = await getTaskList(currentPage.value, pageSize.value, status as TaskStatus | undefined, field, order)
+    const response = await getTaskList(currentPage.value, pageSize.value, status as TaskStatus | undefined, field, order, riskLevel)
     if (response.code === 200) {
       taskList.value = response.data.records
       total.value = response.data.total

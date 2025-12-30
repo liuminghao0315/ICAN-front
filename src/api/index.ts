@@ -412,11 +412,15 @@ export const getTaskList = async (
   size: number = 10,
   status?: TaskStatus,
   sortBy: string = 'gmtCreated',
-  sortOrder: string = 'desc'
+  sortOrder: string = 'desc',
+  riskLevel?: string
 ): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
   const params: Record<string, any> = { page, size, sortBy, sortOrder }
   if (status) {
     params.status = status
+  }
+  if (riskLevel) {
+    params.riskLevel = riskLevel
   }
   const response = await api.get<ApiResponse<PageResult<AnalysisTaskVO>>>('/api/analysis/task/list', { params })
   return response.data
