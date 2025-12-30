@@ -18,6 +18,24 @@ export default defineConfig({
       'resize-detector': 'element-resize-detector'
     },
   },
+  // 本地开发服务器配置
+  server: {
+    port: 5173,
+    proxy: {
+      // API 请求代理到后端
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      // WebSocket 代理
+      '/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true
+      }
+    }
+  },
   optimizeDeps: {
     include: ['echarts', 'vue-echarts', 'element-resize-detector']
   },
