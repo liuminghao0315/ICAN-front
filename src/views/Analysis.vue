@@ -677,8 +677,13 @@ const actionButtonsRef = ref<HTMLElement | null>(null)
 // 播放视频按钮引用（导出时需要隐藏）
 const playVideoBtnRef = ref<HTMLElement | null>(null)
 
-// 导出PDF报告 - 使用 html2canvas 截图方式，完美支持中文
+/**
+ * 导出PDF报告
+ * 使用 html2canvas 将页面内容转换为图片，然后使用 jsPDF 生成PDF
+ * 支持多页PDF和中文显示
+ */
 const exportReport = async () => {
+  // 数据验证
   if (!analysisData.value) {
     ElMessage.warning('没有可导出的分析数据')
     return
@@ -689,12 +694,20 @@ const exportReport = async () => {
     return
   }
   
+  // 防止重复导出
+  if (exportingPdf.value) {
+    return
+  }
+  
   exportingPdf.value = true
   ElMessage.info('正在生成PDF报告，请稍候...')
   
-  // 隐藏操作按钮区域和播放视频按钮
+  // 隐藏操作按钮区域和播放视频按钮，确保PDF中不包含这些元素
   const actionButtons = actionButtonsRef.value
   const playVideoBtn = playVideoBtnRef.value
+  const originalActionDisplay = actionButtons?.style.display
+  const originalPlayBtnDisplay = playVideoBtn?.style.display
+  
   if (actionButtons) {
     actionButtons.style.display = 'none'
   }
@@ -703,90 +716,123 @@ const exportReport = async () => {
   }
   
   try {
-    // 动态导入 html2canvas 和 jsPDF
+    // 动态导入依赖，减少初始包大小
     const html2canvasModule = await import('html2canvas')
     const html2canvas = html2canvasModule.default
-    // @ts-ignore
     const jsPDFModule = await import('jspdf')
     const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF
+    
+    if (!html2canvas || !jsPDF) {
+      throw new Error('PDF导出依赖加载失败')
+    }
     
     const element = reportContentRef.value
     
     // 使用 html2canvas 将内容渲染为图片
+    // scale: 2 提高清晰度，适合打印
     const canvas = await html2canvas(element, {
       scale: 2, // 提高清晰度
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ecf0f3', // 背景色
-      logging: false
+      useCORS: true, // 允许跨域图片
+      allowTaint: true, // 允许跨域图片污染画布
+      backgroundColor: '#ecf0f3', // 背景色与新拟态风格一致
+      logging: false, // 关闭调试日志
+      width: element.scrollWidth,
+      height: element.scrollHeight
     })
     
-    const imgData = canvas.toDataURL('image/png')
+    // 验证canvas生成成功
+    if (!canvas || canvas.width === 0 || canvas.height === 0) {
+      throw new Error('无法生成报告图片')
+    }
+    
     const imgWidth = canvas.width
     const imgHeight = canvas.height
     
-    // 创建 PDF
+    // 创建 PDF (纵向, 毫米单位, A4纸张)
     const pdf = new jsPDF('p', 'mm', 'a4')
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 10
+    const margin = 10 // 页边距 10mm
     const contentWidth = pageWidth - margin * 2
+    const availableHeight = pageHeight - margin * 2
     
-    // 计算图片在PDF中的尺寸
+    // 计算图片在PDF中的缩放比例和尺寸
     const ratio = contentWidth / imgWidth
     const scaledHeight = imgHeight * ratio
     
-    // 如果内容超过一页，需要分页
+    // 如果内容超过一页，需要分页处理
     let yPos = margin
     let remainingHeight = scaledHeight
     let sourceY = 0
     
     while (remainingHeight > 0) {
-      const availableHeight = pageHeight - margin * 2
       const heightToDraw = Math.min(remainingHeight, availableHeight)
       
-      // 计算源图片中的对应区域
+      // 计算源图片中对应的区域高度
       const sourceHeight = heightToDraw / ratio
       
-      // 创建临时画布来裁剪图片
+      // 创建临时画布来裁剪当前页的内容
       const tempCanvas = document.createElement('canvas')
       tempCanvas.width = imgWidth
       tempCanvas.height = sourceHeight
       const ctx = tempCanvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(
-          canvas,
-          0, sourceY, imgWidth, sourceHeight,
-          0, 0, imgWidth, sourceHeight
-        )
-        const tempImgData = tempCanvas.toDataURL('image/png')
-        pdf.addImage(tempImgData, 'PNG', margin, yPos, contentWidth, heightToDraw)
+      
+      if (!ctx) {
+        throw new Error('无法创建画布上下文')
       }
       
+      // 从原canvas中裁剪当前页的内容
+      ctx.drawImage(
+        canvas,
+        0, sourceY, imgWidth, sourceHeight, // 源区域
+        0, 0, imgWidth, sourceHeight // 目标区域
+      )
+      
+      // 将裁剪后的内容添加到PDF
+      const tempImgData = tempCanvas.toDataURL('image/png', 0.95)
+      pdf.addImage(tempImgData, 'PNG', margin, yPos, contentWidth, heightToDraw)
+      
+      // 更新剩余高度和源图片位置
       remainingHeight -= heightToDraw
       sourceY += sourceHeight
       
+      // 如果还有剩余内容，添加新页
       if (remainingHeight > 0) {
         pdf.addPage()
         yPos = margin
       }
     }
     
-    // 保存PDF
+    // 生成文件名：分析报告_视频标题_日期.pdf
     const data = analysisData.value
-    const fileName = `分析报告_${data.videoTitle || '视频'}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.pdf`
+    const dateStr = new Date().toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-')
+    
+    // 清理文件名中的非法字符
+    const safeTitle = (data.videoTitle || '视频')
+      .replace(/[<>:"/\\|?*]/g, '_')
+      .substring(0, 50) // 限制长度
+    
+    const fileName = `分析报告_${safeTitle}_${dateStr}.pdf`
+    
+    // 保存PDF文件
     pdf.save(fileName)
     
     ElMessage.success('PDF报告导出成功！')
   } catch (error: any) {
-    ElMessage.error(error?.message || 'PDF导出失败，请稍后重试')
+    console.error('PDF导出失败:', error)
+    const errorMessage = error?.message || 'PDF导出失败，请稍后重试'
+    ElMessage.error(errorMessage)
   } finally {
     // 恢复按钮显示
     if (actionButtons) {
-      actionButtons.style.display = ''
+      actionButtons.style.display = originalActionDisplay || ''
     }
     if (playVideoBtn) {
-      playVideoBtn.style.display = ''
+      playVideoBtn.style.display = originalPlayBtnDisplay || ''
     }
     exportingPdf.value = false
   }

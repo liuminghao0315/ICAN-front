@@ -188,18 +188,35 @@ const handleFileChange = (uploadFile: UploadFile) => {
   const file = uploadFile.raw
   if (!file) return
   
-  // 验证文件类型
-  const validTypes = ['video/mp4', 'video/avi', 'video/quicktime', 'video/x-msvideo', 
-                      'video/x-ms-wmv', 'video/x-flv', 'video/x-matroska', 'video/webm']
-  if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|avi|mov|wmv|flv|mkv|webm)$/i)) {
-    ElMessage.error('不支持的视频格式')
+  // 验证文件类型（更严格的验证）
+  const allowedExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', 'm4v', 'mpeg', 'mpg']
+  const fileExtension = file.name.split('.').pop()?.toLowerCase()
+  
+  if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+    ElMessage.error(`不支持的视频格式，允许的格式: ${allowedExtensions.join(', ').toUpperCase()}`)
     return
+  }
+  
+  // 验证MIME类型（如果浏览器提供了）
+  const validMimeTypes = [
+    'video/mp4', 'video/x-msvideo', 'video/quicktime', 'video/x-ms-wmv',
+    'video/x-flv', 'video/x-matroska', 'video/webm', 'video/mpeg'
+  ]
+  if (file.type && !validMimeTypes.includes(file.type)) {
+    // 如果MIME类型不匹配但扩展名正确，给出警告但不阻止（因为有些浏览器可能不提供正确的MIME类型）
+    console.warn('文件MIME类型不匹配:', file.type, '但扩展名正确，继续上传')
   }
   
   // 验证文件大小
   const maxSize = 500 * 1024 * 1024 // 500MB
   if (file.size > maxSize) {
     ElMessage.error('视频文件不能超过 500MB')
+    return
+  }
+  
+  // 验证文件大小不为0
+  if (file.size === 0) {
+    ElMessage.error('文件大小不能为0')
     return
   }
   

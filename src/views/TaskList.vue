@@ -391,8 +391,7 @@ const fetchTasks = async () => {
       total.value = response.data.total
     }
   } catch (error) {
-    console.error('获取任务列表失败:', error)
-    ElMessage.error('获取任务列表失败')
+    // 错误已在axios拦截器中处理并显示Toast
   } finally {
     loading.value = false
   }

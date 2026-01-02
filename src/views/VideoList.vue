@@ -512,8 +512,7 @@ const fetchVideos = async () => {
       total.value = response.data.total
     }
   } catch (error) {
-    console.error('获取视频列表失败:', error)
-    ElMessage.error('获取视频列表失败')
+    // 错误已在axios拦截器中处理并显示Toast
   } finally {
     loading.value = false
   }
@@ -576,8 +575,7 @@ const confirmCreateTask = async () => {
       ElMessage.error(response.message || '创建任务失败')
     }
   } catch (error: any) {
-    console.error('创建分析任务失败:', error)
-    ElMessage.error(error.response?.data?.message || '创建任务失败，请稍后重试')
+    // 错误已在axios拦截器中处理并显示Toast
   } finally {
     creatingTask.value = false
   }

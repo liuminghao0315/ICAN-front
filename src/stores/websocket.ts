@@ -105,8 +105,11 @@ export const useWebSocketStore = defineStore('websocket', () => {
         }
       }
 
-      ws.onerror = () => {
+      ws.onerror = (error) => {
         isConnected.value = false
+        console.error('WebSocket连接错误:', error)
+        // 尝试重连
+        attemptReconnect()
       }
     } catch {
       attemptReconnect()
@@ -201,10 +204,14 @@ export const useWebSocketStore = defineStore('websocket', () => {
     if (reconnectCount.value < maxReconnect) {
       reconnectCount.value++
       const delay = reconnectInterval * reconnectCount.value
+      
+      console.log(`WebSocket重连尝试 ${reconnectCount.value}/${maxReconnect}，${delay}ms后重连...`)
 
       reconnectTimer = setTimeout(() => {
         connect()
       }, delay)
+    } else {
+      console.error('WebSocket达到最大重连次数，停止重连')
     }
   }
   

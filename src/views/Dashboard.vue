@@ -396,7 +396,7 @@ const fetchData = async () => {
     }
     
   } catch (error) {
-    console.error('获取数据失败:', error)
+    // 错误已在handleApiError中处理并显示Toast
   } finally {
     loading.value = false
     tasksLoading.value = false

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
+import { ElMessage } from 'element-plus'
 import type {
   Result,
   PageResult,
@@ -224,15 +225,18 @@ api.interceptors.response.use(
       }
       // 403: 禁止访问
       else if (status === 403) {
-        // 可以显示提示信息
+        ElMessage.error('权限不足，无法访问该资源')
       }
       // 404: 资源不存在
       else if (status === 404) {
-        // 可以显示提示信息
+        ElMessage.error('请求的资源不存在')
       }
       // 500: 服务器错误
       else if (status >= 500) {
-        // 可以显示提示信息
+        ElMessage.error('服务器错误，请稍后重试')
+      } else if (status !== 401) {
+        // 其他错误（401已在上面处理，不重复提示）
+        ElMessage.error(message || '请求失败')
       }
       
       // 返回错误信息，让调用方处理
@@ -243,6 +247,7 @@ api.interceptors.response.use(
       })
     } else if (error.request) {
       // 请求已发出但没有收到响应
+      ElMessage.error('网络错误，请检查网络连接')
       return Promise.reject({
         ...error,
         message: '网络错误，请检查网络连接',
@@ -250,6 +255,7 @@ api.interceptors.response.use(
       })
     } else {
       // 其他错误
+      ElMessage.error(error.message || '未知错误')
       return Promise.reject({
         ...error,
         message: error.message || '未知错误',

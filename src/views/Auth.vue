@@ -222,10 +222,8 @@ const handleSendRegisterCode = async () => {
       registerError.value = '' // 清除错误信息
     } else {
       registerError.value = response.message || '发送验证码失败'
-      console.error('发送验证码失败:', response)
     }
   } catch (error: any) {
-    console.error('发送验证码错误:', error)
     
     // 更详细的错误处理
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
@@ -295,10 +293,8 @@ const handleRegister = async () => {
       registerError.value = '' // 清除错误信息
     } else {
       registerError.value = response.message || '注册失败'
-      console.error('注册失败:', response)
     }
   } catch (error: any) {
-    console.error('注册错误:', error)
     
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
       registerError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
@@ -376,10 +372,8 @@ const handleLogin = async () => {
       router.push('/')
     } else {
       loginError.value = response.message || '登录失败'
-      console.error('登录失败:', response)
     }
   } catch (error: any) {
-    console.error('登录错误:', error)
     
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
       loginError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
