@@ -343,8 +343,8 @@ const handleLogin = async () => {
             email: ''
           })
         }
-      } catch (e) {
-        console.warn('解析token失败:', e)
+      } catch {
+        // 静默处理错误
       }
       
       // 跳转到首页或其他页面

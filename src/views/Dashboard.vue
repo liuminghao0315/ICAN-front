@@ -8,7 +8,7 @@
         </div>
         <div class="welcome-text">
           <h2>您好，{{ userStore.userInfo?.username || '用户' }}</h2>
-          <p>ICAN视频工作台已为您服务 <strong>{{ stats.analysisCount }}</strong> 次</p>
+          <p>SynSight工作台已为您服务 <strong>{{ stats.analysisCount }}</strong> 次</p>
         </div>
       </div>
       
@@ -346,14 +346,12 @@ const fetchData = async () => {
         uploadTrendData.value = trendResponse.data
       }
     } catch (e) {
-      console.warn('获取上传趋势失败:', e)
       uploadTrendData.value = []
     }
     
     // 获取分析统计
     try {
       const statsResponse = await getAnalysisStats()
-      console.log('[Dashboard] 分析统计响应:', statsResponse)
       if (statsResponse.code === 200 && statsResponse.data) {
         const data = statsResponse.data
         // 处理可能的数据结构差异
@@ -372,10 +370,9 @@ const fetchData = async () => {
         }
         stats.value.highRiskCount = analysisStats.value.highRiskCount
         stats.value.analysisCount = analysisStats.value.analysisCount
-        console.log('[Dashboard] 处理后的分析统计:', analysisStats.value)
       }
     } catch (e) {
-      console.warn('获取分析统计失败:', e)
+      // 静默处理错误
     }
     
     // 获取风险分布
@@ -385,7 +382,7 @@ const fetchData = async () => {
         riskDistribution.value = riskResponse.data
       }
     } catch (e) {
-      console.warn('获取风险分布失败:', e)
+      // 静默处理错误
     }
     
     // 获取最近任务
@@ -395,7 +392,7 @@ const fetchData = async () => {
         recentTasks.value = tasksResponse.data.records
       }
     } catch (e) {
-      console.warn('获取任务列表失败:', e)
+      // 静默处理错误
     }
     
   } catch (error) {
@@ -575,7 +572,7 @@ const statusChartOption = computed(() => {
         type: 'pie',
         radius: ['35%', '55%'],
         center: ['50%', '45%'],
-        avoidLabelOverlap: false,
+        avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 8,
           borderColor: '#ecf0f3',
@@ -584,7 +581,16 @@ const statusChartOption = computed(() => {
         label: {
           show: true,
           formatter: '{b}\n{d}%',
-          color: '#181818'
+          color: '#181818',
+          fontSize: 12,
+          lineHeight: 16,
+          position: 'outside'
+        },
+        labelLine: {
+          show: true,
+          length: 15,
+          length2: 8,
+          smooth: 0.2
         },
         emphasis: {
           label: {
@@ -682,12 +688,10 @@ subscribeProgress((data) => {
 })
 
 subscribeCompleted(() => {
-  console.log('[Dashboard] 收到任务完成通知，刷新数据')
   fetchData()
 })
 
 subscribeFailed(() => {
-  console.log('[Dashboard] 收到任务失败通知，刷新数据')
   fetchData()
 })
 

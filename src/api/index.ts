@@ -27,7 +27,7 @@ export interface ApiResponse<T = any> {
 
 // 创建axios实例
 const api: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -69,12 +69,51 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    if (error.response?.status === 401) {
-      // Token过期，清除并跳转到登录页
-      localStorage.removeItem('user-store')
-      window.location.href = '/login'
+    if (error.response) {
+      const status = error.response.status
+      const message = error.response.data?.message || '请求失败'
+      
+      // 401: 未授权，清除token并跳转登录
+      if (status === 401) {
+        localStorage.removeItem('user-store')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      }
+      // 403: 禁止访问
+      else if (status === 403) {
+        // 可以显示提示信息
+      }
+      // 404: 资源不存在
+      else if (status === 404) {
+        // 可以显示提示信息
+      }
+      // 500: 服务器错误
+      else if (status >= 500) {
+        // 可以显示提示信息
+      }
+      
+      // 返回错误信息，让调用方处理
+      return Promise.reject({
+        ...error,
+        message: message,
+        status: status
+      })
+    } else if (error.request) {
+      // 请求已发出但没有收到响应
+      return Promise.reject({
+        ...error,
+        message: '网络错误，请检查网络连接',
+        status: 0
+      })
+    } else {
+      // 其他错误
+      return Promise.reject({
+        ...error,
+        message: error.message || '未知错误',
+        status: 0
+      })
     }
-    return Promise.reject(error)
   }
 )
 
@@ -269,12 +308,16 @@ export const getTaskList = async (
   page: number = 1,
   size: number = 10,
   status?: TaskStatus,
+  riskLevel?: RiskLevel,
   sortBy: string = 'gmtCreated',
   sortOrder: string = 'desc'
 ): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
   const params: Record<string, any> = { page, size, sortBy, sortOrder }
   if (status) {
     params.status = status
+  }
+  if (riskLevel) {
+    params.riskLevel = riskLevel
   }
   const response = await api.get<ApiResponse<PageResult<AnalysisTaskVO>>>('/api/analysis/task/list', { params })
   return response.data

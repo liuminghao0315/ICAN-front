@@ -16,14 +16,14 @@
           <div 
             class="filter-chip" 
             :class="{ active: statusFilter === '' }"
-            @click="statusFilter = ''; fetchTasks()"
+            @click="handleStatusFilterChange('')"
           >
             全部
           </div>
           <div 
             class="filter-chip" 
             :class="{ active: statusFilter === 'COMPLETED' }"
-            @click="statusFilter = 'COMPLETED'; fetchTasks()"
+            @click="handleStatusFilterChange('COMPLETED')"
           >
             <span class="chip-dot success"></span>
             已完成
@@ -31,7 +31,7 @@
           <div 
             class="filter-chip" 
             :class="{ active: statusFilter === 'PROCESSING' }"
-            @click="statusFilter = 'PROCESSING'; fetchTasks()"
+            @click="handleStatusFilterChange('PROCESSING')"
           >
             <span class="chip-dot warning"></span>
             处理中
@@ -39,7 +39,7 @@
           <div 
             class="filter-chip" 
             :class="{ active: statusFilter === 'PENDING' }"
-            @click="statusFilter = 'PENDING'; fetchTasks()"
+            @click="handleStatusFilterChange('PENDING')"
           >
             <span class="chip-dot info"></span>
             排队中
@@ -47,7 +47,7 @@
           <div 
             class="filter-chip" 
             :class="{ active: statusFilter === 'FAILED' }"
-            @click="statusFilter = 'FAILED'; fetchTasks()"
+            @click="handleStatusFilterChange('FAILED')"
           >
             <span class="chip-dot danger"></span>
             失败
@@ -66,28 +66,28 @@
           <div 
             class="filter-chip" 
             :class="{ active: riskFilter === '' }"
-            @click="riskFilter = ''"
+            @click="handleRiskFilterChange('')"
           >
             全部
           </div>
           <div 
             class="filter-chip risk-high" 
             :class="{ active: riskFilter === 'HIGH' }"
-            @click="riskFilter = 'HIGH'"
+            @click="handleRiskFilterChange('HIGH')"
           >
             🔴 高风险
           </div>
           <div 
             class="filter-chip risk-medium" 
             :class="{ active: riskFilter === 'MEDIUM' }"
-            @click="riskFilter = 'MEDIUM'"
+            @click="handleRiskFilterChange('MEDIUM')"
           >
             🟡 中风险
           </div>
           <div 
             class="filter-chip risk-low" 
             :class="{ active: riskFilter === 'LOW' }"
-            @click="riskFilter = 'LOW'"
+            @click="handleRiskFilterChange('LOW')"
           >
             🟢 低风险
           </div>
@@ -175,7 +175,7 @@
       <div class="task-list" v-loading="loading">
         <div 
           class="task-item" 
-          v-for="task in filteredTasks" 
+          v-for="task in taskList" 
           :key="task.id"
         >
           <div class="task-icon" :class="getStatusClass(task.status)">
@@ -259,7 +259,7 @@
         </div>
         
         <!-- 空状态 -->
-        <div v-if="!loading && filteredTasks.length === 0" class="empty-state">
+        <div v-if="!loading && taskList.length === 0" class="empty-state">
           <el-icon :size="64"><TrendCharts /></el-icon>
           <p>暂无分析任务</p>
           <button class="neu-btn primary-btn" @click="router.push('/videos')">
@@ -305,7 +305,7 @@ import {
   cancelTask, 
   retryTask
 } from '@/api'
-import type { AnalysisTaskVO, TaskStatus, TaskType } from '@/types'
+import type { AnalysisTaskVO, TaskStatus, TaskType, RiskLevel } from '@/types'
 import { useWebSocket } from '@/composables/useWebSocket'
 
 const router = useRouter()
@@ -320,14 +320,6 @@ const riskFilter = ref<string>('')
 const sortBy = ref<string>('gmtCreated_desc')
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
-
-// 前端风险等级筛选（风险筛选仍保留前端过滤，因为后端暂不支持）
-const filteredTasks = computed(() => {
-  if (!riskFilter.value) {
-    return taskList.value
-  }
-  return taskList.value.filter(task => task.riskLevel === riskFilter.value)
-})
 
 // WebSocket 连接 - 使用订阅模式
 const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
@@ -384,8 +376,16 @@ const fetchTasks = async () => {
   loading.value = true
   try {
     const status = statusFilter.value || undefined
+    const riskLevel = riskFilter.value || undefined
     const [field, order] = sortBy.value.split('_')
-    const response = await getTaskList(currentPage.value, pageSize.value, status as TaskStatus | undefined, field, order)
+    const response = await getTaskList(
+      currentPage.value, 
+      pageSize.value, 
+      status as TaskStatus | undefined,
+      riskLevel as RiskLevel | undefined,
+      field, 
+      order
+    )
     if (response.code === 200) {
       taskList.value = response.data.records
       total.value = response.data.total
@@ -396,6 +396,20 @@ const fetchTasks = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 处理状态筛选切换
+const handleStatusFilterChange = (status: TaskStatus | '') => {
+  statusFilter.value = status
+  currentPage.value = 1 // 重置到第一页
+  fetchTasks()
+}
+
+// 处理风险筛选切换
+const handleRiskFilterChange = (risk: string) => {
+  riskFilter.value = risk
+  currentPage.value = 1 // 重置到第一页
+  fetchTasks()
 }
 
 // 切换页码

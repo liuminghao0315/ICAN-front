@@ -398,20 +398,28 @@
         </div>
       </template>
     </el-dialog>
+    
+    <!-- 删除确认对话框 -->
+    <DeleteConfirmDialog
+      v-model:visible="deleteDialogVisible"
+      :video-title="videoToDelete?.title || ''"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { 
   getVideoList, 
-  deleteVideo, 
+  deleteVideo,
   createAnalysisTask,
   type VideoInfo 
 } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
+import DeleteConfirmDialog from '@/components/DeleteConfirmDialog.vue'
 
 const router = useRouter()
 
@@ -430,6 +438,10 @@ const analysisDialogVisible = ref(false)
 const selectedVideo = ref<VideoInfo | null>(null)
 const creatingTask = ref(false)
 const videoPlayerRef = ref<HTMLVideoElement | null>(null)
+
+// 删除确认对话框
+const deleteDialogVisible = ref(false)
+const videoToDelete = ref<VideoInfo | null>(null)
 
 // 分析选项（仅用于控制是否强制重新分析）
 const analysisOptions = ref({
@@ -452,15 +464,12 @@ subscribeProgress((data) => {
 
 // 订阅任务完成通知
 subscribeCompleted((data) => {
-  console.log('[VideoList] 收到任务完成通知:', data)
   ElMessage.success('分析任务已完成！')
   const video = videoList.value.find(v => v.id === data.videoId)
-  console.log('[VideoList] 找到视频:', video?.id, video?.status)
   if (video) {
     video.status = 'COMPLETED'
     // 清除分析开始时间记录
     delete analysisStartTimes.value[video.id]
-    console.log('[VideoList] 视频状态已更新为 COMPLETED')
   }
 })
 
@@ -588,27 +597,28 @@ const viewResultFromDialog = () => {
 }
 
 // 删除视频
-const handleDelete = async (video: VideoInfo) => {
+const handleDelete = (video: VideoInfo) => {
+  videoToDelete.value = video
+  deleteDialogVisible.value = true
+}
+
+// 确认删除
+const confirmDelete = async () => {
+  if (!videoToDelete.value) return
+  
   try {
-    await ElMessageBox.confirm(
-      `确定要删除视频 "${video.title}" 吗？删除后无法恢复。`,
-      '确认删除',
-      {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
-    const response = await deleteVideo(video.id)
+    const response = await deleteVideo(videoToDelete.value.id)
     if (response.code === 200) {
       ElMessage.success('删除成功')
       fetchVideos()
     } else {
       ElMessage.error(response.message || '删除失败')
     }
-  } catch {
-    // 用户取消
+  } catch (error: any) {
+    ElMessage.error(error?.message || '删除失败')
+  } finally {
+    deleteDialogVisible.value = false
+    videoToDelete.value = null
   }
 }
 

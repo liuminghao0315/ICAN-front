@@ -29,8 +29,8 @@ onMounted(() => {
 const handleLogout = async () => {
   try {
     await logout()
-  } catch (error) {
-    console.error('登出失败:', error)
+  } catch {
+    // 静默处理错误
   } finally {
     localStorage.removeItem('token')
     router.push('/login')

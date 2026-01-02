@@ -9,7 +9,7 @@
             <VideoCamera />
           </el-icon>
         </div>
-        <span v-show="!isCollapse" class="logo-text">ICAN视频</span>
+        <span v-show="!isCollapse" class="logo-text">SynSight</span>
       </div>
 
       <el-menu :default-active="route.path" :collapse="isCollapse" :router="true" class="sidebar-menu">

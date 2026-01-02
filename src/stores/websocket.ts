@@ -80,13 +80,13 @@ export const useWebSocketStore = defineStore('websocket', () => {
       return
     }
 
-    const wsUrl = `ws://localhost:8080/ws/task-progress/${userId}`
+    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8080'
+    const wsUrl = `${wsBaseUrl}/ws/task-progress/${userId}`
 
     try {
       ws = new WebSocket(wsUrl)
 
       ws.onopen = () => {
-        console.log('[WebSocket] 连接成功, userId:', userId)
         isConnected.value = true
         reconnectCount.value = 0
         startHeartbeat()
@@ -141,9 +141,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
 
         case 'task_completed':
           if (message.data) {
-            console.log('[WebSocket] 收到任务完成通知:', message.data)
             const completedData = message.data as TaskCompletedData
-            console.log('[WebSocket] 订阅者数量:', taskCompletedHandlers.value.length)
             taskCompletedHandlers.value.forEach(handler => {
               try {
                 handler(completedData)
@@ -156,7 +154,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
 
         case 'task_failed':
           if (message.data) {
-            console.log('[WebSocket] 收到任务失败通知:', message.data)
             const failedData = message.data as TaskFailedData
             taskFailedHandlers.value.forEach(handler => {
               try {

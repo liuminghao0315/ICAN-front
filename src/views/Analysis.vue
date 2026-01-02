@@ -517,9 +517,8 @@ const loadAnalysisByVideo = async () => {
       analysisData.value = null
       emptyMessage.value = '该视频尚未分析或分析未完成'
     }
-  } catch (error) {
-    console.error('加载分析结果失败:', error)
-    ElMessage.error('加载分析结果失败')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '加载分析结果失败')
     analysisData.value = null
   } finally {
     loading.value = false
@@ -537,9 +536,8 @@ const loadAnalysisById = async (resultId: string) => {
       analysisData.value = null
       emptyMessage.value = '分析结果不存在'
     }
-  } catch (error) {
-    console.error('加载分析结果失败:', error)
-    ElMessage.error('加载分析结果失败')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '加载分析结果失败')
     analysisData.value = null
   } finally {
     loading.value = false
@@ -553,8 +551,8 @@ const fetchVideos = async () => {
       // 只显示已完成分析的视频
       videoList.value = response.data.records.filter(v => v.status === 'COMPLETED')
     }
-  } catch (error) {
-    console.error('获取视频列表失败:', error)
+  } catch {
+    // 静默处理错误
   }
 }
 
@@ -780,9 +778,8 @@ const exportReport = async () => {
     pdf.save(fileName)
     
     ElMessage.success('PDF报告导出成功！')
-  } catch (error) {
-    console.error('PDF导出失败:', error)
-    ElMessage.error('PDF导出失败，请稍后重试')
+  } catch (error: any) {
+    ElMessage.error(error?.message || 'PDF导出失败，请稍后重试')
   } finally {
     // 恢复按钮显示
     if (actionButtons) {
@@ -807,7 +804,6 @@ watch(() => route.query, (query) => {
 
 // 订阅任务完成事件，自动刷新视频列表
 subscribeCompleted((data) => {
-  console.log('[Analysis] 收到任务完成通知，刷新视频列表', data)
   fetchVideos()
   
   // 如果当前选中的视频刚完成分析，自动加载结果
