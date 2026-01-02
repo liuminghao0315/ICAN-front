@@ -323,28 +323,53 @@ const handleLogin = async () => {
     const response = await login(loginForm.value)
 
     if (response.code === 200) {
-      // 登录成功，保存token到store（store会自动同步到localStorage）
-      const token = response.data
-      userStore.setToken(token)
-      
-      // 从token中解析用户信息
-      try {
-        const parts = token.split('.')
-        if (parts.length === 3 && parts[1]) {
-          const payload = JSON.parse(atob(parts[1]))
-          // token subject 格式为 "userId:xxx"
-          let userId = payload.sub || payload.id || ''
-          if (userId.startsWith('userId:')) {
-            userId = userId.replace('userId:', '')
+      // 登录成功，保存双token到store（store会自动同步到localStorage）
+      const tokenData = response.data
+      if (typeof tokenData === 'object' && tokenData !== null && 'accessToken' in tokenData && 'refreshToken' in tokenData) {
+        // 新格式：TokenResponse对象
+        userStore.setTokens(tokenData.accessToken, tokenData.refreshToken)
+        
+        // 从accessToken中解析用户信息
+        try {
+          const parts = tokenData.accessToken.split('.')
+          if (parts.length === 3 && parts[1]) {
+            const payload = JSON.parse(atob(parts[1]))
+            // token subject 格式为 "userId:xxx"
+            let userId = payload.sub || payload.id || ''
+            if (userId.startsWith('userId:')) {
+              userId = userId.replace('userId:', '')
+            }
+            userStore.setUserInfo({
+              id: userId,
+              username: loginForm.value.username,
+              email: ''
+            })
           }
-          userStore.setUserInfo({
-            id: userId,
-            username: loginForm.value.username,
-            email: ''
-          })
+        } catch {
+          // 静默处理错误
         }
-      } catch {
-        // 静默处理错误
+      } else if (typeof tokenData === 'string') {
+        // 兼容旧格式：单个token字符串
+        userStore.setToken(tokenData)
+        
+        // 从token中解析用户信息
+        try {
+          const parts = tokenData.split('.')
+          if (parts.length === 3 && parts[1]) {
+            const payload = JSON.parse(atob(parts[1]))
+            let userId = payload.sub || payload.id || ''
+            if (userId.startsWith('userId:')) {
+              userId = userId.replace('userId:', '')
+            }
+            userStore.setUserInfo({
+              id: userId,
+              username: loginForm.value.username,
+              email: ''
+            })
+          }
+        } catch {
+          // 静默处理错误
+        }
       }
       
       // 跳转到首页或其他页面

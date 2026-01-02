@@ -49,6 +49,40 @@ function getStoredToken(): string | null {
   return null
 }
 
+// 获取存储的 refreshToken
+function getStoredRefreshToken(): string | null {
+  try {
+    const stored = localStorage.getItem('user-store')
+    if (stored) {
+      const data = JSON.parse(stored)
+      return data.refreshToken || null
+    }
+  } catch {
+    // 解析失败
+  }
+  return null
+}
+
+// 刷新token的标记，防止并发刷新
+let isRefreshing = false
+// 等待刷新完成的请求队列
+let failedQueue: Array<{
+  resolve: (value?: any) => void
+  reject: (reason?: any) => void
+}> = []
+
+// 处理等待队列中的请求
+function processQueue(error: any, token: string | null = null) {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  failedQueue = []
+}
+
 // 请求拦截器 - 自动添加Token
 api.interceptors.request.use(
   (config) => {
@@ -63,21 +97,129 @@ api.interceptors.request.use(
   }
 )
 
-// 响应拦截器 - 统一处理错误
+// 响应拦截器 - 统一处理错误和token刷新
 api.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     return response
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config
+
     if (error.response) {
       const status = error.response.status
       const message = error.response.data?.message || '请求失败'
       
-      // 401: 未授权，清除token并跳转登录
-      if (status === 401) {
-        localStorage.removeItem('user-store')
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
+      // 401: 未授权，尝试刷新token
+      if (status === 401 && originalRequest && !originalRequest._retry) {
+        // 如果正在刷新，将请求加入队列
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject })
+          })
+            .then(token => {
+              originalRequest.headers.Authorization = `Bearer ${token}`
+              return api(originalRequest)
+            })
+            .catch(err => {
+              return Promise.reject(err)
+            })
+        }
+
+        originalRequest._retry = true
+        isRefreshing = true
+
+        const refreshToken = getStoredRefreshToken()
+        if (!refreshToken) {
+          // 没有refreshToken，直接跳转登录
+          isRefreshing = false
+          processQueue(new Error('未登录'))
+          localStorage.removeItem('user-store')
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
+          return Promise.reject({
+            ...error,
+            message: '未登录，请重新登录',
+            status: 401
+          })
+        }
+
+        try {
+          // 调用刷新token接口（使用axios直接调用，避免循环依赖）
+          const refreshResponse = await axios.post<ApiResponse<{
+            accessToken: string
+            refreshToken: string
+          }>>(
+            `${api.defaults.baseURL || 'http://localhost:8080'}/auth/refresh`,
+            null,
+            {
+              params: { refreshToken },
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          )
+
+          if (refreshResponse.data.code === 200 && refreshResponse.data.data) {
+            const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.data
+            
+            // 更新store中的token（通过更新localStorage，pinia persist会自动同步）
+            // 注意：直接更新localStorage，pinia persist会在下次访问store时自动同步
+            const stored = localStorage.getItem('user-store')
+            if (stored) {
+              try {
+                const data = JSON.parse(stored)
+                data.token = accessToken
+                data.refreshToken = newRefreshToken
+                localStorage.setItem('user-store', JSON.stringify(data))
+              } catch {
+                // 解析失败，忽略
+              }
+            } else {
+              // 如果localStorage中没有，创建一个新的
+              localStorage.setItem('user-store', JSON.stringify({
+                token: accessToken,
+                refreshToken: newRefreshToken,
+                userInfo: null
+              }))
+            }
+
+            // 更新请求头
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`
+            
+            // 处理等待队列
+            isRefreshing = false
+            processQueue(null, accessToken)
+
+            // 重试原始请求
+            return api(originalRequest)
+          } else {
+            // 刷新失败
+            isRefreshing = false
+            processQueue(new Error('Token刷新失败'))
+            localStorage.removeItem('user-store')
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login'
+            }
+            return Promise.reject({
+              ...error,
+              message: '登录已过期，请重新登录',
+              status: 401
+            })
+          }
+        } catch (refreshError: any) {
+          // 刷新token请求失败
+          isRefreshing = false
+          processQueue(refreshError)
+          localStorage.removeItem('user-store')
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
+          return Promise.reject({
+            ...error,
+            message: '登录已过期，请重新登录',
+            status: 401
+          })
         }
       }
       // 403: 禁止访问
@@ -125,8 +267,14 @@ export interface LoginParams {
   password: string
 }
 
-export const login = async (params: LoginParams): Promise<ApiResponse<string>> => {
-  const response = await api.post<ApiResponse<string>>('/auth/login', params)
+export const login = async (params: LoginParams): Promise<ApiResponse<{
+  accessToken: string
+  refreshToken: string
+} | string>> => {
+  const response = await api.post<ApiResponse<{
+    accessToken: string
+    refreshToken: string
+  } | string>>('/auth/login', params)
   return response.data
 }
 

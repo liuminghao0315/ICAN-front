@@ -8,7 +8,8 @@ import { ref, computed } from 'vue'
  */
 export const useUserStore = defineStore('user', () => {
   // 状态 - 初始值为 null，pinia persist 会自动从 localStorage 恢复
-  const token = ref<string | null>(null)
+  const token = ref<string | null>(null)  // accessToken
+  const refreshToken = ref<string | null>(null)  // refreshToken
   const userInfo = ref<{
     id: string
     username: string
@@ -24,12 +25,22 @@ export const useUserStore = defineStore('user', () => {
     // 不需要手动写 localStorage，pinia persist 会自动处理
   }
 
+  const setRefreshToken = (newRefreshToken: string) => {
+    refreshToken.value = newRefreshToken
+  }
+
+  const setTokens = (accessToken: string, newRefreshToken: string) => {
+    token.value = accessToken
+    refreshToken.value = newRefreshToken
+  }
+
   const setUserInfo = (info: typeof userInfo.value) => {
     userInfo.value = info
   }
 
   const logout = () => {
     token.value = null
+    refreshToken.value = null
     userInfo.value = null
     // 清除旧的 localStorage key（兼容性处理）
     localStorage.removeItem('token')
@@ -37,16 +48,19 @@ export const useUserStore = defineStore('user', () => {
 
   return {
     token,
+    refreshToken,
     userInfo,
     isLoggedIn,
     setToken,
+    setRefreshToken,
+    setTokens,
     setUserInfo,
     logout
   }
 }, {
   persist: {
     key: 'user-store',  // 明确指定存储 key
-    pick: ['token', 'userInfo']
+    pick: ['token', 'refreshToken', 'userInfo']
   }
 })
 
