@@ -330,6 +330,8 @@ export interface TaskProgressData {
   status: TaskStatus
   progress: number
   message: string
+  moduleType?: string  // 模块类型：音频/视频/文本
+  resultData?: any     // 该模块的分析结果数据
 }
 
 /**

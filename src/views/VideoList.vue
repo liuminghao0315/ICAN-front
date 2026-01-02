@@ -672,6 +672,8 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+@use "sass:color";
+
 // 新拟态配色变量
 $bg: #edf2f0;
 $neu-1: #ecf0f3;
@@ -1413,7 +1415,7 @@ $purple: #4b70e2;
       border-radius: 4px;
       
       &:hover {
-        background: linear-gradient(135deg, darken($purple, 10%), $purple);
+        background: linear-gradient(135deg, color.adjust($purple, $lightness: -10%), $purple);
       }
     }
   }
