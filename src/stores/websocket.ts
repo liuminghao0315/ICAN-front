@@ -63,29 +63,24 @@ export const useWebSocketStore = defineStore('websocket', () => {
     }
   }
   
-    // 连接 WebSocket
+  // 连接 WebSocket
   function connect() {
     const userId = getUserId()
     if (!userId) {
       return
     }
 
-    // ... (中间省略的代码不用动) ...
-
-    // 本地开发：直接连接后端 WebSocket
-    // 生产环境：通过 Nginx 代理
-    const isDev = import.meta.env.DEV
-    let wsUrl: string
-    
-    if (isDev) {
-      // 本地开发环境，直接连接后端
-      wsUrl = `ws://localhost:8080/ws/task-progress/${userId}`
-    } else {
-      // 生产环境，通过当前域名和代理
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const host = window.location.host
-      wsUrl = `${protocol}//${host}/api/ws/task-progress/${userId}`
+    // 已连接则跳过
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      return
     }
+    
+    // 正在连接中则跳过
+    if (ws && ws.readyState === WebSocket.CONNECTING) {
+      return
+    }
+
+    const wsUrl = `ws://localhost:8080/ws/task-progress/${userId}`
 
     try {
       ws = new WebSocket(wsUrl)

@@ -355,72 +355,6 @@
       </Transition>
     </Teleport>
     
-    <!-- 删除确认模态框 -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div class="delete-modal-overlay" v-if="deleteDialogVisible" @click.self="deleteDialogVisible = false">
-          <div class="delete-modal">
-            <!-- 模态框头部 -->
-            <div class="delete-modal-header">
-              <div class="modal-title-section">
-                <div class="modal-icon danger">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                  </svg>
-                </div>
-                <h3 class="modal-title">确认删除</h3>
-              </div>
-              <button class="modal-close-btn" @click="deleteDialogVisible = false">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-            
-            <!-- 模态框内容 -->
-            <div class="delete-modal-body" v-if="videoToDelete">
-              <div class="delete-video-preview">
-                <div class="preview-icon">
-                  <el-icon :size="28"><VideoPlay /></el-icon>
-                </div>
-                <div class="preview-info">
-                  <div class="preview-title">{{ videoToDelete.title }}</div>
-                  <div class="preview-meta">{{ formatFileSize(videoToDelete.fileSize) }}</div>
-                </div>
-              </div>
-              
-              <div class="delete-warning">
-                <div class="warning-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                </div>
-                <div class="warning-text">
-                  <p class="warning-main">确定要删除这个视频吗？</p>
-                  <p class="warning-sub">此操作无法撤销，删除后所有相关的分析数据也将被清除。</p>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 模态框底部操作 -->
-            <div class="delete-modal-footer">
-              <button class="neu-btn" @click="deleteDialogVisible = false">
-                取消
-              </button>
-              <button class="neu-btn danger-btn" @click="confirmDelete" :disabled="deleting">
-                <el-icon v-if="deleting"><Loading /></el-icon>
-                <el-icon v-else><Delete /></el-icon>
-                {{ deleting ? '删除中...' : '确认删除' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-    
     <!-- 创建分析任务对话框 -->
     <el-dialog
       v-model="analysisDialogVisible"
@@ -470,7 +404,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   getVideoList, 
   deleteVideo, 
@@ -493,11 +427,8 @@ const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
 
 const detailDialogVisible = ref(false)
 const analysisDialogVisible = ref(false)
-const deleteDialogVisible = ref(false)
 const selectedVideo = ref<VideoInfo | null>(null)
-const videoToDelete = ref<VideoInfo | null>(null)
 const creatingTask = ref(false)
-const deleting = ref(false)
 const videoPlayerRef = ref<HTMLVideoElement | null>(null)
 
 // 分析选项（仅用于控制是否强制重新分析）
@@ -656,32 +587,28 @@ const viewResultFromDialog = () => {
   }
 }
 
-// 删除视频 - 打开确认对话框
-const handleDelete = (video: VideoInfo) => {
-  videoToDelete.value = video
-  deleteDialogVisible.value = true
-}
-
-// 确认删除视频
-const confirmDelete = async () => {
-  if (!videoToDelete.value) return
-  
-  deleting.value = true
+// 删除视频
+const handleDelete = async (video: VideoInfo) => {
   try {
-    const response = await deleteVideo(videoToDelete.value.id)
+    await ElMessageBox.confirm(
+      `确定要删除视频 "${video.title}" 吗？删除后无法恢复。`,
+      '确认删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    const response = await deleteVideo(video.id)
     if (response.code === 200) {
       ElMessage.success('删除成功')
-      deleteDialogVisible.value = false
-      videoToDelete.value = null
       fetchVideos()
     } else {
       ElMessage.error(response.message || '删除失败')
     }
-  } catch (error) {
-    console.error('删除视频失败:', error)
-    ElMessage.error('删除失败，请稍后重试')
-  } finally {
-    deleting.value = false
+  } catch {
+    // 用户取消
   }
 }
 
@@ -745,8 +672,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-@use "sass:color";
-
 // 新拟态配色变量
 $bg: #edf2f0;
 $neu-1: #ecf0f3;
@@ -1488,7 +1413,7 @@ $purple: #4b70e2;
       border-radius: 4px;
       
       &:hover {
-        background: linear-gradient(135deg, color.adjust($purple, $lightness: -10%), $purple);
+        background: linear-gradient(135deg, darken($purple, 10%), $purple);
       }
     }
   }
@@ -1795,250 +1720,6 @@ $purple: #4b70e2;
   justify-content: flex-end;
   gap: 12px;
   width: 100%;
-}
-
-// 删除确认模态框
-.delete-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 20px;
-}
-
-.delete-modal {
-  background: $white;
-  border-radius: 24px;
-  width: 100%;
-  max-width: 480px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 
-    16px 16px 40px rgba(0, 0, 0, 0.15),
-    -8px -8px 30px rgba(255, 255, 255, 0.8),
-    0 20px 60px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  animation: deleteModalIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  
-  .delete-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid rgba($neu-2, 0.4);
-    background: linear-gradient(135deg, #fff5f5, $white);
-    
-    .modal-title-section {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      
-      .modal-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 
-          3px 3px 6px rgba(245, 108, 108, 0.25),
-          -2px -2px 4px $white;
-        
-        &.danger {
-          background: linear-gradient(135deg, #f56c6c, #fa8c8c);
-        }
-        
-        svg {
-          width: 16px;
-          height: 16px;
-          color: white;
-        }
-      }
-      
-      .modal-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #f56c6c;
-        margin: 0;
-      }
-    }
-    
-    .modal-close-btn {
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 8px;
-      background: $neu-1;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s ease;
-      box-shadow: 
-        2px 2px 4px $neu-2,
-        -2px -2px 4px $white;
-      
-      svg {
-        width: 14px;
-        height: 14px;
-        color: $gray;
-        transition: color 0.3s ease;
-      }
-      
-      &:hover {
-        box-shadow: 
-          1px 1px 3px $neu-2,
-          -1px -1px 3px $white;
-        
-        svg {
-          color: #f56c6c;
-        }
-      }
-      
-      &:active {
-        box-shadow: 
-          inset 2px 2px 4px $neu-2,
-          inset -2px -2px 4px $white;
-      }
-    }
-  }
-  
-  .delete-modal-body {
-    padding: 24px;
-    
-    .delete-video-preview {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 18px 20px;
-      background: $neu-1;
-      border-radius: 16px;
-      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
-      margin-bottom: 20px;
-      
-      .preview-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        flex-shrink: 0;
-      }
-      
-      .preview-info {
-        flex: 1;
-        min-width: 0;
-        
-        .preview-title {
-          font-size: 15px;
-          font-weight: 600;
-          color: $black;
-          margin-bottom: 4px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        
-        .preview-meta {
-          font-size: 13px;
-          color: $gray;
-        }
-      }
-    }
-    
-    .delete-warning {
-      display: flex;
-      gap: 14px;
-      padding: 16px 18px;
-      background: rgba(#f56c6c, 0.08);
-      border-radius: 14px;
-      border: 1px solid rgba(#f56c6c, 0.15);
-      
-      .warning-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        background: rgba(#f56c6c, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        
-        svg {
-          width: 18px;
-          height: 18px;
-          color: #f56c6c;
-        }
-      }
-      
-      .warning-text {
-        flex: 1;
-        
-        .warning-main {
-          margin: 0 0 6px 0;
-          font-size: 14px;
-          font-weight: 600;
-          color: #f56c6c;
-        }
-        
-        .warning-sub {
-          margin: 0;
-          font-size: 13px;
-          color: $gray;
-          line-height: 1.5;
-        }
-      }
-    }
-  }
-  
-  .delete-modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    padding: 16px 24px;
-    border-top: 1px solid rgba($neu-2, 0.4);
-    background: linear-gradient(135deg, $white, $neu-1);
-    
-    .danger-btn {
-      background: linear-gradient(135deg, #f56c6c 0%, #fa8c8c 100%);
-      color: #fff;
-      
-      &:hover {
-        box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-        color: #fff;
-      }
-      
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        
-        .el-icon {
-          animation: iconRotate 1.5s linear infinite;
-        }
-      }
-    }
-  }
-}
-
-@keyframes deleteModalIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.9) translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 
 </style>

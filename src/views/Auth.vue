@@ -72,7 +72,7 @@
         <h2 class="form__title title">登录</h2>
         <p class="form__subtitle">
           <span class="subtitle-icon">📧</span>
-          请使用您的用户名登录
+          请使用您的邮箱登录
         </p>
         <input
           v-model="loginForm.username"
@@ -229,7 +229,7 @@ const handleSendRegisterCode = async () => {
     
     // 更详细的错误处理
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      registerError.value = '无法连接到服务器，请确保后端服务已启动（/api）'
+      registerError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
     } else if (error.response) {
       // 服务器返回了错误响应
       const errorMessage = error.response.data?.message || error.response.data?.error || '服务器错误'
@@ -301,7 +301,7 @@ const handleRegister = async () => {
     console.error('注册错误:', error)
     
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      registerError.value = '无法连接到服务器，请确保后端服务已启动（/api）'
+      registerError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
     } else if (error.response) {
       registerError.value = error.response.data?.message || '注册失败'
     } else if (error.request) {
@@ -322,24 +322,30 @@ const handleLogin = async () => {
   try {
     const response = await login(loginForm.value)
 
-    if (response.code === 200 && response.data) {
-      // 登录成功，保存双Token到store（store会自动同步到localStorage）
-      const tokenData = response.data
+    if (response.code === 200) {
+      // 登录成功，保存token到store（store会自动同步到localStorage）
+      const token = response.data
+      userStore.setToken(token)
       
-      // 保存Token信息
-      userStore.setTokenInfo({
-        accessToken: tokenData.accessToken,
-        refreshToken: tokenData.refreshToken,
-        accessTokenExpireTime: tokenData.accessTokenExpireTime,
-        refreshTokenExpireTime: tokenData.refreshTokenExpireTime
-      })
-      
-      // 保存用户信息
-      userStore.setUserInfo({
-        id: tokenData.userId,
-        username: tokenData.username,
-        email: ''
-      })
+      // 从token中解析用户信息
+      try {
+        const parts = token.split('.')
+        if (parts.length === 3 && parts[1]) {
+          const payload = JSON.parse(atob(parts[1]))
+          // token subject 格式为 "userId:xxx"
+          let userId = payload.sub || payload.id || ''
+          if (userId.startsWith('userId:')) {
+            userId = userId.replace('userId:', '')
+          }
+          userStore.setUserInfo({
+            id: userId,
+            username: loginForm.value.username,
+            email: ''
+          })
+        }
+      } catch (e) {
+        console.warn('解析token失败:', e)
+      }
       
       // 跳转到首页或其他页面
       router.push('/')
@@ -351,7 +357,7 @@ const handleLogin = async () => {
     console.error('登录错误:', error)
     
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      loginError.value = '无法连接到服务器，请确保后端服务已启动（/api）'
+      loginError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
     } else if (error.response) {
       loginError.value = error.response.data?.message || '登录失败，请检查用户名和密码'
     } else if (error.request) {
