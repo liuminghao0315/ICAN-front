@@ -330,8 +330,26 @@ export interface TaskProgressData {
   status: TaskStatus
   progress: number
   message: string
-  moduleType?: string  // 模块类型：音频/视频/文本
+  moduleType?: string  // 模块类型：audio/video/text/integration
   resultData?: any     // 该模块的分析结果数据
+}
+
+/**
+ * 受众年龄分布数据（整合分析结果）
+ */
+export interface AgeDistribution {
+  '0-18': number
+  '19-35': number
+  '36-50': number
+  '51+': number
+}
+
+/**
+ * 整合分析结果数据
+ */
+export interface IntegrationResult {
+  ageDistribution: AgeDistribution
+  analysisTimestamp: number
 }
 
 /**
