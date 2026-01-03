@@ -1,8 +1,9 @@
 <template>
   <div class="forgot-password-container">
     <div class="forgot-password-box">
-      <h2 class="title">找回密码</h2>
-      <p class="description">请输入您的用户名，我们将向您的注册邮箱发送验证码</p>
+      <h2 v-if="step !== 3" class="title">找回密码</h2>
+      <p v-if="step === 1" class="description">请输入您的用户名，我们将向您的注册邮箱发送验证码</p>
+      <p v-if="step === 2" class="description">请输入验证码，我们将重置您的密码</p>
 
       <!-- 第一步：输入用户名 -->
       <div v-if="step === 1" class="step-content">
@@ -56,7 +57,7 @@
         <button class="form__button button" @click="handleResetPassword" :disabled="resetting">
           {{ resetting ? '重置中...' : '重置密码' }}
         </button>
-        <button class="form__button button secondary" @click="step = 1">
+        <button class="form__button button secondary" @click="handleBackToStep1">
           返回上一步
         </button>
       </div>
@@ -88,6 +89,16 @@ const confirmPassword = ref('')
 const error = ref('')
 const sendingCode = ref(false)
 const resetting = ref(false)
+
+// 返回第一步
+const handleBackToStep1 = () => {
+  step.value = 1
+  error.value = '' // 清除错误信息
+  // 清空第二步的表单数据
+  verifyCode.value = ''
+  newPassword.value = ''
+  confirmPassword.value = ''
+}
 
 // 发送验证码
 const handleSendCode = async () => {

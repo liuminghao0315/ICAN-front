@@ -11,6 +11,12 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/Auth.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
       path: '/forgot-password',
       name: 'ForgotPassword',
       component: () => import('@/views/ForgotPassword.vue'),
@@ -31,7 +37,7 @@ const router = createRouter({
           path: 'dashboard',
           name: 'Dashboard',
           component: () => import('@/views/Dashboard.vue'),
-          meta: { title: '仪表盘' }
+          meta: { title: '工作台' }
         },
         {
           path: 'videos',
@@ -91,8 +97,8 @@ router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth !== false && !token) {
     // 需要登录但未登录，跳转到登录页
     next('/login')
-  } else if (to.path === '/login' && token) {
-    // 已登录但访问登录页，跳转到首页
+  } else if ((to.path === '/login' || to.path === '/register') && token) {
+    // 已登录但访问登录/注册页，跳转到首页
     next('/dashboard')
   } else {
     next()
