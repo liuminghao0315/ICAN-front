@@ -149,7 +149,7 @@
           </li>
           <li>
             <div class="tip-icon"><el-icon><Check /></el-icon></div>
-            <span>上传完成后，系统将自动进行多模态分析</span>
+            <span>上传完成后，即可进行多模态分析</span>
           </li>
         </ul>
       </div>
