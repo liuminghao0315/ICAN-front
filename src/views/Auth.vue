@@ -29,6 +29,17 @@
           autocomplete="new-password"
           placeholder="密码（6-20个字符）"
           required
+          @blur="handlePasswordBlur"
+        />
+        <input
+          v-model="confirmPassword"
+          class="form__input"
+          type="password"
+          name="register-confirm-password"
+          autocomplete="new-password"
+          placeholder="确认密码"
+          required
+          @blur="handleConfirmPasswordBlur"
         />
         <input
           v-model="registerForm.email"
@@ -120,8 +131,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { login, register, sendRegisterCode } from '@/api'
 import type { LoginParams, RegisterParams, SendRegisterCodeParams } from '@/api'
 import Toast from '@/components/Toast.vue'
@@ -130,11 +141,21 @@ import { validateUsername, validatePassword, validateEmail } from '@/utils/valid
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 
-// 表单状态
-const isLogin = ref(false)
+// 表单状态 - 根据路由路径初始化
+const isLogin = ref(route.path === '/login')
 const isAnimating = ref(false)
+
+// 监听路由变化，同步更新表单状态
+watch(() => route.path, (newPath) => {
+  if (newPath === '/login') {
+    isLogin.value = true
+  } else if (newPath === '/register') {
+    isLogin.value = false
+  }
+})
 
 // 登录表单
 const loginForm = ref<LoginParams>({
@@ -149,6 +170,9 @@ const registerForm = ref<RegisterParams>({
   email: '',
   verifyCode: '',
 })
+
+// 确认密码
+const confirmPassword = ref('')
 
 // 状态
 const logging = ref(false)
@@ -178,6 +202,17 @@ const switchToLogin = () => {
     isAnimating.value = false
   }, 1500)
   isLogin.value = true
+  // 更新路由
+  router.push('/login')
+  // 清空注册表单和确认密码
+  registerForm.value = {
+    username: '',
+    password: '',
+    email: '',
+    verifyCode: '',
+  }
+  confirmPassword.value = ''
+  registerError.value = ''
 }
 
 const switchToRegister = () => {
@@ -187,6 +222,48 @@ const switchToRegister = () => {
     isAnimating.value = false
   }, 1500)
   isLogin.value = false
+  // 更新路由
+  router.push('/register')
+  // 清空登录表单
+  loginForm.value = {
+    username: '',
+    password: '',
+  }
+  loginError.value = ''
+}
+
+// 密码失去焦点时的验证（当确认密码已输入时，重新验证）
+const handlePasswordBlur = () => {
+  if (confirmPassword.value) {
+    if (confirmPassword.value !== registerForm.value.password) {
+      registerError.value = '两次输入的密码不一致，请重新输入'
+    } else {
+      // 如果密码一致，清除密码不一致的错误信息
+      if (registerError.value === '两次输入的密码不一致，请重新输入') {
+        registerError.value = ''
+      }
+    }
+  }
+}
+
+// 确认密码失去焦点时的验证
+const handleConfirmPasswordBlur = () => {
+  if (!confirmPassword.value) {
+    // 如果确认密码为空，清除密码不一致的错误信息
+    if (registerError.value === '两次输入的密码不一致，请重新输入') {
+      registerError.value = ''
+    }
+    return
+  }
+  
+  if (confirmPassword.value !== registerForm.value.password) {
+    registerError.value = '两次输入的密码不一致，请重新输入'
+  } else {
+    // 如果密码一致，清除错误信息
+    if (registerError.value === '两次输入的密码不一致，请重新输入') {
+      registerError.value = ''
+    }
+  }
 }
 
 // 发送注册验证码
@@ -261,6 +338,12 @@ const handleRegister = async () => {
     return
   }
 
+  // 验证确认密码
+  if (registerForm.value.password !== confirmPassword.value) {
+    registerError.value = '两次输入的密码不一致，请重新输入'
+    return
+  }
+
   // 验证邮箱
   const emailValidation = validateEmail(registerForm.value.email)
   if (!emailValidation.valid) {
@@ -290,6 +373,7 @@ const handleRegister = async () => {
         email: '',
         verifyCode: '',
       }
+      confirmPassword.value = ''
       registerError.value = '' // 清除错误信息
     } else {
       registerError.value = response.message || '注册失败'
