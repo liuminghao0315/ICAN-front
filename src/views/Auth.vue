@@ -83,7 +83,7 @@
         <h2 class="form__title title">登录</h2>
         <p class="form__subtitle">
           <span class="subtitle-icon">📧</span>
-          请使用您的邮箱登录
+          请使用您的用户名登录
         </p>
         <input
           v-model="loginForm.username"
