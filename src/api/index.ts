@@ -28,7 +28,7 @@ export interface ApiResponse<T = any> {
 
 // 创建axios实例
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://root-springboot3-1:8081',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -151,7 +151,7 @@ api.interceptors.response.use(
             accessToken: string
             refreshToken: string
           }>>(
-            `${api.defaults.baseURL || 'http://root-springboot3-1:8081'}/auth/refresh`,
+            `${api.defaults.baseURL || 'http://localhost:8080'}/auth/refresh`,
             null,
             {
               params: { refreshToken },

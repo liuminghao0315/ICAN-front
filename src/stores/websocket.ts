@@ -80,7 +80,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
       return
     }
 
-    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://root-springboot3-1:8081'
+    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8080'
     const wsUrl = `${wsBaseUrl}/ws/task-progress/${userId}`
 
     try {

@@ -2,7 +2,7 @@
    
 ## 基础信息
 
-- **Base URL**: `http://root-springboot3-1:8081`
+- **Base URL**: `http://localhost:8080`
 - **API版本**: v1
 - **数据格式**: JSON
 - **字符编码**: UTF-8
@@ -433,7 +433,7 @@ Headers: Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 // 登录
 const login = async (username, password) => {
   try {
-    const response = await axios.post('http://root-springboot3-1:8081/auth/login', {
+    const response = await axios.post('http://localhost:8080/auth/login', {
       username: username,
       password: password
     });
@@ -459,7 +459,7 @@ const login = async (username, password) => {
 const logout = async () => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get('http://root-springboot3-1:8081/account/logout', {
+    const response = await axios.get('http://localhost:8080/account/logout', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -513,7 +513,7 @@ axios.interceptors.response.use(response => {
 可以使用Postman、Apifox等工具进行接口测试，也可以访问Swagger文档（如果已配置）：
 
 ```
-http://root-springboot3-1:8081/swagger-ui.html
+http://localhost:8080/swagger-ui.html
 ```
 
 ---

@@ -304,7 +304,7 @@ const handleSendRegisterCode = async () => {
     
     // 更详细的错误处理
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      registerError.value = '无法连接到服务器，请确保后端服务已启动（http://root-springboot3-1:8081）'
+      registerError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
     } else if (error.response) {
       // 服务器返回了错误响应
       const errorMessage = error.response.data?.message || error.response.data?.error || '服务器错误'
@@ -381,7 +381,7 @@ const handleRegister = async () => {
   } catch (error: any) {
     
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      registerError.value = '无法连接到服务器，请确保后端服务已启动（http://root-springboot3-1:8081）'
+      registerError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
     } else if (error.response) {
       registerError.value = error.response.data?.message || '注册失败'
     } else if (error.request) {
@@ -460,7 +460,7 @@ const handleLogin = async () => {
   } catch (error: any) {
     
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
-      loginError.value = '无法连接到服务器，请确保后端服务已启动（http://root-springboot3-1:8081）'
+      loginError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
     } else if (error.response) {
       loginError.value = error.response.data?.message || '登录失败，请检查用户名和密码'
     } else if (error.request) {
