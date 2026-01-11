@@ -398,7 +398,7 @@ export const API_PATHS = {
   },
   // WebSocket
   WS: {
-    TASK_PROGRESS: (userId: string) => `ws://localhost:8080/ws/task-progress/${userId}`,
+    TASK_PROGRESS: (userId: string) => `ws://root-springboot3-1:8081/ws/task-progress/${userId}`,
   },
 } as const;
 
