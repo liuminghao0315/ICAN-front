@@ -165,6 +165,7 @@ export interface VideoFeatures {
   qualityScore: number
   brightness: number
   clarity: number
+  riskTimeline?: Array<{timestamp: number, type: string, level: string, description: string}>
 }
 
 /**
@@ -190,6 +191,8 @@ export interface TextFeatures {
   titleSentiment: number
   containsKeywords: boolean
   languageConfidence: number
+  wordCloud?: Array<{name: string, value: number}>
+  sensitiveWords?: Array<{word: string, category: string}>
 }
 
 /**

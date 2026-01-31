@@ -165,133 +165,204 @@
         </div>
       </div>
       
-      <!-- 详细分析结果 -->
+      <!-- 详细分析结果 - 聚焦风险预警 -->
       <div class="details-grid">
+        <!-- 视频内容分析 -->
         <div class="neu-card">
           <div class="card-header">
             <span class="card-title">
               <el-icon><VideoCamera /></el-icon>
-              视频特征
+              视频内容分析
             </span>
           </div>
           <div class="feature-details" v-if="analysisData.videoFeatures">
             <div class="feature-item">
-              <span class="feature-label">视频时长</span>
-              <span class="feature-value">{{ formatDuration(analysisData.videoFeatures.duration) }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">分辨率</span>
-              <span class="feature-value">{{ analysisData.videoFeatures.width }} x {{ analysisData.videoFeatures.height }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">帧率</span>
-              <span class="feature-value">{{ analysisData.videoFeatures.fps }} fps</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">场景类型</span>
+              <span class="feature-label">内容类型</span>
               <span class="feature-value">{{ analysisData.videoFeatures.sceneType || '未知' }}</span>
             </div>
             <div class="feature-item">
-              <span class="feature-label">人物检测</span>
+              <span class="feature-label">高校场景识别</span>
               <span class="feature-value">
-                {{ analysisData.videoFeatures.hasPerson ? '是' : '否' }}
-                <span v-if="analysisData.videoFeatures.faceCount">({{ analysisData.videoFeatures.faceCount }}人)</span>
+                {{ isUniversityScene(analysisData.videoFeatures.sceneType) ? '是' : '否' }}
               </span>
             </div>
             <div class="feature-item">
-              <span class="feature-label">画面质量</span>
-              <span class="feature-value">{{ formatScore(analysisData.videoFeatures.qualityScore) }}</span>
+              <span class="feature-label">人物出现</span>
+              <span class="feature-value">
+                {{ analysisData.videoFeatures.hasPerson ? '是' : '否' }}
+                <span v-if="analysisData.videoFeatures.faceCount > 0">({{ analysisData.videoFeatures.faceCount }}人)</span>
+              </span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">视频时长</span>
+              <span class="feature-value">{{ formatDuration(analysisData.videoFeatures.duration) }}</span>
             </div>
           </div>
           <div v-else class="empty-feature">
             <el-icon :size="36"><VideoCamera /></el-icon>
-            <span>暂无视频特征数据</span>
+            <span>暂无视频分析数据</span>
           </div>
         </div>
         
+        <!-- 语音内容分析 -->
         <div class="neu-card">
           <div class="card-header">
             <span class="card-title">
               <el-icon><Microphone /></el-icon>
-              音频分析
+              语音内容识别
             </span>
           </div>
-          <div class="feature-details" v-if="analysisData.audioFeatures">
-            <div class="feature-item">
-              <span class="feature-label">音频检测</span>
-              <span class="feature-value">{{ analysisData.audioFeatures.hasAudio ? '有音频' : '无音频' }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">音频质量</span>
-              <span class="feature-value">{{ formatScore(analysisData.audioFeatures.audioQuality) }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">语音占比</span>
-              <span class="feature-value">{{ formatScore(analysisData.audioFeatures.speechRatio) }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">音乐占比</span>
-              <span class="feature-value">{{ formatScore(analysisData.audioFeatures.musicRatio) }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">语音情感</span>
-              <span class="feature-value">{{ getEmotionText(analysisData.audioFeatures.emotionInVoice) }}</span>
-            </div>
-            <div class="feature-item full" v-if="analysisData.transcription">
-              <span class="feature-label">语音转文字</span>
+          <div class="feature-details" v-if="analysisData.transcription">
+            <div class="feature-item full">
+              <span class="feature-label">语音转文字内容</span>
               <div class="feature-value transcription">
                 {{ analysisData.transcription }}
               </div>
             </div>
+            <div class="feature-item">
+              <span class="feature-label">检测到语音</span>
+              <span class="feature-value">{{ analysisData.audioFeatures?.hasAudio ? '是' : '否' }}</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">语音清晰度</span>
+              <span class="feature-value">{{ analysisData.audioFeatures?.speechRatio > 0.5 ? '清晰' : '模糊' }}</span>
+            </div>
           </div>
           <div v-else class="empty-feature">
             <el-icon :size="36"><Microphone /></el-icon>
-            <span>暂无音频特征数据</span>
+            <span>暂无语音内容</span>
+          </div>
+        </div>
+        
+        <!-- 文本风险分析 -->
+        <div class="neu-card">
+          <div class="card-header">
+            <span class="card-title">
+              <el-icon><Document /></el-icon>
+              内容风险分析
+            </span>
+          </div>
+          <div class="feature-details" v-if="analysisData.topicKeywords || analysisData.sentimentLabel">
+            <div class="feature-item">
+              <span class="feature-label">主题分类</span>
+              <span class="feature-value">{{ analysisData.topicCategory || '未分类' }}</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-label">言论倾向</span>
+              <span class="feature-value">
+                <span :class="getSentimentRiskClass(analysisData.sentimentLabel)">
+                  {{ getSentimentText(analysisData.sentimentLabel) }}
+                </span>
+              </span>
+            </div>
+            <div class="feature-item full" v-if="analysisData.topicKeywords && analysisData.topicKeywords.length > 0">
+              <span class="feature-label">提取关键词</span>
+              <div class="feature-value keywords-inline">
+                <span 
+                  v-for="(keyword, index) in analysisData.topicKeywords.slice(0, 7)" 
+                  :key="index"
+                  class="keyword-tag-small"
+                  :class="{ primary: index < 3 }"
+                >
+                  {{ keyword }}
+                </span>
+              </div>
+            </div>
+            <div class="feature-item" v-if="analysisData.isUniversityRelated !== undefined">
+              <span class="feature-label">高校相关内容</span>
+              <span class="feature-value">
+                <span :class="analysisData.isUniversityRelated ? 'text-warning' : 'text-muted'">
+                  {{ analysisData.isUniversityRelated ? '是' : '否' }}
+                </span>
+                <span v-if="analysisData.universityName" class="text-primary"> - {{ analysisData.universityName }}</span>
+              </span>
+            </div>
+          </div>
+          <div v-else class="empty-feature">
+            <el-icon :size="36"><Document /></el-icon>
+            <span>暂无文本分析数据</span>
           </div>
         </div>
       </div>
       
-      <!-- 主题关键词 -->
-      <div class="neu-card keywords-card" v-if="analysisData.topicKeywords && analysisData.topicKeywords.length > 0">
+      <!-- 内容词云图 -->
+      <div class="neu-card wordcloud-card" v-if="getWordCloudData().length > 0">
         <div class="card-header">
           <span class="card-title">
-            <el-icon><Collection /></el-icon>
-            主题关键词
+            <el-icon><DataAnalysis /></el-icon>
+            内容词云分析
           </span>
+          <span class="card-subtitle">基于语音识别文本的关键词频统计</span>
         </div>
-        <div class="keywords-content">
-          <span
-            v-for="(keyword, index) in analysisData.topicKeywords"
-            :key="index"
-            class="keyword-tag"
-            :class="{ primary: index < 3 }"
-          >
-            {{ keyword }}
-          </span>
+        <div class="wordcloud-content">
+          <div class="wordcloud-visual">
+            <span
+              v-for="(item, index) in getWordCloudData().slice(0, 20)"
+              :key="index"
+              class="word-item"
+              :style="getWordStyle(item.value, index)"
+            >
+              {{ item.name }}
+            </span>
+          </div>
         </div>
       </div>
       
-      <!-- 受众分析 -->
+      <!-- 敏感内容检测 -->
+      <div class="neu-card sensitive-card">
+        <div class="card-header">
+          <span class="card-title">
+            <el-icon><Warning /></el-icon>
+            敏感内容检测
+          </span>
+        </div>
+        <div class="sensitive-content">
+          <div v-if="getSensitiveWords().length === 0" class="no-sensitive">
+            <el-icon :size="36" color="#52c41a"><Select /></el-icon>
+            <p>✅ 未检测到敏感词汇</p>
+            <p class="hint">内容安全，无明显风险</p>
+          </div>
+          <div v-else class="sensitive-list">
+            <div class="sensitive-warning">
+              <el-icon color="#f56c6c"><Warning /></el-icon>
+              <span>检测到 {{ getSensitiveWords().length }} 个敏感词</span>
+            </div>
+            <div 
+              v-for="(item, index) in getSensitiveWords()"
+              :key="index"
+              class="sensitive-item"
+            >
+              <span class="sensitive-word">{{ item.word }}</span>
+              <span class="sensitive-category">{{ item.category }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 影响力评估 -->
       <div class="neu-card audience-card" v-if="analysisData.audienceAnalysis">
         <div class="card-header">
           <span class="card-title">
             <el-icon><User /></el-icon>
-            受众预测
+            影响力评估
           </span>
+          <span class="card-subtitle">基于内容特征的传播潜力分析</span>
         </div>
         <div class="audience-content">
           <div class="audience-stats">
             <div class="stat-box">
-              <div class="stat-number">{{ analysisData.audienceAnalysis.predictedViews?.toLocaleString() }}</div>
-              <div class="stat-name">预计播放量</div>
+              <div class="stat-number">{{ formatScore(analysisData.spreadPotential) }}</div>
+              <div class="stat-name">传播潜力</div>
+              <div class="stat-hint">如发布到公开平台的预期传播范围</div>
             </div>
-            <div class="stat-box">
-              <div class="stat-number">{{ formatScore(analysisData.audienceAnalysis.predictedEngagement) }}</div>
-              <div class="stat-name">预计互动率</div>
+            <div class="stat-box" v-if="analysisData.audienceAnalysis.ageDistribution">
+              <div class="stat-number">{{ getPrimaryAudience(analysisData.audienceAnalysis.ageDistribution) }}</div>
+              <div class="stat-name">主要受众</div>
+              <div class="stat-hint">最可能关注此内容的人群</div>
             </div>
           </div>
           <div class="interests-section" v-if="analysisData.audienceAnalysis.predictedInterests">
-            <h4>预测受众兴趣</h4>
+            <h4>潜在受众兴趣标签</h4>
             <div class="interests-list">
               <span 
                 v-for="(interest, index) in analysisData.audienceAnalysis.predictedInterests" 
@@ -303,6 +374,22 @@
             </div>
           </div>
         </div>
+      </div>
+      
+      <!-- 风险时间轴可视化 -->
+      <div class="neu-card timeline-card" v-if="getRiskTimelineData()">
+        <div class="card-header">
+          <span class="card-title">
+            <el-icon><DataLine /></el-icon>
+            风险时间分布
+          </span>
+          <span class="card-subtitle">视频全时段风险指数变化趋势（点击跳转播放 | 悬停查看详情）</span>
+        </div>
+        <v-chart 
+          :option="riskTimelineOption" 
+          class="risk-timeline-chart"
+          @click="onTimelineClick"
+        />
       </div>
       
       <!-- 操作按钮 - 导出PDF时隐藏 -->
@@ -324,6 +411,7 @@
       :title="analysisData?.videoTitle"
       width="800px"
       destroy-on-close
+      @opened="onVideoDialogOpened"
     >
       <video
         v-if="analysisData?.videoUrl"
@@ -331,6 +419,7 @@
         controls
         autoplay
         class="video-player"
+        ref="videoPlayerRef"
       ></video>
     </el-dialog>
   </div>
@@ -342,12 +431,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart, BarChart } from 'echarts/charts'
+import { PieChart, BarChart, LineChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
   LegendComponent,
-  GridComponent
+  GridComponent,
+  MarkPointComponent,
+  MarkLineComponent
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { ElMessage } from 'element-plus'
@@ -364,10 +455,13 @@ use([
   CanvasRenderer,
   PieChart,
   BarChart,
+  LineChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
-  GridComponent
+  GridComponent,
+  MarkPointComponent,
+  MarkLineComponent
 ])
 
 const route = useRoute()
@@ -381,6 +475,7 @@ const selectedVideoId = ref<string>('')
 const videoList = ref<VideoInfo[]>([])
 const analysisData = ref<AnalysisResultVO | null>(null)
 const videoDialogVisible = ref(false)
+const videoStartTime = ref(0)  // 视频起始播放时间
 const emptyMessage = ref('请选择一个视频')
 const showVideoDrawer = ref(false)
 
@@ -494,6 +589,158 @@ const audienceChartOption = computed(() => {
   }
 })
 
+// 风险时间轴图表配置
+const riskTimelineOption = computed(() => {
+  const timelineData = getRiskTimelineData()
+  if (!timelineData || !timelineData.timeSeriesData || timelineData.timeSeriesData.length === 0) {
+    return {}
+  }
+  
+  const times = timelineData.timeSeriesData.map((d: any) => d.time)
+  const risks = timelineData.timeSeriesData.map((d: any) => d.risk * 100) // 转为百分比
+  const riskPoints = timelineData.riskPoints || []
+  
+  // 构建风险点映射表（优化查找性能）
+  const riskPointsMap = new Map()
+  riskPoints.forEach((p: any) => {
+    riskPointsMap.set(p.time, p)
+  })
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      confine: true,  // 限制在图表区域内，防止被遮挡
+      position: function (point: any, params: any, dom: any, rect: any, size: any) {
+        // 智能定位：优先显示在右侧，空间不足时显示在左侧
+        const x = point[0] < size.viewSize[0] / 2 ? point[0] + 20 : point[0] - size.contentSize[0] - 20
+        return [x, point[1] - size.contentSize[1] / 2]
+      },
+      axisPointer: { 
+        type: 'line',
+        lineStyle: { color: '#4b70e2', width: 2, type: 'solid' }
+      },
+      formatter: (params: any) => {
+        if (!params || !params[0]) return ''
+        
+        const dataIndex = params[0].dataIndex
+        const timeValue = timelineData.timeSeriesData[dataIndex].time
+        const riskValue = timelineData.timeSeriesData[dataIndex].risk * 100
+        
+        const m = Math.floor(timeValue / 60)
+        const s = Math.floor(timeValue % 60)
+        const timeStr = `${m}:${s.toString().padStart(2, '0')}`
+        
+        const color = riskValue > 70 ? '#f56c6c' : riskValue > 40 ? '#faad14' : '#52c41a'
+        
+        let html = `<div style="padding: 10px; min-width: 180px;">
+          <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px;">⏱️ 时间: ${timeStr}</div>
+          <div style="color: ${color}; font-weight: 600; font-size: 15px;">
+            📊 风险指数: ${riskValue.toFixed(1)}%
+          </div>`
+        
+        // 查找最近的风险点
+        const nearbyPoint = riskPoints.find((p: any) => Math.abs(p.time - timeValue) < 15)
+        if (nearbyPoint) {
+          html += `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+            <div style="font-size: 12px; color: #f56c6c; font-weight: 600;">⚠️ 检测到风险</div>
+            <div style="font-size: 11px; color: #666; margin-top: 4px;">${nearbyPoint.description}</div>
+          </div>`
+        } else {
+          html += `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+            <div style="font-size: 11px; color: #52c41a;">✅ 该时段无明显风险</div>
+          </div>`
+        }
+        
+        html += `<div style="margin-top: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #4b70e2; padding: 6px 12px; background: rgba(75,112,226,0.1); border-radius: 6px;">
+            💡 点击图表跳转播放此时段
+          </div>
+        </div></div>`
+        return html
+      }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '12%',
+      top: '10%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'value',
+      name: '时间（秒）',
+      nameTextStyle: { color: neuColors.gray, fontSize: 11 },
+      axisLine: { lineStyle: { color: neuColors.neu2 } },
+      axisLabel: { 
+        color: neuColors.gray, 
+        fontSize: 11,
+        formatter: (value: number) => formatTimestamp(value)
+      },
+      splitLine: { lineStyle: { color: '#e8edf3', type: 'dashed' } }
+    },
+    yAxis: {
+      type: 'value',
+      name: '风险指数',
+      max: 100,
+      nameTextStyle: { color: neuColors.gray, fontSize: 11 },
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: '#e8edf3' } },
+      axisLabel: { 
+        color: neuColors.gray, 
+        fontSize: 11,
+        formatter: '{value}%'
+      }
+    },
+    series: [
+      {
+        name: '风险指数',
+        type: 'line',
+        smooth: true,
+        data: times.map((time: number, index: number) => [time, risks[index]]),
+        lineStyle: {
+          width: 3,
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 1, y2: 0,
+            colorStops: [
+              { offset: 0, color: '#52c41a' },
+              { offset: 0.5, color: '#faad14' },
+              { offset: 1, color: '#f56c6c' }
+            ]
+          }
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(75, 112, 226, 0.3)' },
+              { offset: 1, color: 'rgba(75, 112, 226, 0.05)' }
+            ]
+          }
+        },
+        markPoint: {
+          symbol: 'pin',
+          symbolSize: 50,
+          data: riskPoints.map((p: any) => ({
+            coord: [p.time, p.riskScore * 100],
+            value: '⚠',
+            itemStyle: { color: p.level === 'high' ? '#f56c6c' : '#faad14' }
+          }))
+        },
+        markLine: {
+          silent: true,
+          lineStyle: { type: 'dashed', color: '#faad14', width: 1 },
+          data: [
+            { yAxis: 40, label: { formatter: '中风险线', position: 'end' } },
+            { yAxis: 70, label: { formatter: '高风险线', position: 'end' } }
+          ]
+        }
+      }
+    ]
+  }
+})
+
 // 方法
 const selectVideo = (video: VideoInfo) => {
   selectedVideoId.value = video.id
@@ -556,8 +803,38 @@ const fetchVideos = async () => {
   }
 }
 
-const playVideo = () => {
+const playVideo = (startTime: number = 0) => {
+  videoStartTime.value = startTime
   videoDialogVisible.value = true
+}
+
+// 视频对话框打开后，跳转到指定时间
+const onVideoDialogOpened = () => {
+  setTimeout(() => {
+    const videoElement = videoPlayerRef.value || document.querySelector('.video-player') as HTMLVideoElement
+    if (videoElement) {
+      console.log('视频元素找到，准备跳转到:', videoStartTime.value, '秒')
+      
+      // 等待视频元数据加载完成
+      const jumpToTime = () => {
+        if (videoStartTime.value > 0) {
+          videoElement.currentTime = videoStartTime.value
+          console.log('✅ 视频已跳转到:', videoStartTime.value, '秒，当前时间:', videoElement.currentTime)
+        }
+        videoElement.play().catch(e => console.log('自动播放失败:', e))
+      }
+      
+      if (videoElement.readyState >= 2) {
+        // 视频已经加载了元数据，直接跳转
+        jumpToTime()
+      } else {
+        // 等待元数据加载
+        videoElement.addEventListener('loadedmetadata', jumpToTime, { once: true })
+      }
+    } else {
+      console.error('未找到视频元素')
+    }
+  }, 300)
 }
 
 const formatScore = (score: number | null | undefined): string => {
@@ -667,6 +944,182 @@ const getEmotionText = (emotion: string | null | undefined): string => {
   return emotionMap[emotion.toLowerCase()] || emotion
 }
 
+// 获取主要受众年龄段
+const getPrimaryAudience = (ageDistribution: Record<string, number>): string => {
+  if (!ageDistribution) return '未知'
+  
+  let maxAge = ''
+  let maxValue = 0
+  
+  Object.entries(ageDistribution).forEach(([age, value]) => {
+    if (value > maxValue) {
+      maxValue = value
+      maxAge = age
+    }
+  })
+  
+  return maxAge ? `${maxAge}岁` : '未知'
+}
+
+// 判断是否为高校场景
+const isUniversityScene = (sceneType: string | null | undefined): boolean => {
+  if (!sceneType) return false
+  const universityScenes = ['教室', '图书馆', '实验室', '报告厅', '宿舍', '食堂', '校园户外']
+  return universityScenes.includes(sceneType)
+}
+
+// 情感风险样式
+const getSentimentRiskClass = (label: SentimentLabel): string => {
+  const classes: Record<SentimentLabel, string> = {
+    'POSITIVE': 'text-success',
+    'NEUTRAL': 'text-muted',
+    'NEGATIVE': 'text-danger'
+  }
+  return classes[label] || 'text-muted'
+}
+
+// 词云样式（根据权重和索引）
+const getWordStyle = (value: number, index: number) => {
+  const maxSize = 32
+  const minSize = 12
+  const size = minSize + (maxSize - minSize) * (value / 1000)
+  
+  const colors = [
+    '#4b70e2', '#7c9df7', '#a3bef9', '#6b8be8', 
+    '#8ba3e8', '#5a7fd6', '#91a9f5', '#7589d8'
+  ]
+  const color = colors[index % colors.length]
+  
+  return {
+    fontSize: `${size}px`,
+    color: color,
+    opacity: 0.7 + (value / 2000),
+    margin: '8px',
+    fontWeight: index < 5 ? '700' : '500'
+  }
+}
+
+// 格式化时间戳
+const formatTimestamp = (seconds: number): string => {
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// 获取词云数据（处理JSON字符串）
+const getWordCloudData = (): Array<{name: string, value: number}> => {
+  if (!analysisData.value) return []
+  
+  try {
+    // textFeatures可能是JSON字符串，需要解析
+    const textFeatures = analysisData.value.textFeatures
+    if (typeof textFeatures === 'string') {
+      const parsed = JSON.parse(textFeatures)
+      return parsed.wordCloud || []
+    } else if (textFeatures && typeof textFeatures === 'object') {
+      return (textFeatures as any).wordCloud || []
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+// 获取敏感词列表（处理JSON字符串）
+const getSensitiveWords = (): Array<{word: string, category: string}> => {
+  if (!analysisData.value) return []
+  
+  try {
+    const textFeatures = analysisData.value.textFeatures
+    if (typeof textFeatures === 'string') {
+      const parsed = JSON.parse(textFeatures)
+      return parsed.sensitiveWords || []
+    } else if (textFeatures && typeof textFeatures === 'object') {
+      return (textFeatures as any).sensitiveWords || []
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+// 获取风险时间轴数据（处理JSON字符串）
+const getRiskTimelineData = (): any => {
+  if (!analysisData.value) return null
+  
+  try {
+    const videoFeatures = analysisData.value.videoFeatures
+    
+    console.log('videoFeatures类型:', typeof videoFeatures)
+    console.log('videoFeatures数据:', videoFeatures)
+    
+    let riskTimeline = null
+    
+    if (typeof videoFeatures === 'string') {
+      const parsed = JSON.parse(videoFeatures)
+      console.log('解析后的videoFeatures:', parsed)
+      riskTimeline = parsed.riskTimeline
+    } else if (videoFeatures && typeof videoFeatures === 'object') {
+      riskTimeline = (videoFeatures as any).riskTimeline
+    }
+    
+    console.log('riskTimeline数据:', riskTimeline)
+    
+    // 如果没有数据，生成示例数据用于测试
+    if (!riskTimeline || !riskTimeline.timeSeriesData || riskTimeline.timeSeriesData.length === 0) {
+      console.warn('风险时间轴数据为空，生成示例数据')
+      const duration = (videoFeatures as any)?.duration || 300
+      return generateMockRiskTimeline(duration)
+    }
+    
+    return riskTimeline
+  } catch (e) {
+    console.error('解析风险时间轴数据失败:', e)
+    return null
+  }
+}
+
+// 生成模拟风险时间轴（临时测试用）
+const generateMockRiskTimeline = (duration: number) => {
+  const timeSeriesData = []
+  const riskPoints = []
+  
+  for (let t = 0; t <= duration; t += 30) {
+    const risk = 0.15 + Math.random() * 0.25
+    timeSeriesData.push({ time: t, risk: risk })
+    
+    if (Math.random() > 0.7 && risk > 0.3) {
+      riskPoints.push({
+        time: t,
+        type: "内容特征",
+        level: "medium",
+        description: "检测到内容特征波动",
+        riskScore: risk
+      })
+    }
+  }
+  
+  return { timeSeriesData, riskPoints, duration }
+}
+
+// 时间轴点击事件 - 跳转播放
+const onTimelineClick = (params: any) => {
+  if (!params || !params.data) return
+  
+  const timelineData = getRiskTimelineData()
+  if (!timelineData || !timelineData.timeSeriesData) return
+  
+  // 获取点击的时间点
+  const clickedTime = params.data[0]  // data格式: [time, risk]
+  
+  console.log('点击时间轴:', clickedTime, '秒')
+  
+  // 打开视频对话框并跳转到该时间
+  playVideo(clickedTime)
+  
+  ElMessage.success(`正在跳转到 ${formatTimestamp(clickedTime)} 播放`)
+}
+
 // PDF导出状态
 const exportingPdf = ref(false)
 
@@ -676,6 +1129,8 @@ const reportContentRef = ref<HTMLElement | null>(null)
 const actionButtonsRef = ref<HTMLElement | null>(null)
 // 播放视频按钮引用（导出时需要隐藏）
 const playVideoBtnRef = ref<HTMLElement | null>(null)
+// 视频播放器引用
+const videoPlayerRef = ref<HTMLVideoElement | null>(null)
 
 /**
  * 导出PDF报告
@@ -1454,14 +1909,18 @@ $purple: #4b70e2;
   }
 }
 
-// 详情网格
+// 详情网格 - 三模态平级展示
 .details-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   margin-bottom: 24px;
   
-  @media (max-width: 900px) {
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
   
@@ -1504,6 +1963,29 @@ $purple: #4b70e2;
           border-radius: 12px;
           box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
           width: 100%;
+        }
+        
+        &.keywords-inline {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          text-align: left;
+          
+          .keyword-tag-small {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            background: $neu-1;
+            color: $gray;
+            box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+            
+            &.primary {
+              background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+              color: #fff;
+              box-shadow: 2px 2px 6px $neu-2, -1px -1px 4px $white;
+            }
+          }
         }
       }
     }
@@ -1556,6 +2038,12 @@ $purple: #4b70e2;
 .audience-card {
   margin-bottom: 24px;
   
+  .card-subtitle {
+    font-size: 11px;
+    color: $gray;
+    font-weight: 400;
+  }
+  
   .audience-content {
     padding: 24px;
     
@@ -1563,6 +2051,10 @@ $purple: #4b70e2;
       display: flex;
       gap: 24px;
       margin-bottom: 24px;
+      
+      @media (max-width: 768px) {
+        flex-direction: column;
+      }
       
       .stat-box {
         flex: 1;
@@ -1580,8 +2072,16 @@ $purple: #4b70e2;
         
         .stat-name {
           font-size: 13px;
-          color: $gray;
+          color: $black;
           margin-top: 6px;
+          font-weight: 600;
+        }
+        
+        .stat-hint {
+          font-size: 11px;
+          color: $gray;
+          margin-top: 4px;
+          line-height: 1.4;
         }
       }
     }
@@ -1617,6 +2117,158 @@ $purple: #4b70e2;
   gap: 16px;
   justify-content: center;
   padding-top: 8px;
+}
+
+// 文本颜色类
+.text-success {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+.text-danger {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+.text-warning {
+  color: #faad14;
+  font-weight: 600;
+}
+
+.text-primary {
+  color: $purple;
+  font-weight: 600;
+}
+
+.text-muted {
+  color: $gray;
+}
+
+// 风险时间轴卡片
+.timeline-card {
+  margin-bottom: 24px;
+  
+  .risk-timeline-chart {
+    height: 300px;
+    width: 100%;
+    padding: 20px;
+  }
+}
+
+// 词云卡片
+.wordcloud-card {
+  margin-bottom: 24px;
+  
+  .card-subtitle {
+    font-size: 11px;
+    color: $gray;
+    font-weight: 400;
+  }
+  
+  .wordcloud-content {
+    padding: 32px 24px;
+    
+    .wordcloud-visual {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      min-height: 200px;
+      gap: 4px;
+      
+      .word-item {
+        display: inline-block;
+        padding: 4px 8px;
+        cursor: default;
+        transition: all 0.3s ease;
+        
+        &:hover {
+          transform: scale(1.1);
+          opacity: 1 !important;
+        }
+      }
+    }
+  }
+}
+
+// 敏感内容检测卡片
+.sensitive-card {
+  margin-bottom: 24px;
+  
+  .sensitive-content {
+    padding: 24px;
+    
+    .no-sensitive {
+      text-align: center;
+      padding: 32px 20px;
+      
+      .el-icon {
+        margin-bottom: 16px;
+      }
+      
+      p {
+        margin: 8px 0;
+        color: $black;
+        font-weight: 600;
+        
+        &.hint {
+          color: $gray;
+          font-size: 13px;
+          font-weight: 400;
+        }
+      }
+    }
+    
+    .sensitive-list {
+      .sensitive-warning {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        background: rgba(245, 108, 108, 0.1);
+        border-radius: 12px;
+        margin-bottom: 16px;
+        color: #f56c6c;
+        font-weight: 600;
+      }
+      
+      .sensitive-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: $neu-1;
+        border-radius: 12px;
+        margin-bottom: 8px;
+        box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+        
+        .sensitive-word {
+          color: #f56c6c;
+          font-weight: 700;
+          font-size: 15px;
+        }
+        
+        .sensitive-category {
+          font-size: 12px;
+          color: $gray;
+          padding: 4px 12px;
+          background: rgba(245, 108, 108, 0.1);
+          border-radius: 12px;
+        }
+      }
+    }
+  }
+}
+
+// 风险时间轴卡片
+.timeline-card {
+  margin-bottom: 24px;
+  
+  .risk-timeline-chart {
+    height: 300px;
+    width: 100%;
+    padding: 20px;
+  }
 }
 
 // 视频播放器
