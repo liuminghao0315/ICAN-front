@@ -2,10 +2,31 @@
   <div class="analysis-page">
     <div class="header-actions">
       <h2 class="page-title">分析结果</h2>
-      <button class="neu-btn primary-btn video-selector-btn" @click="showVideoDrawer = true">
-        <el-icon><VideoPlay /></el-icon>
-        选择视频
-      </button>
+      <div class="header-actions-right">
+        <!-- 视图切换按钮 -->
+        <div class="view-mode-toggle" v-if="analysisData">
+          <button 
+            class="neu-btn" 
+            :class="{ 'active': viewMode === 'interactive' }"
+            @click="viewMode = 'interactive'"
+          >
+            <el-icon><VideoPlay /></el-icon>
+            交互分析
+          </button>
+          <button 
+            class="neu-btn" 
+            :class="{ 'active': viewMode === 'report' }"
+            @click="viewMode = 'report'"
+          >
+            <el-icon><Document /></el-icon>
+            报告视图
+          </button>
+        </div>
+        <button class="neu-btn primary-btn video-selector-btn" @click="showVideoDrawer = true">
+          <el-icon><VideoPlay /></el-icon>
+          选择视频
+        </button>
+      </div>
     </div>
     
     <!-- 视频选择侧边栏 -->
@@ -74,7 +95,158 @@
     </div>
     
     <!-- 分析结果展示 -->
-    <div v-else class="analysis-content" ref="reportContentRef">
+    <div v-else>
+      <!-- 交互式分析视图 -->
+      <transition name="fade" mode="out-in">
+      <div v-if="viewMode === 'interactive'" key="interactive" class="interactive-view">
+        <div class="multi-modal-container">
+          <!-- 左侧：视频播放器区域 -->
+          <div class="video-section">
+            <div class="video-player-wrapper">
+              <video
+                v-if="analysisData?.videoUrl"
+                :src="analysisData.videoUrl"
+                controls
+                class="main-video-player"
+                ref="mainVideoPlayerRef"
+                @timeupdate="onVideoTimeUpdate"
+                @loadedmetadata="onVideoLoaded"
+              ></video>
+              
+              <!-- 视频占位符 -->
+              <div v-else class="video-placeholder">
+                <el-icon :size="80" color="#a0a5a8"><VideoPlay /></el-icon>
+                <p>视频加载中...</p>
+              </div>
+              
+              <!-- 检测框叠加层 -->
+              <div class="detection-overlay" v-if="currentDetection">
+                <div 
+                  class="detection-box"
+                  :style="getDetectionBoxStyle(currentDetection)"
+                >
+                  <span class="detection-label">{{ currentDetection.type }} ({{ Math.round(currentDetection.confidence * 100) }}%)</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 视频信息 -->
+            <div class="video-meta-bar">
+              <div class="video-title-info">
+                <el-icon :size="20"><VideoPlay /></el-icon>
+                <span class="title-text">{{ analysisData.videoTitle }}</span>
+              </div>
+              <div class="video-stats">
+                <span class="risk-badge" :class="getRiskClass(analysisData.riskLevel)">
+                  {{ analysisData.riskLevelDesc || getRiskLevelText(analysisData.riskLevel) }}
+                </span>
+                <span class="score-badge">风险: {{ formatScore(analysisData.riskScore) }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 右侧：台词列表区域 -->
+          <div class="transcript-panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <el-icon><Microphone /></el-icon>
+                语音转文字与风险定位
+              </div>
+              <div class="panel-subtitle">点击台词跳转播放 · 当前段落自动高亮</div>
+            </div>
+            
+            <div class="transcript-list">
+              <div 
+                v-for="(segment, index) in mockTranscriptSegments" 
+                :key="index"
+                class="transcript-segment"
+                :class="{ 
+                  'active': currentSegmentIndex === index,
+                  'high-risk': segment.riskLevel === 'high',
+                  'medium-risk': segment.riskLevel === 'medium'
+                }"
+                @click="jumpToTime(segment.start)"
+              >
+                <div class="segment-header">
+                  <span class="time-range">{{ formatTimestamp(segment.start) }} - {{ formatTimestamp(segment.end) }}</span>
+                  <span class="emotion-badge" :class="getEmotionClass(segment.emotion)">
+                    {{ getEmotionText(segment.emotion) }}
+                  </span>
+                  <span v-if="segment.riskLevel !== 'low'" class="risk-tag" :class="segment.riskLevel">
+                    {{ segment.riskLevel === 'high' ? '高风险' : '中风险' }}
+                  </span>
+                </div>
+                <div class="segment-text" v-html="highlightKeywords(segment.text, segment.keywords)"></div>
+              </div>
+              
+              <div v-if="mockTranscriptSegments.length === 0" class="empty-transcript">
+                <el-icon :size="36"><Microphone /></el-icon>
+                <p>暂无语音转录数据</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 多轨道时间轴 -->
+        <div class="multi-track-timeline neu-card">
+          <div class="card-header">
+            <span class="card-title">
+              <el-icon><DataLine /></el-icon>
+              多模态风险时间轴
+            </span>
+            <span class="card-subtitle">点击任意位置跳转播放 · 三模态风险一目了然</span>
+          </div>
+          <div class="timeline-content">
+            <v-chart :option="multiModalTimelineOption" class="timeline-chart" @click="onTimelineClick" />
+          </div>
+        </div>
+        
+        <!-- 关键指标卡片 -->
+        <div class="stats-summary-grid">
+          <div class="neu-card stat-summary">
+            <div class="stat-icon video-icon">
+              <el-icon :size="24"><VideoCamera /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ mockVideoRisks.length }}</div>
+              <div class="stat-label">视频风险点</div>
+            </div>
+          </div>
+          
+          <div class="neu-card stat-summary">
+            <div class="stat-icon audio-icon">
+              <el-icon :size="24"><Microphone /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ angryEmotionCount }}</div>
+              <div class="stat-label">情绪波动</div>
+            </div>
+          </div>
+          
+          <div class="neu-card stat-summary">
+            <div class="stat-icon text-icon">
+              <el-icon :size="24"><Document /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ highRiskSegmentCount }}</div>
+              <div class="stat-label">高风险台词</div>
+            </div>
+          </div>
+          
+          <div class="neu-card stat-summary">
+            <div class="stat-icon university-icon">
+              <el-icon :size="24"><School /></el-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ analysisData.isUniversityRelated ? '是' : '否' }}</div>
+              <div class="stat-label">高校相关</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 报告视图（原有的完整报告，用于PDF导出） -->
+      <div v-else key="report" class="analysis-content" ref="reportContentRef">
       <!-- 视频信息 -->
       <div class="video-info-bar">
         <div class="video-icon">
@@ -89,7 +261,7 @@
             {{ analysisData.videoDescription }}
           </div>
         </div>
-        <button class="neu-btn play-video-btn" @click="playVideo" v-if="analysisData.videoUrl" ref="playVideoBtnRef">
+        <button class="neu-btn play-video-btn" @click="playVideo()" v-if="analysisData.videoUrl">
           <el-icon><VideoPlay /></el-icon>
           播放视频
         </button>
@@ -403,7 +575,9 @@
           返回视频列表
         </button>
       </div>
-    </div>
+      </div> <!-- 闭合报告视图 -->
+      </transition>
+    </div> <!-- 闭合分析结果展示区域 -->
     
     <!-- 视频播放对话框 -->
     <el-dialog
@@ -478,6 +652,130 @@ const videoDialogVisible = ref(false)
 const videoStartTime = ref(0)  // 视频起始播放时间
 const emptyMessage = ref('请选择一个视频')
 const showVideoDrawer = ref(false)
+
+// 视图模式：交互式 or 报告式
+const viewMode = ref<'interactive' | 'report'>('interactive')
+
+// 主视频播放器引用
+const mainVideoPlayerRef = ref<HTMLVideoElement | null>(null)
+
+// 当前播放时间
+const currentPlayTime = ref(0)
+
+// 当前激活的台词段落索引
+const currentSegmentIndex = ref(-1)
+
+// 当前显示的检测框
+const currentDetection = ref<any>(null)
+
+// 模拟数据：带时间戳的转录文本
+const mockTranscriptSegments = computed(() => {
+  if (!analysisData.value) return []
+  
+  // 基于实际转录文本生成模拟分段
+  const transcription = analysisData.value.transcription || ''
+  const duration = (analysisData.value.videoFeatures as any)?.duration || 180
+  
+  return [
+    {
+      start: 0,
+      end: 15,
+      text: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
+      emotion: 'calm',
+      riskLevel: 'low',
+      keywords: []
+    },
+    {
+      start: 15,
+      end: 42,
+      text: '首先声明一下，这个视频的内容都是基于事实的，没有任何夸张成分...',
+      emotion: 'calm',
+      riskLevel: 'low',
+      keywords: []
+    },
+    {
+      start: 42,
+      end: 68,
+      text: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
+      emotion: 'angry',
+      riskLevel: 'high',
+      keywords: ['欺骗', '抵制', '联合']
+    },
+    {
+      start: 68,
+      end: 95,
+      text: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
+      emotion: 'serious',
+      riskLevel: 'medium',
+      keywords: ['风险', '真相']
+    },
+    {
+      start: 95,
+      end: 125,
+      text: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
+      emotion: 'tense',
+      riskLevel: 'medium',
+      keywords: ['追究']
+    },
+    {
+      start: 125,
+      end: Math.min(duration, 155),
+      text: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+      emotion: 'calm',
+      riskLevel: 'low',
+      keywords: []
+    }
+  ].filter(seg => seg.end <= duration)
+})
+
+// 模拟数据：视频风险点
+const mockVideoRisks = computed(() => {
+  if (!analysisData.value) return []
+  
+  return [
+    {
+      time: 45,
+      type: '非官方横幅',
+      confidence: 0.98,
+      boundingBox: { x: 20, y: 30, width: 40, height: 30 }
+    },
+    {
+      time: 52,
+      type: '激动手势',
+      confidence: 0.85,
+      boundingBox: { x: 35, y: 45, width: 25, height: 30 }
+    },
+    {
+      time: 105,
+      type: '违规标识',
+      confidence: 0.91,
+      boundingBox: { x: 15, y: 25, width: 35, height: 25 }
+    }
+  ]
+})
+
+// 模拟数据：音频情绪波动
+const mockAudioEmotions = computed(() => {
+  if (!analysisData.value) return []
+  
+  return [
+    { start: 0, end: 15, emotion: 'calm', intensity: 0.3 },
+    { start: 15, end: 42, emotion: 'calm', intensity: 0.4 },
+    { start: 42, end: 68, emotion: 'angry', intensity: 0.9 },
+    { start: 68, end: 95, emotion: 'tense', intensity: 0.7 },
+    { start: 95, end: 125, emotion: 'tense', intensity: 0.6 },
+    { start: 125, end: 155, emotion: 'calm', intensity: 0.4 }
+  ]
+})
+
+// 统计数据（用于模板）
+const angryEmotionCount = computed(() => {
+  return mockAudioEmotions.value.filter(e => e.emotion === 'angry').length
+})
+
+const highRiskSegmentCount = computed(() => {
+  return mockTranscriptSegments.value.filter(s => s.riskLevel === 'high').length
+})
 
 // 新拟态配色
 const neuColors = {
@@ -584,6 +882,123 @@ const audienceChartOption = computed(() => {
         itemStyle: {
           borderRadius: [6, 6, 0, 0]
         }
+      }
+    ]
+  }
+})
+
+// 多模态时间轴配置（交互视图专用）
+const multiModalTimelineOption = computed(() => {
+  if (!analysisData.value) return {}
+  
+  const duration = (analysisData.value.videoFeatures as any)?.duration || 180
+  const timePoints: number[] = []
+  for (let t = 0; t <= duration; t += 5) {
+    timePoints.push(t)
+  }
+  
+  // 视频风险点数据
+  const videoData = timePoints.map(t => {
+    const risk = mockVideoRisks.value.find(r => Math.abs(r.time - t) < 3)
+    return risk ? 1 : 0
+  })
+  
+  // 音频情绪强度数据
+  const audioData = timePoints.map(t => {
+    const emotion = mockAudioEmotions.value.find(e => t >= e.start && t < e.end)
+    return emotion ? emotion.intensity : 0
+  })
+  
+  // 文本风险数据
+  const textData = timePoints.map(t => {
+    const segment = mockTranscriptSegments.value.find(s => t >= s.start && t < s.end)
+    if (!segment) return 0
+    return segment.riskLevel === 'high' ? 1 : segment.riskLevel === 'medium' ? 0.6 : 0
+  })
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'line' },
+      formatter: (params: any) => {
+        if (!params || params.length === 0) return ''
+        const time = params[0].axisValue
+        const m = Math.floor(time / 60)
+        const s = Math.floor(time % 60)
+        const timeStr = `${m}:${s.toString().padStart(2, '0')}`
+        
+        let html = `<div style="padding: 8px;"><b>时间: ${timeStr}</b><br/>`
+        params.forEach((p: any) => {
+          html += `${p.marker} ${p.seriesName}: ${p.value > 0 ? '检测到风险' : '正常'}<br/>`
+        })
+        html += '<div style="margin-top: 6px; color: #4b70e2; font-size: 11px;">💡 点击跳转播放</div></div>'
+        return html
+      }
+    },
+    legend: {
+      data: ['视频风险', '音频情绪', '文本风险'],
+      bottom: 5,
+      textStyle: { color: neuColors.gray, fontSize: 12 }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      top: '8%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: timePoints,
+      name: '时间（秒）',
+      nameTextStyle: { color: neuColors.gray, fontSize: 11 },
+      axisLine: { lineStyle: { color: neuColors.neu2 } },
+      axisLabel: {
+        color: neuColors.gray,
+        fontSize: 11,
+        formatter: (value: number) => formatTimestamp(value)
+      }
+    },
+    yAxis: {
+      type: 'value',
+      max: 1,
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: '#e8edf3', type: 'dashed' } },
+      axisLabel: { show: false }
+    },
+    series: [
+      {
+        name: '视频风险',
+        type: 'bar',
+        data: videoData,
+        itemStyle: { color: '#f56c6c', borderRadius: [4, 4, 0, 0] },
+        barWidth: '30%',
+        barGap: '-100%'
+      },
+      {
+        name: '音频情绪',
+        type: 'line',
+        data: audioData,
+        smooth: true,
+        lineStyle: { width: 3, color: '#faad14' },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(250, 173, 20, 0.4)' },
+              { offset: 1, color: 'rgba(250, 173, 20, 0.1)' }
+            ]
+          }
+        },
+        showSymbol: false
+      },
+      {
+        name: '文本风险',
+        type: 'scatter',
+        data: textData.map((v, i) => v > 0 ? [timePoints[i], v] : null).filter(Boolean),
+        symbolSize: 12,
+        itemStyle: { color: '#4b70e2' }
       }
     ]
   }
@@ -1106,18 +1521,90 @@ const generateMockRiskTimeline = (duration: number) => {
 const onTimelineClick = (params: any) => {
   if (!params || !params.data) return
   
+  // 交互视图：直接在主播放器跳转
+  if (viewMode.value === 'interactive') {
+    const clickedTime = params.data[0] || params.value?.[0]
+    if (clickedTime !== undefined && mainVideoPlayerRef.value) {
+      jumpToTime(clickedTime)
+    }
+    return
+  }
+  
+  // 报告视图：原有逻辑
   const timelineData = getRiskTimelineData()
   if (!timelineData || !timelineData.timeSeriesData) return
   
-  // 获取点击的时间点
-  const clickedTime = params.data[0]  // data格式: [time, risk]
-  
+  const clickedTime = params.data[0]
   console.log('点击时间轴:', clickedTime, '秒')
-  
-  // 打开视频对话框并跳转到该时间
   playVideo(clickedTime)
-  
   ElMessage.success(`正在跳转到 ${formatTimestamp(clickedTime)} 播放`)
+}
+
+// 视频时间更新事件
+const onVideoTimeUpdate = () => {
+  if (!mainVideoPlayerRef.value) return
+  
+  currentPlayTime.value = mainVideoPlayerRef.value.currentTime
+  
+  // 更新当前台词段落高亮
+  const index = mockTranscriptSegments.value.findIndex(
+    seg => currentPlayTime.value >= seg.start && currentPlayTime.value < seg.end
+  )
+  currentSegmentIndex.value = index
+  
+  // 更新当前检测框
+  const detection = mockVideoRisks.value.find(
+    risk => Math.abs(currentPlayTime.value - risk.time) < 3
+  )
+  currentDetection.value = detection || null
+}
+
+// 视频加载完成
+const onVideoLoaded = () => {
+  console.log('视频加载完成')
+}
+
+// 跳转到指定时间
+const jumpToTime = (time: number) => {
+  if (mainVideoPlayerRef.value) {
+    mainVideoPlayerRef.value.currentTime = time
+    mainVideoPlayerRef.value.play().catch(e => console.log('播放失败:', e))
+    ElMessage.success(`跳转到 ${formatTimestamp(time)}`)
+  }
+}
+
+// 获取检测框样式
+const getDetectionBoxStyle = (detection: any) => {
+  const box = detection.boundingBox
+  return {
+    left: `${box.x}%`,
+    top: `${box.y}%`,
+    width: `${box.width}%`,
+    height: `${box.height}%`
+  }
+}
+
+// 高亮关键词
+const highlightKeywords = (text: string, keywords: string[]) => {
+  if (!keywords || keywords.length === 0) return text
+  
+  let result = text
+  keywords.forEach(keyword => {
+    const regex = new RegExp(keyword, 'g')
+    result = result.replace(regex, `<span class="risk-keyword">${keyword}</span>`)
+  })
+  return result
+}
+
+// 获取情绪类别样式
+const getEmotionClass = (emotion: string) => {
+  const classMap: Record<string, string> = {
+    'angry': 'emotion-angry',
+    'calm': 'emotion-calm',
+    'tense': 'emotion-tense',
+    'serious': 'emotion-serious'
+  }
+  return classMap[emotion] || 'emotion-neutral'
 }
 
 // PDF导出状态
@@ -1348,6 +1835,37 @@ $purple: #4b70e2;
       font-weight: 700;
       margin: 0;
       color: $black;
+    }
+    
+    .header-actions-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .view-mode-toggle {
+      display: flex;
+      gap: 8px;
+      padding: 4px;
+      background: $neu-1;
+      border-radius: 12px;
+      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+      
+      .neu-btn {
+        padding: 8px 16px;
+        box-shadow: none;
+        transition: all 0.3s;
+        
+        &:hover {
+          color: $purple;
+        }
+        
+        &.active {
+          background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+          color: white;
+          box-shadow: 2px 2px 6px $neu-2;
+        }
+      }
     }
     
     .video-selector-btn {
@@ -2290,6 +2808,436 @@ $purple: #4b70e2;
   
   .el-dialog__body {
     padding: 24px;
+  }
+}
+
+// ==================== 视图切换过渡动画 ====================
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+// ==================== 交互式分析视图样式 ====================
+.interactive-view {
+  .multi-modal-container {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+    
+    @media (max-width: 1400px) {
+      grid-template-columns: 1.2fr 1fr;
+    }
+    
+    @media (max-width: 1200px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  // 视频区域
+  .video-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .video-player-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 400px;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    .main-video-player {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #000;
+    }
+    
+    .video-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 400px;
+      color: $gray;
+      
+      p {
+        margin-top: 16px;
+        font-size: 14px;
+      }
+    }
+    
+    .detection-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      
+      .detection-box {
+        position: absolute;
+        border: 3px solid #f56c6c;
+        background: rgba(245, 108, 108, 0.15);
+        box-shadow: 0 0 10px rgba(245, 108, 108, 0.8);
+        transition: all 0.3s ease;
+        
+        .detection-label {
+          position: absolute;
+          top: -28px;
+          left: -3px;
+          background: #f56c6c;
+          color: white;
+          padding: 4px 10px;
+          font-size: 12px;
+          font-weight: 600;
+          border-radius: 6px;
+          white-space: nowrap;
+        }
+      }
+    }
+  }
+  
+  .video-meta-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: $neu-1;
+    border-radius: 16px;
+    box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+    
+    .video-title-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      
+      .title-text {
+        font-size: 15px;
+        font-weight: 600;
+        color: $black;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+    
+    .video-stats {
+      display: flex;
+      gap: 10px;
+      
+      .risk-badge {
+        padding: 6px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        
+        &.risk-high {
+          background: rgba(245, 108, 108, 0.15);
+          color: #f56c6c;
+        }
+        
+        &.risk-medium {
+          background: rgba(250, 173, 20, 0.15);
+          color: #faad14;
+        }
+        
+        &.risk-low {
+          background: rgba(82, 196, 26, 0.15);
+          color: #52c41a;
+        }
+      }
+      
+      .score-badge {
+        padding: 6px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        background: rgba(75, 112, 226, 0.15);
+        color: $purple;
+      }
+    }
+  }
+  
+  // 台词面板
+  .transcript-panel {
+    display: flex;
+    flex-direction: column;
+    background: $neu-1;
+    border-radius: 20px;
+    box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+    overflow: hidden;
+    
+    .panel-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid rgba($neu-2, 0.5);
+      background: rgba(255, 255, 255, 0.5);
+      
+      .panel-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: $black;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      
+      .panel-subtitle {
+        font-size: 11px;
+        color: $gray;
+      }
+    }
+    
+    .transcript-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      &::-webkit-scrollbar-thumb {
+        background: rgba(160, 165, 168, 0.3);
+        border-radius: 3px;
+      }
+    }
+    
+    .transcript-segment {
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: $bg;
+      border-radius: 10px;
+      border-left: 4px solid transparent;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      
+      &:hover {
+        background: #fff;
+        transform: translateX(-4px);
+        box-shadow: 4px 4px 10px $neu-2;
+      }
+      
+      &.active {
+        background: #fff;
+        border-left-color: $purple;
+        box-shadow: 4px 4px 10px $neu-2;
+        transform: scale(1.02);
+      }
+      
+      &.high-risk {
+        background: rgba(245, 108, 108, 0.08);
+        
+        &.active {
+          border-left-color: #f56c6c;
+        }
+      }
+      
+      &.medium-risk {
+        background: rgba(250, 173, 20, 0.08);
+        
+        &.active {
+          border-left-color: #faad14;
+        }
+      }
+      
+      .segment-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+        
+        .time-range {
+          font-size: 11px;
+          color: $gray;
+          font-family: monospace;
+        }
+        
+        .emotion-badge {
+          padding: 3px 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 600;
+          
+          &.emotion-calm {
+            background: rgba(82, 196, 26, 0.15);
+            color: #52c41a;
+          }
+          
+          &.emotion-angry {
+            background: rgba(245, 108, 108, 0.15);
+            color: #f56c6c;
+          }
+          
+          &.emotion-tense {
+            background: rgba(250, 173, 20, 0.15);
+            color: #faad14;
+          }
+          
+          &.emotion-serious {
+            background: rgba(75, 112, 226, 0.15);
+            color: $purple;
+          }
+        }
+        
+        .risk-tag {
+          padding: 3px 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 600;
+          
+          &.high {
+            background: #f56c6c;
+            color: white;
+          }
+          
+          &.medium {
+            background: #faad14;
+            color: white;
+          }
+        }
+      }
+      
+      .segment-text {
+        font-size: 13px;
+        color: $black;
+        line-height: 1.7;
+        word-break: break-word;
+        
+        :deep(.risk-keyword) {
+          color: #f56c6c;
+          font-weight: 700;
+          background: rgba(245, 108, 108, 0.2);
+          padding: 2px 6px;
+          border-radius: 4px;
+          display: inline-block;
+          margin: 0 2px;
+        }
+      }
+    }
+    
+    .empty-transcript {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: $gray;
+      
+      p {
+        margin-top: 12px;
+        font-size: 13px;
+      }
+    }
+  }
+  
+  // 多轨道时间轴
+  .multi-track-timeline {
+    margin-bottom: 24px;
+    
+    .card-subtitle {
+      font-size: 11px;
+      color: $gray;
+      font-weight: 400;
+    }
+    
+    .timeline-content {
+      padding: 16px 20px;
+    }
+    
+    .timeline-chart {
+      height: 180px;
+      width: 100%;
+    }
+  }
+  
+  // 统计摘要网格
+  .stats-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+    
+    .stat-summary {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 18px;
+      
+      .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        &.video-icon {
+          background: rgba(245, 108, 108, 0.12);
+          color: #f56c6c;
+        }
+        
+        &.audio-icon {
+          background: rgba(250, 173, 20, 0.12);
+          color: #faad14;
+        }
+        
+        &.text-icon {
+          background: rgba(75, 112, 226, 0.12);
+          color: $purple;
+        }
+        
+        &.university-icon {
+          background: rgba(82, 196, 26, 0.12);
+          color: #52c41a;
+        }
+      }
+      
+      .stat-content {
+        flex: 1;
+        
+        .stat-value {
+          font-size: 24px;
+          font-weight: 700;
+          color: $black;
+          line-height: 1;
+        }
+        
+        .stat-label {
+          font-size: 12px;
+          color: $gray;
+          margin-top: 6px;
+        }
+      }
+    }
   }
 }
 </style>
