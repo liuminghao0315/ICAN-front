@@ -1,5 +1,5 @@
 <template>
-  <div class="analysis-page">
+  <div ref="analysisPageRef" class="analysis-page">
     <div class="header-actions">
       <h2 class="page-title">分析结果</h2>
       <div class="header-actions-right">
@@ -141,22 +141,23 @@
                 </div>
               </div>
             </div>
-            <div class="identity-section">
-              <div class="identity-info-group">
-                <div class="identity-badge" :class="'identity-' + mockAIProfile.identityStatus">
-                  <el-icon :size="12"><User /></el-icon>
-                  {{ mockAIProfile.identityLabel }}
-                  <span class="confidence">({{ Math.round(mockAIProfile.confidence * 100) }}%)</span>
-                </div>
-                <div class="match-source-hint">
-                  <el-icon :size="10"><CircleCheck /></el-icon>
-                  {{ mockAIProfile.matchSource }}
-                </div>
+            <!-- 全局统计信息（右侧） -->
+            <div class="global-stats-section">
+              <div class="stat-item-archive">
+                <div class="stat-label-archive">违规片段</div>
+                <div class="stat-value-archive">{{ mockVideoRisks.length }}<span class="stat-unit">处</span></div>
               </div>
-              <div class="scene-badge">
-                <el-icon :size="12"><Location /></el-icon>
-                {{ mockAIProfile.sceneType }}
-                <span class="scene-conf">{{ Math.round(mockAIProfile.sceneConfidence * 100) }}%</span>
+              <div class="stat-item-archive">
+                <div class="stat-label-archive">最高风险</div>
+                <div class="stat-value-archive risk-high">高危</div>
+              </div>
+              <div class="stat-item-archive">
+                <div class="stat-label-archive">涉及高校</div>
+                <div class="stat-value-archive">{{ mockUniversityBaseline.universityName }}</div>
+              </div>
+              <div class="stat-item-archive">
+                <div class="stat-label-archive">情绪波动</div>
+                <div class="stat-value-archive">{{ angryEmotionCount }}<span class="stat-unit">次</span></div>
               </div>
             </div>
           </div>
@@ -233,8 +234,8 @@
             </div>
             
             <!-- 多轨道时间轴（去背景，融合风格） -->
-            <div class="multi-track-timeline-inline">
-              <v-chart :option="multiModalTimelineOption" class="timeline-chart-inline" @click="onTimelineClick" />
+            <div class="multi-track-timeline-inline" @click="onChartContainerClick">
+              <v-chart ref="timelineChartRef" :option="multiModalTimelineOption" class="timeline-chart-inline" @click="onTimelineClick" />
             </div>
           </div>
           
@@ -383,34 +384,6 @@
                       {{ mockAIProfile.staticFeatures.clothing }}
                     </span>
                   </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 全局统计汇总（紧凑版） -->
-            <div class="neu-card global-stats-compact">
-              <div class="card-header-compact">
-                <span class="card-title-compact">
-                  <el-icon :size="14"><DataLine /></el-icon>
-                  全局分析汇总
-                </span>
-              </div>
-              <div class="global-stats-grid-compact">
-                <div class="stat-item-compact">
-                  <div class="stat-label-compact">违规片段</div>
-                  <div class="stat-value-compact">{{ mockVideoRisks.length }}处</div>
-                </div>
-                <div class="stat-item-compact">
-                  <div class="stat-label-compact">最高风险</div>
-                  <div class="stat-value-compact risk-high">高危</div>
-                </div>
-                <div class="stat-item-compact">
-                  <div class="stat-label-compact">涉及高校</div>
-                  <div class="stat-value-compact">{{ mockUniversityBaseline.universityName }}</div>
-                </div>
-                <div class="stat-item-compact">
-                  <div class="stat-label-compact">情绪波动</div>
-                  <div class="stat-value-compact">{{ angryEmotionCount }}次</div>
                 </div>
               </div>
             </div>
@@ -818,7 +791,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { use } from 'echarts/core'
@@ -891,6 +864,15 @@ const currentSegmentIndex = ref(-1)
 
 // 当前显示的检测框
 const currentDetection = ref<any>(null)
+
+// 时间轴图表引用
+const timelineChartRef = ref<any>(null)
+
+// 分析页面根容器引用
+const analysisPageRef = ref<HTMLDivElement | null>(null)
+
+// 页面级ResizeObserver实例
+let pageResizeObserver: ResizeObserver | null = null
 
 // ==================== V1.5 新增：Mock证据数据 ====================
 interface RiskEvidence {
@@ -1410,6 +1392,7 @@ const multiModalTimelineOption = computed(() => {
       appendToBody: true,
       axisPointer: { 
         type: 'line',
+        snap: false,  // 不吸附到数据点，精确跟随鼠标位置
         lineStyle: { 
           color: 'rgba(75, 112, 226, 0.4)', 
           width: 1,
@@ -1538,7 +1521,7 @@ const multiModalTimelineOption = computed(() => {
     grid: {
       left: 21,
       right: 22,
-      bottom: '15%',
+      bottom: '30%',
       top: '5%',
       containLabel: false
     },
@@ -1573,6 +1556,9 @@ const multiModalTimelineOption = computed(() => {
         fontSize: 11,
         formatter: (value: number) => formatTimestamp(value),
         margin: 8
+      },
+      axisPointer: {
+        snap: false  // 关键！让axisPointer不吸附到数据点，精确跟随鼠标
       }
     },
     yAxis: {
@@ -1650,48 +1636,6 @@ const multiModalTimelineOption = computed(() => {
         emphasis: {
           lineStyle: { width: 2.5 },
           itemStyle: { borderWidth: 3 }
-        },
-        // 播放进度指示线（精确跟随视频进度）
-        markLine: {
-          symbol: 'none',
-          animation: false,
-          silent: false,
-          data: [
-            [
-              {
-                coord: [currentPlayTime.value, 0],
-                symbol: 'none'
-              },
-              {
-                coord: [currentPlayTime.value, 100],
-                symbol: 'none',
-                lineStyle: {
-                  color: '#ff4d4f',
-                  width: 3,
-                  type: 'solid',
-                  opacity: 0.9,
-                  shadowBlur: 6,
-                  shadowColor: 'rgba(255, 77, 79, 0.3)'
-                },
-                label: {
-                  show: true,
-                  position: 'insideStartTop',
-                  formatter: () => {
-                    const time = currentPlayTime.value
-                    const m = Math.floor(time / 60)
-                    const s = Math.floor(time % 60)
-                    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-                  },
-                  color: '#fff',
-                  fontSize: 11,
-                  fontWeight: 'bold',
-                  backgroundColor: '#ff4d4f',
-                  padding: [4, 8],
-                  borderRadius: 4
-                }
-              }
-            ]
-          ]
         }
       },
       
@@ -2329,6 +2273,55 @@ const generateMockRiskTimeline = (duration: number) => {
 }
 
 // 时间轴点击事件 - 跳转播放
+// 图表容器点击处理（支持点击任意位置跳转）
+const onChartContainerClick = (event: MouseEvent) => {
+  if (viewMode.value !== 'interactive') return
+  
+  const target = event.currentTarget as HTMLElement
+  if (!target) return
+  
+  // 计算点击位置相对于容器的百分比
+  const rect = target.getBoundingClientRect()
+  const clickX = event.clientX - rect.left
+  const containerWidth = rect.width
+  const percentage = clickX / containerWidth
+  
+  // 转换为视频时间（考虑grid的left/right padding）
+  const gridLeft = 21 // 对应grid.left配置
+  const gridRight = 22 // 对应grid.right配置
+  const effectiveWidth = containerWidth - gridLeft - gridRight
+  const effectiveClickX = clickX - gridLeft
+  const actualPercentage = Math.max(0, Math.min(1, effectiveClickX / effectiveWidth))
+  
+  const clickedTime = actualPercentage * videoDuration.value
+  
+  // 跳转视频到点击的时间
+  if (mainVideoPlayerRef.value && clickedTime >= 0 && clickedTime <= videoDuration.value) {
+    mainVideoPlayerRef.value.currentTime = clickedTime
+    mainVideoPlayerRef.value.play().catch(e => console.log('播放失败:', e))
+    
+    // 找到最接近的证据并更新选中状态
+    if (mockRiskEvidence.length > 0) {
+      let nearestEvidence = mockRiskEvidence[0]
+      let minDiff = Math.abs(mockRiskEvidence[0].timeSeconds - clickedTime)
+      
+      mockRiskEvidence.forEach(evidence => {
+        const diff = Math.abs(evidence.timeSeconds - clickedTime)
+        if (diff < minDiff) {
+          minDiff = diff
+          nearestEvidence = evidence
+        }
+      })
+      
+      if (nearestEvidence) {
+        selectedEvidenceId.value = nearestEvidence.id
+      }
+    }
+    
+    ElMessage.success(`跳转到 ${formatTimestamp(clickedTime)}`)
+  }
+}
+
 const onTimelineClick = (params: any) => {
   if (!params || !params.data) return
   
@@ -2369,19 +2362,24 @@ const onTimelineClick = (params: any) => {
   if (!timelineData || !timelineData.timeSeriesData) return
   
   const clickedTime = params.data[0]
-  console.log('点击时间轴:', clickedTime, '秒')
   playVideo(clickedTime)
   ElMessage.success(`正在跳转到 ${formatTimestamp(clickedTime)} 播放`)
 }
 
-// 视频时间更新事件
+// 视频时间更新事件（优化版：分离竖线更新和状态更新）
 const onVideoTimeUpdate = () => {
   if (!mainVideoPlayerRef.value) return
   
-  currentPlayTime.value = mainVideoPlayerRef.value.currentTime
+  const newTime = mainVideoPlayerRef.value.currentTime
+  
+  // 实时更新currentPlayTime，用于其他组件的响应式
+  currentPlayTime.value = newTime
+  
+  // 直接更新图表的markLine，不触发computed重新计算
+  updateProgressLine(newTime)
   
   // 实时更新当前证据（根据播放时间自动切换）
-  const currentTime = currentPlayTime.value
+  const currentTime = newTime
   const nearestEvidence = mockRiskEvidence.find(
     e => Math.abs(e.timeSeconds - currentTime) < 2.5
   )
@@ -2403,14 +2401,70 @@ const onVideoTimeUpdate = () => {
   currentDetection.value = detection || null
 }
 
+// 直接更新进度竖线，不触发图表完全重绘
+let progressLineUpdatePending = false
+const updateProgressLine = (time: number) => {
+  if (!timelineChartRef.value || progressLineUpdatePending) return
+  
+  progressLineUpdatePending = true
+  
+  requestAnimationFrame(() => {
+    if (!timelineChartRef.value) {
+      progressLineUpdatePending = false
+      return
+    }
+    
+    const m = Math.floor(time / 60)
+    const s = Math.floor(time % 60)
+    const timeLabel = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    
+    // 使用setOption局部更新markLine，notMerge: false保持其他配置不变
+    timelineChartRef.value.setOption({
+      series: [{
+        markLine: {
+          symbol: 'none',
+          animation: false,
+          data: [
+            [
+              { coord: [time, 0], symbol: 'none' },
+              {
+                coord: [time, 100],
+                symbol: 'none',
+                lineStyle: {
+                  color: '#ff4d4f',
+                  width: 3,
+                  type: 'solid',
+                  opacity: 0.9,
+                  shadowBlur: 6,
+                  shadowColor: 'rgba(255, 77, 79, 0.3)'
+                },
+                label: {
+                  show: true,
+                  position: 'insideStartTop',
+                  formatter: timeLabel,
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 'bold',
+                  backgroundColor: '#ff4d4f',
+                  padding: [4, 8],
+                  borderRadius: 4
+                }
+              }
+            ]
+          ]
+        }
+      }]
+    }, false, false) // notMerge: false, lazyUpdate: false
+    
+    progressLineUpdatePending = false
+  })
+}
+
 // 视频加载完成
 const onVideoLoaded = () => {
-  console.log('视频加载完成')
-  
   // 更新视频真实时长，确保图表时间轴与视频进度精确对齐
   if (mainVideoPlayerRef.value && mainVideoPlayerRef.value.duration) {
     videoDuration.value = mainVideoPlayerRef.value.duration
-    console.log('视频真实时长:', videoDuration.value, '秒')
   }
   
   // 自动跳转到第一个高风险证据
@@ -2745,6 +2799,14 @@ subscribeCompleted((data) => {
   }
 })
 
+// 图表resize处理函数
+const handleChartResize = () => {
+  // 调用ECharts实例的resize方法，让图表响应尺寸变化
+  if (timelineChartRef.value && typeof timelineChartRef.value.resize === 'function') {
+    timelineChartRef.value.resize()
+  }
+}
+
 onMounted(() => {
   fetchVideos()
   
@@ -2762,6 +2824,31 @@ onMounted(() => {
     selectedEvidenceId.value = firstHighRisk.id
   } else if (mockRiskEvidence.length > 0) {
     selectedEvidenceId.value = mockRiskEvidence[0].id
+  }
+  
+  // 添加窗口resize监听（浏览器窗口大小变化）
+  window.addEventListener('resize', handleChartResize)
+  
+  // 监听整个页面容器的宽度变化（捕获侧边栏收起/展开）
+  if (analysisPageRef.value) {
+    pageResizeObserver = new ResizeObserver(() => {
+      // 页面宽度变化时，延迟调用图表resize，等待CSS过渡动画完成
+      setTimeout(() => {
+        handleChartResize()
+      }, 350)
+    })
+    
+    pageResizeObserver.observe(analysisPageRef.value)
+  }
+})
+
+// 组件卸载时清理监听器
+onUnmounted(() => {
+  window.removeEventListener('resize', handleChartResize)
+  
+  if (pageResizeObserver) {
+    pageResizeObserver.disconnect()
+    pageResizeObserver = null
   }
 })
 </script>
@@ -2794,6 +2881,46 @@ $purple: #4b70e2;
       display: flex;
       align-items: center;
       gap: 16px;
+    }
+    
+    .global-stats-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: $neu-1;
+      border-radius: 12px;
+      box-shadow: 2px 2px 6px $neu-2, -2px -2px 6px $white;
+      
+      .stat-item-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        
+        .stat-label-header {
+          font-size: 11px;
+          color: $gray;
+          white-space: nowrap;
+        }
+        
+        .stat-value-header {
+          font-size: 16px;
+          font-weight: 700;
+          color: $black;
+          white-space: nowrap;
+          
+          &.risk-high {
+            color: #f56c6c;
+          }
+        }
+      }
+      
+      .stat-divider {
+        width: 1px;
+        height: 30px;
+        background: linear-gradient(180deg, transparent, $neu-2, transparent);
+      }
     }
     
     .view-mode-toggle {
@@ -3963,6 +4090,59 @@ $purple: #4b70e2;
           .scene-conf {
             font-size: 10px;
             opacity: 0.75;
+          }
+        }
+      }
+      
+      .global-stats-section {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        padding: 0;
+        
+        .stat-item-archive {
+          background: $neu-1;
+          border-radius: 12px;
+          padding: 14px 16px;
+          box-shadow: 2px 2px 6px $neu-2, -2px -2px 6px $white;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: all 0.3s ease;
+          
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 3px 3px 8px $neu-2, -3px -3px 8px $white;
+          }
+          
+          .stat-label-archive {
+            font-size: 11px;
+            color: $gray;
+            font-weight: 500;
+            text-align: center;
+          }
+          
+          .stat-value-archive {
+            font-size: 24px;
+            font-weight: 700;
+            color: $black;
+            display: flex;
+            align-items: baseline;
+            
+            &.risk-high {
+              background: linear-gradient(135deg, #f56c6c, #ff8585);
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+            }
+            
+            .stat-unit {
+              font-size: 14px;
+              font-weight: 600;
+              margin-left: 2px;
+            }
           }
         }
       }
@@ -5201,6 +5381,57 @@ $purple: #4b70e2;
             &.risk-high {
               color: #f56c6c;
             }
+          }
+        }
+      }
+    }
+  }
+  
+  // 全局统计汇总（置顶版，4列横向布局）
+  .global-stats-top {
+    .card-header-compact {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      .card-title-compact {
+        font-size: 13px;
+        font-weight: 600;
+        color: $black;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+    }
+    
+    .global-stats-grid-top {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      
+      @media (max-width: 1200px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .stat-item-compact {
+        text-align: center;
+        
+        .stat-label-compact {
+          font-size: 12px;
+          color: $gray;
+          margin-bottom: 6px;
+        }
+        
+        .stat-value-compact {
+          font-size: 20px;
+          font-weight: 700;
+          color: $black;
+          
+          &.risk-high {
+            color: #f56c6c;
           }
         }
       }
