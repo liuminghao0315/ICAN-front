@@ -99,147 +99,365 @@
       <!-- 交互式分析视图 -->
       <transition name="fade" mode="out-in">
       <div v-if="viewMode === 'interactive'" key="interactive" class="interactive-view">
+        <!-- 逻辑修复：视频档案卡（本地上传场景） -->
+        <div class="video-archive-card neu-card">
+          <div class="archive-header">
+            <div class="file-section">
+              <div class="file-icon">
+                <el-icon :size="28"><VideoCamera /></el-icon>
+              </div>
+              <div class="file-info">
+                <div class="file-main">
+                  <span class="file-name">{{ mockVideoArchive.fileName }}</span>
+                  <span class="status-badge success">
+                    <el-icon :size="11"><CircleCheck /></el-icon>
+                    {{ mockVideoArchive.analysisStatus }}
+                  </span>
+                </div>
+                <div class="file-meta">
+                  <span class="meta-item">
+                    <el-icon :size="11"><Folder /></el-icon>
+                    {{ mockVideoArchive.uploadSource }}
+                  </span>
+                  <span class="meta-item">
+                    <el-icon :size="11"><Files /></el-icon>
+                    {{ formatFileSize(mockVideoArchive.fileSize) }}
+                  </span>
+                  <span class="meta-item">
+                    <el-icon :size="11"><Clock /></el-icon>
+                    {{ formatDuration(mockVideoArchive.duration) }}
+                  </span>
+                  <span class="meta-item">
+                    <el-icon :size="11"><Monitor /></el-icon>
+                    {{ mockVideoArchive.resolution }}
+                  </span>
+                </div>
+                <div class="baseline-info">
+                  <el-icon :size="11"><School /></el-icon>
+                  <span class="baseline-text">
+                    匹配基准：{{ mockUniversityBaseline.universityName }} (ID: {{ mockUniversityBaseline.universityId }})
+                  </span>
+                  <span class="baseline-version">场景库: {{ mockUniversityBaseline.sceneDatabase }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="identity-section">
+              <div class="identity-info-group">
+                <div class="identity-badge" :class="'identity-' + mockAIProfile.identityStatus">
+                  <el-icon :size="12"><User /></el-icon>
+                  {{ mockAIProfile.identityLabel }}
+                  <span class="confidence">({{ Math.round(mockAIProfile.confidence * 100) }}%)</span>
+                </div>
+                <div class="match-source-hint">
+                  <el-icon :size="10"><CircleCheck /></el-icon>
+                  {{ mockAIProfile.matchSource }}
+                </div>
+              </div>
+              <div class="scene-badge">
+                <el-icon :size="12"><Location /></el-icon>
+                {{ mockAIProfile.sceneType }}
+                <span class="scene-conf">{{ Math.round(mockAIProfile.sceneConfidence * 100) }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 视频 + 台词（左右布局，保持宽敞） -->
         <div class="multi-modal-container">
-          <!-- 左侧：视频播放器区域 -->
+          <!-- 左侧：证据截图区域 -->
           <div class="video-section">
             <div class="video-player-wrapper">
+              <!-- 真实视频播放器 -->
               <video
-                v-if="analysisData?.videoUrl"
-                :src="analysisData.videoUrl"
-                controls
-                class="main-video-player"
+                v-if="realVideoUrl"
                 ref="mainVideoPlayerRef"
+                :src="realVideoUrl"
+                class="evidence-snapshot"
                 @timeupdate="onVideoTimeUpdate"
                 @loadedmetadata="onVideoLoaded"
+                controls
+                crossorigin="anonymous"
               ></video>
               
               <!-- 视频占位符 -->
               <div v-else class="video-placeholder">
                 <el-icon :size="80" color="#a0a5a8"><VideoPlay /></el-icon>
-                <p>视频加载中...</p>
+                <p>请选择风险证据</p>
               </div>
               
-              <!-- 检测框叠加层 -->
-              <div class="detection-overlay" v-if="currentDetection">
+              <!-- 检测框叠加层（显示当前证据的检测框） -->
+              <div class="detection-overlay" v-if="currentEvidence && currentEvidence.label">
                 <div 
-                  class="detection-box"
-                  :style="getDetectionBoxStyle(currentDetection)"
+                  class="detection-box pulse-glow"
+                  :style="currentEvidence.boxStyle"
                 >
-                  <span class="detection-label">{{ currentDetection.type }} ({{ Math.round(currentDetection.confidence * 100) }}%)</span>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 视频信息 -->
-            <div class="video-meta-bar">
-              <div class="video-title-info">
-                <el-icon :size="20"><VideoPlay /></el-icon>
-                <span class="title-text">{{ analysisData.videoTitle }}</span>
-              </div>
-              <div class="video-stats">
-                <span class="risk-badge" :class="getRiskClass(analysisData.riskLevel)">
-                  {{ analysisData.riskLevelDesc || getRiskLevelText(analysisData.riskLevel) }}
-                </span>
-                <span class="score-badge">风险: {{ formatScore(analysisData.riskScore) }}</span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 右侧：台词列表区域 -->
-          <div class="transcript-panel">
-            <div class="panel-header">
-              <div class="panel-title">
-                <el-icon><Microphone /></el-icon>
-                语音转文字与风险定位
-              </div>
-              <div class="panel-subtitle">点击台词跳转播放 · 当前段落自动高亮</div>
-            </div>
-            
-            <div class="transcript-list">
-              <div 
-                v-for="(segment, index) in mockTranscriptSegments" 
-                :key="index"
-                class="transcript-segment"
-                :class="{ 
-                  'active': currentSegmentIndex === index,
-                  'high-risk': segment.riskLevel === 'high',
-                  'medium-risk': segment.riskLevel === 'medium'
-                }"
-                @click="jumpToTime(segment.start)"
-              >
-                <div class="segment-header">
-                  <span class="time-range">{{ formatTimestamp(segment.start) }} - {{ formatTimestamp(segment.end) }}</span>
-                  <span class="emotion-badge" :class="getEmotionClass(segment.emotion)">
-                    {{ getEmotionText(segment.emotion) }}
-                  </span>
-                  <span v-if="segment.riskLevel !== 'low'" class="risk-tag" :class="segment.riskLevel">
-                    {{ segment.riskLevel === 'high' ? '高风险' : '中风险' }}
+                  <span class="detection-label">
+                    {{ currentEvidence.label }} ({{ Math.round(currentEvidence.confidence * 100) }}%)
                   </span>
                 </div>
-                <div class="segment-text" v-html="highlightKeywords(segment.text, segment.keywords)"></div>
               </div>
               
-              <div v-if="mockTranscriptSegments.length === 0" class="empty-transcript">
-                <el-icon :size="36"><Microphone /></el-icon>
-                <p>暂无语音转录数据</p>
+              <!-- 扫描线特效 -->
+              <div class="scanline-effect"></div>
+              
+              <!-- 当前帧信息叠加（顶部） -->
+              <div class="frame-info-overlay" v-if="currentEvidence">
+                <div class="info-tags-row">
+                  <span v-if="currentEvidence.emotion" class="info-tag emotion" :class="'emotion-' + currentEvidence.emotion">
+                    <el-icon :size="11"><Microphone /></el-icon>
+                    {{ getEmotionText(currentEvidence.emotion) }}
+                  </span>
+                  <span v-if="currentEvidence.riskLevel === 'HIGH'" class="info-tag risk-alert">
+                    <el-icon :size="11"><Warning /></el-icon>
+                    高风险告警
+                  </span>
+                </div>
+              </div>
+              
+              <!-- 伪进度条（已禁用，使用HTML5原生控制条） -->
+              <div class="fake-controls" v-if="false">
+                <div class="control-left">
+                  <el-icon class="control-icon"><VideoPlay /></el-icon>
+                  <span class="time-display">{{ formatCurrentTime() }} / {{ formatTotalDuration() }}</span>
+                </div>
+                <div class="progress-bar-wrapper">
+                  <div class="progress-bar">
+                    <div class="progress-now" :style="{ width: getProgressWidth() }"></div>
+                  </div>
+                </div>
+                <div class="control-right">
+                  <el-icon class="control-icon"><Sound /></el-icon>
+                  <el-icon class="control-icon"><FullScreen /></el-icon>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 多轨道时间轴（去背景，融合风格） -->
+            <div class="multi-track-timeline-inline">
+              <v-chart :option="multiModalTimelineOption" class="timeline-chart-inline" @click="onTimelineClick" />
+            </div>
+          </div>
+          
+          <!-- 右侧：字幕 + 雷达图容器 -->
+          <div class="right-panel-container">
+            <!-- 台词列表区域（精简版） -->
+            <div class="transcript-panel">
+              <div class="panel-header-compact">
+                <span class="panel-title-compact">
+                  <el-icon :size="14"><Microphone /></el-icon>
+                  语音转文字与风险定位
+                </span>
+                <span class="detection-badge">
+                  <el-icon :size="10"><User /></el-icon>
+                  主讲人：男性
+                </span>
+              </div>
+              
+              <div class="transcript-list">
+                <div 
+                  v-for="evidence in mockRiskEvidence" 
+                  :key="evidence.id"
+                  class="transcript-segment"
+                  :class="{ 
+                    'active': selectedEvidenceId === evidence.id,
+                    'high-risk': evidence.riskLevel === 'HIGH',
+                    'medium-risk': evidence.riskLevel === 'MEDIUM'
+                  }"
+                  @click="selectEvidence(evidence.id)"
+                >
+                  <div class="segment-header">
+                    <span class="time-range">{{ evidence.time }}</span>
+                    <span v-if="evidence.emotion" class="emotion-badge" :class="getEmotionClass(evidence.emotion)">
+                      {{ getEmotionText(evidence.emotion) }}
+                    </span>
+                    <span v-if="evidence.riskLevel !== 'LOW'" class="risk-tag" :class="evidence.riskLevel.toLowerCase()">
+                      {{ evidence.riskLevel === 'HIGH' ? '高风险' : '中风险' }}
+                    </span>
+                  </div>
+                  <div class="segment-text" v-html="highlightKeywords(evidence.content, evidence.keywords)"></div>
+                  
+                  <!-- Gemini优化：音频特征展示 -->
+                  <div v-if="evidence.emotion" class="audio-features">
+                    <span class="audio-feature-tag" :class="'emotion-' + evidence.emotion">
+                      <el-icon :size="11"><Headset /></el-icon>
+                      情绪: {{ getEmotionText(evidence.emotion) }}
+                    </span>
+                    <span v-if="evidence.riskLevel === 'HIGH'" class="audio-feature-tag volume">
+                      <el-icon :size="11"><Sound /></el-icon>
+                      音量: 嘶吼
+                    </span>
+                    <span v-if="evidence.emotion === 'angry'" class="audio-feature-tag pitch">
+                      <el-icon :size="11"><TrendCharts /></el-icon>
+                      音调: 升高
+                    </span>
+                  </div>
+                  
+                  <div v-if="evidence.label" class="detection-info">
+                    <el-icon :size="12" color="#f56c6c"><Warning /></el-icon>
+                    <span>检测到: {{ evidence.label }} (置信度: {{ Math.round(evidence.confidence * 100) }}%)</span>
+                  </div>
+                </div>
+                
+                <div v-if="mockTranscriptSegments.length === 0" class="empty-transcript">
+                  <el-icon :size="36"><Microphone /></el-icon>
+                  <p>暂无语音转录数据</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 雷达图（含风险分） -->
+            <div class="neu-card dashboard-radar">
+              <div class="card-header-compact">
+                <span class="card-title-compact">
+                  <el-icon :size="14"><DataAnalysis /></el-icon>
+                  多模态风险融合画像
+                </span>
+                <span class="current-frame-badge-small">
+                  <el-icon :size="9"><VideoPlay /></el-icon>
+                  当前帧: {{ currentEvidence?.time || '00:00' }}
+                </span>
+              </div>
+              <div class="radar-with-score">
+                <div class="radar-chart-area">
+                  <v-chart :option="multiModalRadarOption" class="radar-chart-compact" />
+                  <div class="fusion-formula-compact">
+                    综合风险 = 文本×0.4 + 视频×0.3 + 音频×0.3
+                  </div>
+                </div>
+                <div class="score-side-panel">
+                  <div class="score-number-side" :class="getCurrentRiskClass()">
+                    {{ getCurrentRiskScore() }}
+                  </div>
+                  <div class="score-label-side">当前风险分</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
         
-        <!-- 多轨道时间轴 -->
-        <div class="multi-track-timeline neu-card">
-          <div class="card-header">
-            <span class="card-title">
-              <el-icon><DataLine /></el-icon>
-              多模态风险时间轴
-            </span>
-            <span class="card-subtitle">点击任意位置跳转播放 · 三模态风险一目了然</span>
-          </div>
-          <div class="timeline-content">
-            <v-chart :option="multiModalTimelineOption" class="timeline-chart" @click="onTimelineClick" />
+        <!-- 底部：AI侧写 + 全局统计 -->
+        <div class="bottom-dashboard-grid">
+          <div class="dashboard-info-panel">
+            <!-- AI目标侧写（紧凑版） -->
+            <div class="neu-card ai-profiling-compact">
+              <div class="card-header-compact">
+                <span class="card-title-compact">
+                  <el-icon :size="14"><UserFilled /></el-icon>
+                  AI目标侧写
+                </span>
+                <span class="profiling-hint-small">基于视频内容推测</span>
+              </div>
+              <div class="profiling-content-compact">
+                <div class="profiling-section-inline">
+                  <div class="section-title-small">
+                    <el-icon :size="11"><ChatLineRound /></el-icon>
+                    检出关键词
+                  </div>
+                  <div class="keyword-chips-small">
+                    <span v-for="(kw, idx) in mockAIProfile.detectedKeywords" :key="idx" class="keyword-chip-small">
+                      {{ kw }}
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="profiling-section-inline">
+                  <div class="section-title-small">
+                    <el-icon :size="11"><User /></el-icon>
+                    静态身份特征
+                  </div>
+                  <div class="feature-chips-small">
+                    <span class="feature-chip-small">
+                      <el-icon :size="9"><Male /></el-icon>
+                      {{ mockAIProfile.staticFeatures.gender }}
+                    </span>
+                    <span class="feature-chip-small">
+                      <el-icon :size="9"><Calendar /></el-icon>
+                      {{ mockAIProfile.staticFeatures.ageRange }}
+                    </span>
+                    <span class="feature-chip-small">
+                      <el-icon :size="9"><Sound /></el-icon>
+                      {{ mockAIProfile.staticFeatures.voiceProfile }}
+                    </span>
+                    <span class="feature-chip-small">
+                      <el-icon :size="9"><Shirt /></el-icon>
+                      {{ mockAIProfile.staticFeatures.clothing }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 全局统计汇总（紧凑版） -->
+            <div class="neu-card global-stats-compact">
+              <div class="card-header-compact">
+                <span class="card-title-compact">
+                  <el-icon :size="14"><DataLine /></el-icon>
+                  全局分析汇总
+                </span>
+              </div>
+              <div class="global-stats-grid-compact">
+                <div class="stat-item-compact">
+                  <div class="stat-label-compact">违规片段</div>
+                  <div class="stat-value-compact">{{ mockVideoRisks.length }}处</div>
+                </div>
+                <div class="stat-item-compact">
+                  <div class="stat-label-compact">最高风险</div>
+                  <div class="stat-value-compact risk-high">高危</div>
+                </div>
+                <div class="stat-item-compact">
+                  <div class="stat-label-compact">涉及高校</div>
+                  <div class="stat-value-compact">{{ mockUniversityBaseline.universityName }}</div>
+                </div>
+                <div class="stat-item-compact">
+                  <div class="stat-label-compact">情绪波动</div>
+                  <div class="stat-value-compact">{{ angryEmotionCount }}次</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
-        <!-- 关键指标卡片 -->
-        <div class="stats-summary-grid">
-          <div class="neu-card stat-summary">
-            <div class="stat-icon video-icon">
-              <el-icon :size="24"><VideoCamera /></el-icon>
+        <!-- 右侧关键指标（简化版，移到顶部雷达图旁边） -->
+        <div class="side-metrics-wrapper" v-if="false">
+          <div class="key-metrics-grid">
+            <div class="neu-card metric-mini">
+              <div class="metric-icon video-icon">
+                <el-icon :size="20"><VideoCamera /></el-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-value">{{ mockVideoRisks.length }}</div>
+                <div class="metric-label">视频风险点</div>
+              </div>
             </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ mockVideoRisks.length }}</div>
-              <div class="stat-label">视频风险点</div>
+            
+            <div class="neu-card metric-mini">
+              <div class="metric-icon audio-icon">
+                <el-icon :size="20"><Microphone /></el-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-value">{{ angryEmotionCount }}</div>
+                <div class="metric-label">情绪波动</div>
+              </div>
             </div>
-          </div>
-          
-          <div class="neu-card stat-summary">
-            <div class="stat-icon audio-icon">
-              <el-icon :size="24"><Microphone /></el-icon>
+            
+            <div class="neu-card metric-mini">
+              <div class="metric-icon text-icon">
+                <el-icon :size="20"><Document /></el-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-value">{{ highRiskSegmentCount }}</div>
+                <div class="metric-label">高风险台词</div>
+              </div>
             </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ angryEmotionCount }}</div>
-              <div class="stat-label">情绪波动</div>
-            </div>
-          </div>
-          
-          <div class="neu-card stat-summary">
-            <div class="stat-icon text-icon">
-              <el-icon :size="24"><Document /></el-icon>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ highRiskSegmentCount }}</div>
-              <div class="stat-label">高风险台词</div>
-            </div>
-          </div>
-          
-          <div class="neu-card stat-summary">
-            <div class="stat-icon university-icon">
-              <el-icon :size="24"><School /></el-icon>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value">{{ analysisData.isUniversityRelated ? '是' : '否' }}</div>
-              <div class="stat-label">高校相关</div>
+            
+            <div class="neu-card metric-mini">
+              <div class="metric-icon university-icon">
+                <el-icon :size="20"><School /></el-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-value">{{ analysisData.isUniversityRelated ? '是' : '否' }}</div>
+                <div class="metric-label">高校相关</div>
+              </div>
             </div>
           </div>
         </div>
@@ -605,14 +823,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { PieChart, BarChart, LineChart } from 'echarts/charts'
+import { PieChart, BarChart, LineChart, RadarChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent,
   MarkPointComponent,
-  MarkLineComponent
+  MarkLineComponent,
+  RadarComponent
 } from 'echarts/components'
 import VChart from 'vue-echarts'
 import { ElMessage } from 'element-plus'
@@ -630,10 +849,12 @@ use([
   PieChart,
   BarChart,
   LineChart,
+  RadarChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent,
+  RadarComponent,
   MarkPointComponent,
   MarkLineComponent
 ])
@@ -662,11 +883,184 @@ const mainVideoPlayerRef = ref<HTMLVideoElement | null>(null)
 // 当前播放时间
 const currentPlayTime = ref(0)
 
+// 视频真实时长（秒）
+const videoDuration = ref(180)
+
 // 当前激活的台词段落索引
 const currentSegmentIndex = ref(-1)
 
 // 当前显示的检测框
 const currentDetection = ref<any>(null)
+
+// ==================== V1.5 新增：Mock证据数据 ====================
+interface RiskEvidence {
+  id: string
+  time: string // 显示用，如 "00:42"
+  timeSeconds: number // 用于时间轴定位
+  content: string // 台词
+  riskLevel: 'HIGH' | 'MEDIUM' | 'LOW'
+  imageUrl: string // 对应这一刻的截图URL
+  boxStyle: { top: string; left: string; width: string; height: string }
+  label: string // 红框上的字，如 "非官方横幅"
+  confidence: number // 置信度
+  keywords: string[] // 高亮关键词
+  emotion?: string // 语音情绪
+}
+
+// Mock证据数组（5条证据，覆盖高/中/低风险）
+const mockRiskEvidence: RiskEvidence[] = [
+  {
+    id: 'evidence-1',
+    time: '00:15',
+    timeSeconds: 15,
+    content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
+    riskLevel: 'LOW',
+    imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop', // 大学校园
+    boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' }, // 无检测框
+    label: '',
+    confidence: 0,
+    keywords: [],
+    emotion: 'calm'
+  },
+  {
+    id: 'evidence-2',
+    time: '00:42',
+    timeSeconds: 42,
+    content: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
+    riskLevel: 'HIGH',
+    imageUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&h=450&fit=crop', // 抗议场景
+    boxStyle: { top: '25%', left: '15%', width: '45%', height: '35%' },
+    label: 'OCR敏感词：[抵制]',
+    confidence: 0.98,
+    keywords: ['欺骗', '抵制', '联合'],
+    emotion: 'angry'
+  },
+  {
+    id: 'evidence-3',
+    time: '01:08',
+    timeSeconds: 68,
+    content: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
+    riskLevel: 'MEDIUM',
+    imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=450&fit=crop', // 人群讨论
+    boxStyle: { top: '35%', left: '30%', width: '30%', height: '40%' },
+    label: '肢体动作：过激手势',
+    confidence: 0.85,
+    keywords: ['风险', '真相'],
+    emotion: 'serious'
+  },
+  {
+    id: 'evidence-4',
+    time: '01:45',
+    timeSeconds: 105,
+    content: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
+    riskLevel: 'MEDIUM',
+    imageUrl: 'https://images.unsplash.com/photo-1577896851905-4dcc0c7f1f1c?w=800&h=450&fit=crop', // 严肃场景
+    boxStyle: { top: '20%', left: '25%', width: '35%', height: '30%' },
+    label: '抗议性标语区域',
+    confidence: 0.91,
+    keywords: ['追究'],
+    emotion: 'tense'
+  },
+  {
+    id: 'evidence-5',
+    time: '02:15',
+    timeSeconds: 135,
+    content: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+    riskLevel: 'LOW',
+    imageUrl: 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=800&h=450&fit=crop', // 校园环境
+    boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
+    label: '',
+    confidence: 0,
+    keywords: [],
+    emotion: 'calm'
+  }
+]
+
+// 当前选中的证据ID
+const selectedEvidenceId = ref<string>('')
+
+// 真实视频URL
+const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/2026/02/01/ae8f478c008b448c865a03cabdeeec1a.mp4')
+
+// 当前选中的证据对象
+const currentEvidence = computed(() => {
+  return mockRiskEvidence.find(e => e.id === selectedEvidenceId.value) || mockRiskEvidence[0]
+})
+
+// ==================== 逻辑修复：视频档案数据（本地上传场景） ====================
+interface VideoArchive {
+  fileName: string // 视频文件名
+  fileSize: number // 文件大小（字节）
+  duration: number // 时长（秒）
+  resolution: string // 分辨率
+  uploadTime: string // 上传时间
+  uploadSource: string // 来源：本地上传
+  analysisStatus: string // 分析状态
+  manualTag?: string // 可选：人工标记的备注对象
+}
+
+const mockVideoArchive: VideoArchive = {
+  fileName: 'video_evidence_20240201.mp4',
+  fileSize: 128 * 1024 * 1024, // 128MB
+  duration: 195, // 3分15秒
+  resolution: '1920×1080',
+  uploadTime: '2024-02-01 14:30:25',
+  uploadSource: '本地上传',
+  analysisStatus: '分析完成',
+  manualTag: '疑似违规宣传视频' // 人工备注
+}
+
+// 匹配基准库配置
+interface UniversityBaseline {
+  universityName: string
+  universityId: string
+  logoConfidence: number // 校徽匹配置信度
+  sceneDatabase: string // 场景库版本
+}
+
+const mockUniversityBaseline: UniversityBaseline = {
+  universityName: '北京大学',
+  universityId: 'PKU_001',
+  logoConfidence: 0.92,
+  sceneDatabase: 'V2.3.1'
+}
+
+// AI目标侧写数据（从视频内容推测）
+interface AIProfileResult {
+  identityStatus: 'confirmed' | 'suspected' | 'unknown'
+  identityLabel: string
+  confidence: number
+  matchSource: string // 匹配依据来源
+  detectedKeywords: string[] // 从语音/字幕提取的关键词
+  staticFeatures: {
+    gender: string // 性别
+    ageRange: string // 年龄段
+    voiceProfile: string // 声纹属性
+    clothing: string // 穿着
+  }
+  sceneType: string
+  sceneConfidence: number
+}
+
+const mockAIProfile: AIProfileResult = {
+  identityStatus: 'suspected',
+  identityLabel: '疑似本校学生',
+  confidence: 0.85,
+  matchSource: `检测到 [${mockUniversityBaseline.universityName}] 校徽 (置信度 ${Math.round(mockUniversityBaseline.logoConfidence * 100)}%)`,
+  detectedKeywords: [
+    '自称"阿强"',
+    '提及"我们学校"',
+    '提及"第一教学楼"'
+  ],
+  staticFeatures: {
+    gender: '男性',
+    ageRange: '20-25岁',
+    voiceProfile: '成年男性/沙哑音色',
+    clothing: '学士服'
+  },
+  sceneType: '第一教学楼',
+  sceneConfidence: 0.92
+}
 
 // 模拟数据：带时间戳的转录文本
 const mockTranscriptSegments = computed(() => {
@@ -683,7 +1077,8 @@ const mockTranscriptSegments = computed(() => {
       text: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
       emotion: 'calm',
       riskLevel: 'low',
-      keywords: []
+      keywords: [],
+      reason: '该时段内容正常，无明显风险'
     },
     {
       start: 15,
@@ -691,7 +1086,8 @@ const mockTranscriptSegments = computed(() => {
       text: '首先声明一下，这个视频的内容都是基于事实的，没有任何夸张成分...',
       emotion: 'calm',
       riskLevel: 'low',
-      keywords: []
+      keywords: [],
+      reason: '陈述性语言，情绪稳定'
     },
     {
       start: 42,
@@ -699,7 +1095,8 @@ const mockTranscriptSegments = computed(() => {
       text: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
       emotion: 'angry',
       riskLevel: 'high',
-      keywords: ['欺骗', '抵制', '联合']
+      keywords: ['欺骗', '抵制', '联合'],
+      reason: '含有煽动性言论，使用"欺骗""抵制"等敏感词汇'
     },
     {
       start: 68,
@@ -707,7 +1104,8 @@ const mockTranscriptSegments = computed(() => {
       text: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
       emotion: 'serious',
       riskLevel: 'medium',
-      keywords: ['风险', '真相']
+      keywords: ['风险', '真相'],
+      reason: '涉及敏感话题，语气较为严肃'
     },
     {
       start: 95,
@@ -715,7 +1113,8 @@ const mockTranscriptSegments = computed(() => {
       text: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
       emotion: 'tense',
       riskLevel: 'medium',
-      keywords: ['追究']
+      keywords: ['追究'],
+      reason: '带有威胁性表述，情绪紧张'
     },
     {
       start: 125,
@@ -723,12 +1122,13 @@ const mockTranscriptSegments = computed(() => {
       text: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
       emotion: 'calm',
       riskLevel: 'low',
-      keywords: []
+      keywords: [],
+      reason: '总结性陈述，风险较低'
     }
   ].filter(seg => seg.end <= duration)
 })
 
-// 模拟数据：视频风险点
+// 模拟数据：视频风险点（增强版 - 包含详细原因）
 const mockVideoRisks = computed(() => {
   if (!analysisData.value) return []
   
@@ -737,34 +1137,40 @@ const mockVideoRisks = computed(() => {
       time: 45,
       type: '非官方横幅',
       confidence: 0.98,
-      boundingBox: { x: 20, y: 30, width: 40, height: 30 }
+      boundingBox: { x: 20, y: 30, width: 40, height: 30 },
+      reason: '检测到未经授权的横幅标语',
+      riskLevel: 'high'
     },
     {
       time: 52,
       type: '激动手势',
       confidence: 0.85,
-      boundingBox: { x: 35, y: 45, width: 25, height: 30 }
+      boundingBox: { x: 35, y: 45, width: 25, height: 30 },
+      reason: '人物出现过激肢体动作',
+      riskLevel: 'medium'
     },
     {
       time: 105,
       type: '违规标识',
       confidence: 0.91,
-      boundingBox: { x: 15, y: 25, width: 35, height: 25 }
+      boundingBox: { x: 15, y: 25, width: 35, height: 25 },
+      reason: '画面中出现违规标识物',
+      riskLevel: 'high'
     }
   ]
 })
 
-// 模拟数据：音频情绪波动
+// 模拟数据：音频情绪波动（增强版 - 包含详细原因）
 const mockAudioEmotions = computed(() => {
   if (!analysisData.value) return []
   
   return [
-    { start: 0, end: 15, emotion: 'calm', intensity: 0.3 },
-    { start: 15, end: 42, emotion: 'calm', intensity: 0.4 },
-    { start: 42, end: 68, emotion: 'angry', intensity: 0.9 },
-    { start: 68, end: 95, emotion: 'tense', intensity: 0.7 },
-    { start: 95, end: 125, emotion: 'tense', intensity: 0.6 },
-    { start: 125, end: 155, emotion: 'calm', intensity: 0.4 }
+    { start: 0, end: 15, emotion: 'calm', intensity: 0.3, reason: '语音平稳，无明显情绪波动' },
+    { start: 15, end: 42, emotion: 'calm', intensity: 0.4, reason: '语速正常，情绪稳定' },
+    { start: 42, end: 68, emotion: 'angry', intensity: 0.9, reason: '检测到愤怒咆哮，音量突然增大' },
+    { start: 68, end: 95, emotion: 'tense', intensity: 0.7, reason: '语气紧张激动，音调升高' },
+    { start: 95, end: 125, emotion: 'tense', intensity: 0.6, reason: '情绪持续紧张状态' },
+    { start: 125, end: 155, emotion: 'calm', intensity: 0.4, reason: '情绪逐渐平复' }
   ]
 })
 
@@ -775,6 +1181,75 @@ const angryEmotionCount = computed(() => {
 
 const highRiskSegmentCount = computed(() => {
   return mockTranscriptSegments.value.filter(s => s.riskLevel === 'high').length
+})
+
+// ==================== Gemini优化：多模态融合雷达图数据 ====================
+const multiModalRadarOption = computed(() => {
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}: {c}%'
+    },
+    radar: {
+      indicator: [
+        { name: '文本攻击性', max: 100 },
+        { name: '语音情绪激昂度', max: 100 },
+        { name: '画面违规度', max: 100 },
+        { name: '传播潜力', max: 100 },
+        { name: '高校关联度', max: 100 },
+        { name: '历史风险', max: 100 }
+      ],
+      shape: 'polygon',
+      splitNumber: 4,
+      name: {
+        textStyle: {
+          color: '#666',
+          fontSize: 11
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.4)'
+        }
+      },
+      splitArea: {
+        areaStyle: {
+          color: ['rgba(236, 240, 243, 0.3)', 'rgba(236, 240, 243, 0.5)']
+        }
+      },
+      axisLine: {
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.5)'
+        }
+      }
+    },
+    series: [
+      {
+        type: 'radar',
+        symbol: 'circle',
+        symbolSize: 6,
+        data: [
+          {
+            value: [88, 92, 75, 65, 95, 45], // 对应6个维度的分数
+            name: '当前视频风险画像',
+            itemStyle: {
+              color: '#f56c6c'
+            },
+            lineStyle: {
+              color: '#f56c6c',
+              width: 2
+            },
+            areaStyle: {
+              color: 'rgba(245, 108, 108, 0.25)'
+            }
+          }
+        ],
+        label: {
+          show: false
+        }
+      }
+    ]
+  }
 })
 
 // 新拟态配色
@@ -887,118 +1362,454 @@ const audienceChartOption = computed(() => {
   }
 })
 
-// 多模态时间轴配置（交互视图专用）
+// 多模态时间轴配置（交互视图专用 - 增强版）
 const multiModalTimelineOption = computed(() => {
   if (!analysisData.value) return {}
   
-  const duration = (analysisData.value.videoFeatures as any)?.duration || 180
+  // 使用视频真实时长，确保时间轴与视频进度精确对齐
+  const duration = videoDuration.value
   const timePoints: number[] = []
   for (let t = 0; t <= duration; t += 5) {
     timePoints.push(t)
   }
   
-  // 视频风险点数据
-  const videoData = timePoints.map(t => {
-    const risk = mockVideoRisks.value.find(r => Math.abs(r.time - t) < 3)
-    return risk ? 1 : 0
+  // 多模态数据（三条独立曲线）
+  const multiModalData = timePoints.map(t => {
+    // 视频风险
+    const videoRisk = mockVideoRisks.value.find(r => Math.abs(r.time - t) < 3)
+    const videoScore = videoRisk ? (videoRisk.riskLevel === 'high' ? 90 : 60) : 0
+    
+    // 音频情绪风险
+    const audioEmotion = mockAudioEmotions.value.find(e => t >= e.start && t < e.end)
+    const audioScore = audioEmotion ? audioEmotion.intensity * 100 : 0
+    
+    // 文本风险
+    const textSegment = mockTranscriptSegments.value.find(s => t >= s.start && t < s.end)
+    const textScore = textSegment ? (textSegment.riskLevel === 'high' ? 100 : textSegment.riskLevel === 'medium' ? 60 : 20) : 0
+    
+    return {
+      time: t,
+      videoScore,
+      audioScore,
+      textScore,
+      videoRisk,
+      audioEmotion,
+      textSegment
+    }
   })
   
-  // 音频情绪强度数据
-  const audioData = timePoints.map(t => {
-    const emotion = mockAudioEmotions.value.find(e => t >= e.start && t < e.end)
-    return emotion ? emotion.intensity : 0
-  })
-  
-  // 文本风险数据
-  const textData = timePoints.map(t => {
-    const segment = mockTranscriptSegments.value.find(s => t >= s.start && t < s.end)
-    if (!segment) return 0
-    return segment.riskLevel === 'high' ? 1 : segment.riskLevel === 'medium' ? 0.6 : 0
-  })
+  // 提取三个模态的独立数据数组（改为二维数组格式 [x, y]）
+  const videoData = multiModalData.map(d => [d.time, d.videoScore])
+  const audioData = multiModalData.map(d => [d.time, d.audioScore])
+  const textData = multiModalData.map(d => [d.time, d.textScore])
   
   return {
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'line' },
+      // 不限制范围，让它自由浮动，只设置z-index保证在最上层
+      appendToBody: true,
+      axisPointer: { 
+        type: 'line',
+        lineStyle: { 
+          color: 'rgba(75, 112, 226, 0.4)', 
+          width: 1,
+          type: 'dashed'
+        }
+      },
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      borderColor: 'rgba(209, 217, 230, 0.4)',
+      borderWidth: 1,
+      padding: 14,
+      textStyle: { color: '#181818', fontSize: 12 },
+      extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 10px; z-index: 99999 !important;',
       formatter: (params: any) => {
         if (!params || params.length === 0) return ''
-        const time = params[0].axisValue
+        
+        const dataIndex = params[0].dataIndex
+        const data = multiModalData[dataIndex]
+        if (!data) return ''
+        
+        const time = data.time
         const m = Math.floor(time / 60)
         const s = Math.floor(time % 60)
         const timeStr = `${m}:${s.toString().padStart(2, '0')}`
         
-        let html = `<div style="padding: 8px;"><b>时间: ${timeStr}</b><br/>`
-        params.forEach((p: any) => {
-          html += `${p.marker} ${p.seriesName}: ${p.value > 0 ? '检测到风险' : '正常'}<br/>`
-        })
-        html += '<div style="margin-top: 6px; color: #4b70e2; font-size: 11px;">💡 点击跳转播放</div></div>'
+        // 计算综合风险
+        const maxRisk = Math.max(data.videoScore, data.audioScore, data.textScore)
+        let riskLevel = '低风险'
+        let riskColor = '#52c41a'
+        if (maxRisk >= 70) {
+          riskLevel = '高风险'
+          riskColor = '#f56c6c'
+        } else if (maxRisk >= 40) {
+          riskLevel = '中风险'
+          riskColor = '#faad14'
+        }
+        
+        let html = `
+          <div style="min-width: 260px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+              <i class="fas fa-clock" style="color: #4b70e2;"></i>
+              <strong style="font-size: 14px;">时间: ${timeStr}</strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+              <i class="fas fa-chart-bar" style="color: ${riskColor};"></i>
+              <span style="font-size: 15px; font-weight: 600; color: ${riskColor};">
+                风险指数: ${maxRisk.toFixed(1)}% (${riskLevel})
+              </span>
+            </div>
+            <div style="border-top: 1px solid #e8e8e8; padding-top: 10px; margin-top: 10px;">
+        `
+        
+        // 始终显示三个模态的数据（即使是0%也要显示）
+        
+        // 1. 视频模态
+        const videoColor = data.videoScore >= 70 ? '#f56c6c' : data.videoScore >= 40 ? '#faad14' : data.videoScore > 0 ? '#52c41a' : '#999'
+        html += `
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+              <span style="color: #f56c6c; font-weight: 600; font-size: 12px;">📹 视频风险</span>
+              <span style="color: ${videoColor}; font-weight: 700; font-size: 13px;">${data.videoScore.toFixed(1)}%</span>
+            </div>
+            ${data.videoRisk 
+              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.videoRisk.reason}</div>` 
+              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段视频画面正常</div>`
+            }
+          </div>
+        `
+        
+        // 2. 音频模态
+        const audioColor = data.audioScore >= 70 ? '#f56c6c' : data.audioScore >= 40 ? '#faad14' : data.audioScore > 0 ? '#52c41a' : '#999'
+        html += `
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+              <span style="color: #faad14; font-weight: 600; font-size: 12px;">🎵 音频情绪</span>
+              <span style="color: ${audioColor}; font-weight: 700; font-size: 13px;">${data.audioScore.toFixed(1)}%</span>
+            </div>
+            ${data.audioEmotion 
+              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.audioEmotion.reason}</div>` 
+              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段音频情绪稳定</div>`
+            }
+          </div>
+        `
+        
+        // 3. 文本模态
+        const textColor = data.textScore >= 70 ? '#f56c6c' : data.textScore >= 40 ? '#faad14' : data.textScore > 0 ? '#52c41a' : '#999'
+        html += `
+          <div style="margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+              <span style="color: #4b70e2; font-weight: 600; font-size: 12px;">📝 文本内容</span>
+              <span style="color: ${textColor}; font-weight: 700; font-size: 13px;">${data.textScore.toFixed(1)}%</span>
+            </div>
+            ${data.textSegment 
+              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.textSegment.reason}</div>` 
+              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段文本内容正常</div>`
+            }
+          </div>
+        `
+        
+        html += `
+            </div>
+            <div style="text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e8e8e8;">
+              <div style="color: #4b70e2; font-size: 11px; font-weight: 600;">
+                💡 点击图表跳转播放此时段
+              </div>
+            </div>
+          </div>
+        `
+        
         return html
       }
     },
     legend: {
       data: ['视频风险', '音频情绪', '文本风险'],
-      bottom: 5,
-      textStyle: { color: neuColors.gray, fontSize: 12 }
+      bottom: 10,
+      textStyle: { 
+        color: '#666', 
+        fontSize: 11,
+        fontWeight: 'normal'
+      },
+      itemGap: 24,
+      itemWidth: 30,
+      itemHeight: 12,
+      icon: 'rect',
+      padding: [5, 10]
     },
     grid: {
-      left: '3%',
-      right: '4%',
+      left: 21,
+      right: 22,
       bottom: '15%',
-      top: '8%',
-      containLabel: true
+      top: '5%',
+      containLabel: false
     },
     xAxis: {
-      type: 'category',
-      data: timePoints,
-      name: '时间（秒）',
-      nameTextStyle: { color: neuColors.gray, fontSize: 11 },
-      axisLine: { lineStyle: { color: neuColors.neu2 } },
-      axisLabel: {
-        color: neuColors.gray,
+      type: 'value',
+      min: 0,
+      max: duration,
+      name: '',  // 移除"时间（秒）"文字
+      nameTextStyle: { 
+        color: '#999', 
         fontSize: 11,
-        formatter: (value: number) => formatTimestamp(value)
+        padding: [5, 0, 0, 0]
+      },
+      nameGap: 5,
+      axisLine: { 
+        show: true,
+        lineStyle: { 
+          color: 'rgba(209, 217, 230, 0.3)',
+          width: 1
+        } 
+      },
+      axisTick: { 
+        show: true,
+        length: 4,
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.5)',
+          width: 1
+        }
+      },
+      axisLabel: {
+        color: '#666',
+        fontSize: 11,
+        formatter: (value: number) => formatTimestamp(value),
+        margin: 8
       }
     },
     yAxis: {
       type: 'value',
-      max: 1,
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#e8edf3', type: 'dashed' } },
-      axisLabel: { show: false }
+      name: '',  // 移除"风险指数"文字
+      nameTextStyle: { 
+        color: '#999', 
+        fontSize: 11 
+      },
+      min: 0,
+      max: 100,
+      interval: 20, // 每20%一个刻度（0, 20, 40, 60, 80, 100）
+      axisLine: { 
+        show: true,
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.3)',
+          width: 1
+        }
+      },
+      axisTick: { 
+        show: true,
+        length: 4,
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.5)',
+          width: 1
+        }
+      },
+      splitLine: { 
+        show: true,
+        lineStyle: { 
+          color: 'rgba(209, 217, 230, 0.4)',
+          type: 'solid',
+          width: 1
+        } 
+      },
+      axisLabel: {
+        show: false,  // 隐藏Y轴标签（0%、20%、40%等）
+        color: '#666',
+        fontSize: 11,
+        formatter: '{value}%',
+        margin: 8
+      }
     },
     series: [
+      // 1. 视频风险曲线（参考1.0版本 - 更细更柔和）
       {
         name: '视频风险',
-        type: 'bar',
-        data: videoData,
-        itemStyle: { color: '#f56c6c', borderRadius: [4, 4, 0, 0] },
-        barWidth: '30%',
-        barGap: '-100%'
-      },
-      {
-        name: '音频情绪',
         type: 'line',
-        data: audioData,
-        smooth: true,
-        lineStyle: { width: 3, color: '#faad14' },
+        data: videoData,
+        smooth: 0.35,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: {
+          width: 2,
+          color: '#ff7875',
+          opacity: 0.8
+        },
+        itemStyle: {
+          color: '#ff7875',
+          borderColor: '#fff',
+          borderWidth: 2
+        },
         areaStyle: {
           color: {
             type: 'linear',
             x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: 'rgba(250, 173, 20, 0.4)' },
-              { offset: 1, color: 'rgba(250, 173, 20, 0.1)' }
+              { offset: 0, color: 'rgba(255, 120, 117, 0.12)' },
+              { offset: 1, color: 'rgba(255, 120, 117, 0.02)' }
             ]
           }
         },
-        showSymbol: false
+        showSymbol: true,
+        showAllSymbol: true,
+        emphasis: {
+          lineStyle: { width: 2.5 },
+          itemStyle: { borderWidth: 3 }
+        },
+        // 播放进度指示线（精确跟随视频进度）
+        markLine: {
+          symbol: 'none',
+          animation: false,
+          silent: false,
+          data: [
+            [
+              {
+                coord: [currentPlayTime.value, 0],
+                symbol: 'none'
+              },
+              {
+                coord: [currentPlayTime.value, 100],
+                symbol: 'none',
+                lineStyle: {
+                  color: '#ff4d4f',
+                  width: 3,
+                  type: 'solid',
+                  opacity: 0.9,
+                  shadowBlur: 6,
+                  shadowColor: 'rgba(255, 77, 79, 0.3)'
+                },
+                label: {
+                  show: true,
+                  position: 'insideStartTop',
+                  formatter: () => {
+                    const time = currentPlayTime.value
+                    const m = Math.floor(time / 60)
+                    const s = Math.floor(time % 60)
+                    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+                  },
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 'bold',
+                  backgroundColor: '#ff4d4f',
+                  padding: [4, 8],
+                  borderRadius: 4
+                }
+              }
+            ]
+          ]
+        }
       },
+      
+      // 2. 音频情绪曲线（参考1.0版本 - 更细更柔和）
+      {
+        name: '音频情绪',
+        type: 'line',
+        data: audioData,
+        smooth: 0.35,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: {
+          width: 2,
+          color: '#ffa940',
+          opacity: 0.8
+        },
+        itemStyle: {
+          color: '#ffa940',
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(255, 169, 64, 0.12)' },
+              { offset: 1, color: 'rgba(255, 169, 64, 0.02)' }
+            ]
+          }
+        },
+        showSymbol: true,
+        showAllSymbol: true,
+        emphasis: {
+          lineStyle: { width: 2.5 },
+          itemStyle: { borderWidth: 3 }
+        }
+      },
+      
+      // 3. 文本风险曲线（参考1.0版本 - 更细更柔和）
       {
         name: '文本风险',
-        type: 'scatter',
-        data: textData.map((v, i) => v > 0 ? [timePoints[i], v] : null).filter(Boolean),
-        symbolSize: 12,
-        itemStyle: { color: '#4b70e2' }
+        type: 'line',
+        data: textData,
+        smooth: 0.35,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: {
+          width: 2,
+          color: '#597ef7',
+          opacity: 0.8
+        },
+        itemStyle: {
+          color: '#597ef7',
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(89, 126, 247, 0.12)' },
+              { offset: 1, color: 'rgba(89, 126, 247, 0.02)' }
+            ]
+          }
+        },
+        showSymbol: true,
+        showAllSymbol: true,
+        emphasis: {
+          lineStyle: { width: 2.5 },
+          itemStyle: { borderWidth: 3 }
+        },
+        // 参考1.0版本的参考线样式
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          animation: false,
+          label: {
+            show: true,
+            position: 'insideEndTop',
+            formatter: '{b}',
+            fontSize: 10,
+            fontWeight: 'normal',
+            padding: [0, 5, 0, 0]
+          },
+          lineStyle: {
+            type: 'dashed',
+            width: 1,
+            dashOffset: 0
+          },
+          data: [
+            { 
+              yAxis: 70, 
+              name: '高风险线',
+              lineStyle: { 
+                color: 'rgba(255, 120, 117, 0.35)',
+                type: 'dashed'
+              },
+              label: { 
+                color: 'rgba(255, 120, 117, 0.65)',
+                backgroundColor: 'transparent'
+              }
+            },
+            { 
+              yAxis: 40, 
+              name: '中风险线',
+              lineStyle: { 
+                color: 'rgba(255, 169, 64, 0.35)',
+                type: 'dashed'
+              },
+              label: { 
+                color: 'rgba(255, 169, 64, 0.65)',
+                backgroundColor: 'transparent'
+              }
+            }
+          ]
+        }
       }
     ]
   }
@@ -1521,11 +2332,34 @@ const generateMockRiskTimeline = (duration: number) => {
 const onTimelineClick = (params: any) => {
   if (!params || !params.data) return
   
-  // 交互视图：直接在主播放器跳转
+  // 交互视图：V1.5 切换到最近的证据并跳转视频
   if (viewMode.value === 'interactive') {
     const clickedTime = params.data[0] || params.value?.[0]
-    if (clickedTime !== undefined && mainVideoPlayerRef.value) {
-      jumpToTime(clickedTime)
+    if (clickedTime !== undefined) {
+      // 直接跳转视频到点击的时间
+      if (mainVideoPlayerRef.value) {
+        mainVideoPlayerRef.value.currentTime = clickedTime
+        mainVideoPlayerRef.value.play().catch(e => console.log('播放失败:', e))
+      }
+      
+      // 找到最接近点击时间的证据，更新选中状态
+      let nearestEvidence = mockRiskEvidence[0]
+      let minDiff = Math.abs(mockRiskEvidence[0].timeSeconds - clickedTime)
+      
+      mockRiskEvidence.forEach(evidence => {
+        const diff = Math.abs(evidence.timeSeconds - clickedTime)
+        if (diff < minDiff) {
+          minDiff = diff
+          nearestEvidence = evidence
+        }
+      })
+      
+      // 更新选中的证据ID（不触发selectEvidence，避免重复跳转）
+      if (nearestEvidence) {
+        selectedEvidenceId.value = nearestEvidence.id
+      }
+      
+      ElMessage.success(`跳转到 ${formatTimestamp(clickedTime)}`)
     }
     return
   }
@@ -1546,15 +2380,25 @@ const onVideoTimeUpdate = () => {
   
   currentPlayTime.value = mainVideoPlayerRef.value.currentTime
   
+  // 实时更新当前证据（根据播放时间自动切换）
+  const currentTime = currentPlayTime.value
+  const nearestEvidence = mockRiskEvidence.find(
+    e => Math.abs(e.timeSeconds - currentTime) < 2.5
+  )
+  
+  if (nearestEvidence && nearestEvidence.id !== selectedEvidenceId.value) {
+    selectedEvidenceId.value = nearestEvidence.id
+  }
+  
   // 更新当前台词段落高亮
   const index = mockTranscriptSegments.value.findIndex(
-    seg => currentPlayTime.value >= seg.start && currentPlayTime.value < seg.end
+    seg => currentTime >= seg.start && currentTime < seg.end
   )
   currentSegmentIndex.value = index
   
   // 更新当前检测框
   const detection = mockVideoRisks.value.find(
-    risk => Math.abs(currentPlayTime.value - risk.time) < 3
+    risk => Math.abs(currentTime - risk.time) < 3
   )
   currentDetection.value = detection || null
 }
@@ -1562,6 +2406,20 @@ const onVideoTimeUpdate = () => {
 // 视频加载完成
 const onVideoLoaded = () => {
   console.log('视频加载完成')
+  
+  // 更新视频真实时长，确保图表时间轴与视频进度精确对齐
+  if (mainVideoPlayerRef.value && mainVideoPlayerRef.value.duration) {
+    videoDuration.value = mainVideoPlayerRef.value.duration
+    console.log('视频真实时长:', videoDuration.value, '秒')
+  }
+  
+  // 自动跳转到第一个高风险证据
+  if (selectedEvidenceId.value) {
+    const evidence = mockRiskEvidence.find(e => e.id === selectedEvidenceId.value)
+    if (evidence && mainVideoPlayerRef.value) {
+      mainVideoPlayerRef.value.currentTime = evidence.timeSeconds
+    }
+  }
 }
 
 // 跳转到指定时间
@@ -1605,6 +2463,93 @@ const getEmotionClass = (emotion: string) => {
     'serious': 'emotion-serious'
   }
   return classMap[emotion] || 'emotion-neutral'
+}
+
+// ==================== V1.5 新增：证据选择逻辑 ====================
+/**
+ * 选择证据，切换左侧截图和高亮对应台词
+ */
+const selectEvidence = (evidenceId: string) => {
+  selectedEvidenceId.value = evidenceId
+  
+  // 跳转视频到对应时间
+  const evidence = mockRiskEvidence.find(e => e.id === evidenceId)
+  if (evidence && mainVideoPlayerRef.value) {
+    mainVideoPlayerRef.value.currentTime = evidence.timeSeconds
+    mainVideoPlayerRef.value.play().catch(e => console.log('自动播放失败:', e))
+  }
+  
+  ElMessage.success(`已定位到风险证据：${currentEvidence.value?.time || ''}`)
+}
+
+/**
+ * 计算进度条宽度（基于真实视频播放进度）
+ */
+const getProgressWidth = (): string => {
+  if (!mainVideoPlayerRef.value) return '0%'
+  const duration = mainVideoPlayerRef.value.duration || 195
+  const current = mainVideoPlayerRef.value.currentTime || 0
+  const percentage = (current / duration) * 100
+  return `${Math.min(percentage, 100)}%`
+}
+
+/**
+ * 格式化当前播放时间
+ */
+const formatCurrentTime = (): string => {
+  if (!mainVideoPlayerRef.value) return '00:00'
+  const current = mainVideoPlayerRef.value.currentTime || 0
+  const m = Math.floor(current / 60)
+  const s = Math.floor(current % 60)
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+/**
+ * 格式化视频总时长
+ */
+const formatTotalDuration = (): string => {
+  if (!mainVideoPlayerRef.value || !mainVideoPlayerRef.value.duration) return '03:15'
+  const duration = mainVideoPlayerRef.value.duration
+  const m = Math.floor(duration / 60)
+  const s = Math.floor(duration % 60)
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+// ==================== 绿圈实时分析栏：计算当前帧风险 ====================
+/**
+ * 获取当前帧的综合风险分数
+ */
+const getCurrentRiskScore = (): number => {
+  if (!currentEvidence.value) return 0
+  
+  // 根据风险等级返回分数
+  const riskScores: Record<string, number> = {
+    'HIGH': 88,
+    'MEDIUM': 65,
+    'LOW': 25
+  }
+  
+  return riskScores[currentEvidence.value.riskLevel] || 0
+}
+
+/**
+ * 获取当前风险等级类名
+ */
+const getCurrentRiskClass = (): string => {
+  const score = getCurrentRiskScore()
+  if (score >= 70) return 'risk-high'
+  if (score >= 40) return 'risk-medium'
+  return 'risk-low'
+}
+
+/**
+ * 获取当前风险等级文字
+ */
+const getCurrentRiskLabel = (): string => {
+  const score = getCurrentRiskScore()
+  if (score >= 70) return '高风险'
+  if (score >= 40) return '中风险'
+  return '低风险'
 }
 
 // PDF导出状态
@@ -1809,6 +2754,14 @@ onMounted(() => {
     loadAnalysisByVideo()
   } else if (route.query.resultId) {
     loadAnalysisById(route.query.resultId as string)
+  }
+  
+  // V1.5: 初始化默认选中第一个高风险证据
+  const firstHighRisk = mockRiskEvidence.find(e => e.riskLevel === 'HIGH')
+  if (firstHighRisk) {
+    selectedEvidenceId.value = firstHighRisk.id
+  } else if (mockRiskEvidence.length > 0) {
+    selectedEvidenceId.value = mockRiskEvidence[0].id
   }
 })
 </script>
@@ -2829,6 +3782,576 @@ $purple: #4b70e2;
 
 // ==================== 交互式分析视图样式 ====================
 .interactive-view {
+  // 逻辑修复：视频档案卡（本地上传场景）
+  .video-archive-card {
+    padding: 18px 24px;
+    margin-bottom: 16px;
+    
+    .archive-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      
+      .file-section {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex: 1;
+        
+        .file-icon {
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, $purple, #7c9df7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 0 4px 12px rgba(75, 112, 226, 0.3);
+        }
+        
+        .file-info {
+          flex: 1;
+          
+          .file-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            
+            .file-name {
+              font-size: 16px;
+              font-weight: 700;
+              color: $black;
+              font-family: 'Courier New', monospace;
+            }
+            
+            .status-badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              padding: 4px 10px;
+              border-radius: 10px;
+              font-size: 11px;
+              font-weight: 600;
+              
+              &.success {
+                background: rgba(82, 196, 26, 0.15);
+                color: #52c41a;
+              }
+            }
+          }
+          
+          .file-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 8px;
+            
+            .meta-item {
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 11px;
+              color: $gray;
+              
+              &:not(:last-child)::after {
+                content: '|';
+                margin-left: 12px;
+                color: rgba(160, 165, 168, 0.3);
+              }
+            }
+          }
+          
+          .baseline-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: rgba(75, 112, 226, 0.08);
+            border-radius: 8px;
+            font-size: 10px;
+            color: $purple;
+            width: fit-content;
+            
+            .baseline-text {
+              font-weight: 600;
+            }
+            
+            .baseline-version {
+              font-size: 9px;
+              opacity: 0.7;
+              margin-left: 4px;
+            }
+          }
+        }
+      }
+      
+      .identity-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-end;
+        
+        .identity-info-group {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          align-items: flex-end;
+        }
+        
+        .identity-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 14px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+            
+            &.identity-suspected {
+              background: rgba(250, 173, 20, 0.15);
+              color: #faad14;
+              border: 1px solid rgba(250, 173, 20, 0.3);
+            }
+            
+            &.identity-confirmed {
+              background: rgba(82, 196, 26, 0.15);
+              color: #52c41a;
+              border: 1px solid rgba(82, 196, 26, 0.3);
+            }
+            
+            &.identity-unknown {
+              background: rgba(160, 165, 168, 0.15);
+              color: $gray;
+              border: 1px solid rgba(160, 165, 168, 0.3);
+            }
+            
+            .confidence {
+              font-size: 11px;
+              opacity: 0.85;
+            }
+          }
+          
+          .match-source-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: #52c41a;
+            background: rgba(82, 196, 26, 0.08);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 500;
+          }
+        }
+        
+        .scene-badge {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 12px;
+          background: rgba(75, 112, 226, 0.08);
+          border-radius: 10px;
+          color: $purple;
+          font-size: 11px;
+          font-weight: 600;
+          
+          .scene-conf {
+            font-size: 10px;
+            opacity: 0.75;
+          }
+        }
+      }
+    }
+  }
+  
+  // Gemini优化：AI目标侧写卡片
+  .ai-profiling-card {
+    .card-header {
+      .profiling-hint {
+        font-size: 10px;
+        color: $gray;
+        background: rgba(250, 173, 20, 0.1);
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-style: italic;
+      }
+    }
+    
+    .profiling-content {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      
+      .profiling-section {
+        .section-title {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 11px;
+          color: $gray;
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+        
+        .keyword-chips,
+        .feature-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        
+        .keyword-chip {
+          padding: 4px 10px;
+          background: rgba(75, 112, 226, 0.1);
+          border: 1px solid rgba(75, 112, 226, 0.25);
+          border-radius: 8px;
+          font-size: 11px;
+          color: $purple;
+          font-weight: 500;
+        }
+        
+        .feature-chip {
+          padding: 4px 9px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          
+          &.visual {
+            background: rgba(245, 108, 108, 0.1);
+            border: 1px solid rgba(245, 108, 108, 0.25);
+            color: #f56c6c;
+          }
+          
+          &.audio {
+            background: rgba(250, 173, 20, 0.1);
+            border: 1px solid rgba(250, 173, 20, 0.25);
+            color: #faad14;
+          }
+          
+          &.static {
+            background: rgba(75, 112, 226, 0.1);
+            border: 1px solid rgba(75, 112, 226, 0.25);
+            color: $purple;
+          }
+        }
+        
+        &.static-features {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          
+          .feature-chip {
+            justify-content: flex-start;
+          }
+        }
+      }
+    }
+  }
+  
+  // 侧边指标包装器
+  .side-metrics-wrapper {
+    .key-metrics-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+  }
+  
+  // 绿圈：实时分析栏样式（参考设计图）
+  .realtime-analysis-bar-inner,
+  .realtime-analysis-bar {
+    // 大版雷达图卡片（按设计图优化）
+    .radar-card-large {
+      // 缩减后的标题栏（减少上下尺度）
+      .radar-card-header-slim {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 20px; /* 缩减：16px → 10px */
+        border-bottom: 1px solid rgba($neu-2, 0.25);
+        gap: 10px;
+        
+        .card-title-main {
+          font-size: 14px; /* 缩减：15px → 14px */
+          font-weight: 700;
+          color: $black;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .current-frame-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px; /* 缩减：5px → 4px */
+          background: rgba(245, 108, 108, 0.12);
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 600;
+          color: #f56c6c;
+          animation: pulse-dot 2s ease-in-out infinite;
+        }
+      }
+      
+      // 雷达图主体 + 右侧风险数值
+      .radar-with-gauge {
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+        position: relative;
+        
+        .radar-main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          
+          .radar-chart-large {
+            height: 340px; /* 增加：320px → 340px */
+            width: 100%;
+          }
+          
+          .fusion-formula-bottom {
+            text-align: center;
+            padding: 8px 16px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: $gray;
+            font-family: 'Courier New', monospace;
+            background: rgba(75, 112, 226, 0.05);
+            border-radius: 8px;
+          }
+        }
+        
+        .gauge-side {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-width: 120px;
+          
+          .gauge-number-side {
+            font-size: 68px; /* 放大：42px → 68px */
+            font-weight: 800;
+            line-height: 1;
+            
+            &.risk-high {
+              color: #f56c6c;
+              text-shadow: 0 0 25px rgba(245, 108, 108, 0.5);
+            }
+            
+            &.risk-medium {
+              color: #faad14;
+              text-shadow: 0 0 25px rgba(250, 173, 20, 0.5);
+            }
+            
+            &.risk-low {
+              color: #52c41a;
+              text-shadow: 0 0 25px rgba(82, 196, 26, 0.5);
+            }
+          }
+          
+          .gauge-label-side {
+            font-size: 12px;
+            color: $gray;
+            margin-top: 10px;
+            font-weight: 600;
+          }
+        }
+      }
+    }
+  }
+  
+  // 底部静态区：AI侧写 + 全局统计
+  .static-archive-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+    
+    @media (max-width: 1200px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  // 全局统计卡片
+  .global-stats-card {
+    .global-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 20px;
+      
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 14px;
+        background: $bg;
+        border-radius: 12px;
+        
+        .stat-label {
+          font-size: 11px;
+          color: $gray;
+          margin-bottom: 6px;
+        }
+        
+        .stat-value {
+          font-size: 18px;
+          font-weight: 700;
+          color: $black;
+          
+          &.risk-high {
+            color: #f56c6c;
+          }
+        }
+      }
+    }
+  }
+  
+  // 原 fusion-analysis-grid 改为 static-archive-grid
+  .fusion-analysis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 0.6fr;
+    gap: 20px;
+    margin-bottom: 24px;
+    
+    @media (max-width: 1400px) {
+      grid-template-columns: 1fr 1fr;
+      
+      .side-metrics-wrapper {
+        grid-column: 1 / -1;
+      }
+    }
+    
+    @media (max-width: 900px) {
+      grid-template-columns: 1fr;
+    }
+    
+    .radar-card {
+      .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        
+        .card-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          
+          .current-frame-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: rgba(245, 108, 108, 0.12);
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #f56c6c;
+            animation: pulse-dot 2s ease-in-out infinite;
+          }
+        }
+        
+        .fusion-formula {
+          font-size: 11px;
+          color: $gray;
+          background: rgba(75, 112, 226, 0.08);
+          padding: 4px 10px;
+          border-radius: 8px;
+          font-family: 'Courier New', monospace;
+        }
+      }
+      
+      .radar-chart {
+        height: 280px;
+        width: 100%;
+        padding: 10px;
+      }
+    }
+  }
+  
+  .side-metrics-wrapper {
+    .key-metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      
+      @media (max-width: 1400px) {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      
+      @media (max-width: 768px) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .metric-mini {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+        
+        .metric-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          
+          &.video-icon {
+            background: rgba(245, 108, 108, 0.12);
+            color: #f56c6c;
+          }
+          
+          &.audio-icon {
+            background: rgba(250, 173, 20, 0.12);
+            color: #faad14;
+          }
+          
+          &.text-icon {
+            background: rgba(75, 112, 226, 0.12);
+            color: $purple;
+          }
+          
+          &.university-icon {
+            background: rgba(82, 196, 26, 0.12);
+            color: #52c41a;
+          }
+        }
+        
+        .metric-content {
+          flex: 1;
+          min-width: 0;
+          
+          .metric-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: $black;
+            line-height: 1;
+          }
+          
+          .metric-label {
+            font-size: 10px;
+            color: $gray;
+            margin-top: 4px;
+          }
+        }
+      }
+    }
+  }
+  
   .multi-modal-container {
     display: grid;
     grid-template-columns: 1.5fr 1fr;
@@ -2844,17 +4367,29 @@ $purple: #4b70e2;
     }
   }
   
-  // 视频区域
-  .video-section {
+  // 右侧面板容器（字幕 + 雷达图）
+  .right-panel-container {
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
   
+  // 视频区域
+  .video-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    
+    // 视频下方的实时分析栏（单列，雷达图为主）
+    .realtime-analysis-bar-inner {
+      width: 100%;
+    }
+  }
+  
   .video-player-wrapper {
     position: relative;
     width: 100%;
-    min-height: 400px;
+    min-height: 480px; /* 修复：增加视频高度 */
     border-radius: 20px;
     overflow: hidden;
     background: #000;
@@ -2868,6 +4403,22 @@ $purple: #4b70e2;
       height: auto;
       display: block;
       background: #000;
+    }
+    
+    // V1.5: 证据截图样式（支持视频播放器）
+    .evidence-snapshot {
+      width: 100%;
+      height: auto;
+      max-height: 480px;
+      object-fit: contain;
+      display: block;
+      transition: opacity 0.4s ease;
+      opacity: 0.95;
+      background: #000;
+      
+      &:hover {
+        opacity: 1;
+      }
     }
     
     .video-placeholder {
@@ -2896,23 +4447,205 @@ $purple: #4b70e2;
       .detection-box {
         position: absolute;
         border: 3px solid #f56c6c;
-        background: rgba(245, 108, 108, 0.15);
-        box-shadow: 0 0 10px rgba(245, 108, 108, 0.8);
+        background: rgba(245, 108, 108, 0.12); /* 修复：降低背景透明度，减少遮挡 */
         transition: all 0.3s ease;
+        border-style: dashed; /* 修复：改为虚线，更友好 */
+        
+        // V1.5: 脉冲呼吸灯动画
+        &.pulse-glow {
+          animation: pulse-glow 2s ease-in-out infinite;
+        }
         
         .detection-label {
           position: absolute;
           top: -28px;
           left: -3px;
-          background: #f56c6c;
+          background: rgba(245, 108, 108, 0.95); /* 修复：半透明背景 */
+          backdrop-filter: blur(4px);
           color: white;
           padding: 4px 10px;
           font-size: 12px;
           font-weight: 600;
           border-radius: 6px;
           white-space: nowrap;
+          box-shadow: 0 2px 8px rgba(245, 108, 108, 0.4);
         }
       }
+    }
+    
+    // V1.5: 扫描线特效
+    .scanline-effect {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(75, 112, 226, 0.03) 50%,
+        transparent 100%
+      );
+      animation: scanline 4s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+    
+    // 当前帧信息叠加层（视频顶部）
+    .frame-info-overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 3;
+      pointer-events: none;
+      
+      .info-tags-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        
+        .info-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 12px;
+          border-radius: 10px;
+          font-size: 11px;
+          font-weight: 600;
+          backdrop-filter: blur(8px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+          
+          &.emotion {
+            &.emotion-angry {
+              background: rgba(245, 108, 108, 0.9);
+              color: white;
+            }
+            
+            &.emotion-calm {
+              background: rgba(82, 196, 26, 0.9);
+              color: white;
+            }
+            
+            &.emotion-tense, &.emotion-serious {
+              background: rgba(250, 173, 20, 0.9);
+              color: white;
+            }
+          }
+          
+          &.risk-alert {
+            background: rgba(245, 108, 108, 0.95);
+            color: white;
+            animation: pulse-glow 1.5s ease-in-out infinite;
+          }
+        }
+      }
+    }
+    
+    // V1.5: 伪进度条
+    .fake-controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 2;
+      
+      .control-left, .control-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: white;
+      }
+      
+      .control-icon {
+        font-size: 16px;
+        cursor: default;
+        opacity: 0.85;
+        transition: opacity 0.2s;
+        
+        &:hover {
+          opacity: 1;
+        }
+      }
+      
+      .time-display {
+        font-size: 12px;
+        font-family: monospace;
+        color: rgba(255, 255, 255, 0.9);
+        min-width: 80px;
+      }
+      
+      .progress-bar-wrapper {
+        flex: 1;
+        display: flex;
+        align-items: center;
+      }
+      
+      .progress-bar {
+        width: 100%;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 3px;
+        overflow: hidden;
+        position: relative;
+        
+        .progress-now {
+          height: 100%;
+          background: linear-gradient(90deg, $purple, #7c9df7);
+          border-radius: 3px;
+          transition: width 0.5s ease;
+          box-shadow: 0 0 8px rgba(75, 112, 226, 0.6);
+          position: relative;
+          
+          &::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 0 3px 3px 0;
+          }
+        }
+      }
+    }
+  }
+  
+  // V1.5: 关键帧动画定义
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 10px rgba(245, 108, 108, 0.8), 0 0 20px rgba(245, 108, 108, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(245, 108, 108, 1), 0 0 35px rgba(245, 108, 108, 0.7), 0 0 50px rgba(245, 108, 108, 0.4);
+    }
+  }
+  
+  @keyframes scanline {
+    0% {
+      transform: translateY(-100%);
+    }
+    100% {
+      transform: translateY(100%);
+    }
+  }
+  
+  @keyframes pulse-dot {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.4;
+      transform: scale(0.8);
     }
   }
   
@@ -2924,6 +4657,8 @@ $purple: #4b70e2;
     background: $neu-1;
     border-radius: 16px;
     box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+    gap: 12px;
+    flex-wrap: wrap;
     
     .video-title-info {
       display: flex;
@@ -2938,6 +4673,27 @@ $purple: #4b70e2;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      
+      // V1.5: AI实时分析状态指示器
+      .ai-status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        background: rgba(75, 112, 226, 0.12);
+        color: $purple;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        
+        .pulse-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: $purple;
+          animation: pulse-dot 1.5s ease-in-out infinite;
+        }
       }
     }
     
@@ -2986,25 +4742,35 @@ $purple: #4b70e2;
     border-radius: 20px;
     box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
     overflow: hidden;
+    max-height: 480px;
     
-    .panel-header {
-      padding: 18px 20px;
-      border-bottom: 1px solid rgba($neu-2, 0.5);
-      background: rgba(255, 255, 255, 0.5);
+    .panel-header-compact {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba($neu-2, 0.3);
+      background: rgba(255, 255, 255, 0.4);
       
-      .panel-title {
-        font-size: 15px;
+      .panel-title-compact {
+        font-size: 13px;
         font-weight: 600;
         color: $black;
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin-bottom: 4px;
+        gap: 6px;
       }
       
-      .panel-subtitle {
-        font-size: 11px;
-        color: $gray;
+      .detection-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        background: rgba(75, 112, 226, 0.1);
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 600;
+        color: $purple;
       }
     }
     
@@ -3135,6 +4901,69 @@ $purple: #4b70e2;
           margin: 0 2px;
         }
       }
+      
+      // Gemini优化：音频特征标签
+      .audio-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+        
+        .audio-feature-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 500;
+          
+          &.emotion-angry {
+            background: rgba(245, 108, 108, 0.12);
+            color: #f56c6c;
+            border: 1px solid rgba(245, 108, 108, 0.3);
+          }
+          
+          &.emotion-calm {
+            background: rgba(82, 196, 26, 0.12);
+            color: #52c41a;
+            border: 1px solid rgba(82, 196, 26, 0.3);
+          }
+          
+          &.emotion-tense, &.emotion-serious {
+            background: rgba(250, 173, 20, 0.12);
+            color: #faad14;
+            border: 1px solid rgba(250, 173, 20, 0.3);
+          }
+          
+          &.volume {
+            background: rgba(245, 108, 108, 0.12);
+            color: #f56c6c;
+            border: 1px solid rgba(245, 108, 108, 0.3);
+          }
+          
+          &.pitch {
+            background: rgba(250, 173, 20, 0.12);
+            color: #faad14;
+            border: 1px solid rgba(250, 173, 20, 0.3);
+          }
+        }
+      }
+      
+      // V1.5: 检测信息样式
+      .detection-info {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 6px 10px;
+        background: rgba(245, 108, 108, 0.08);
+        border-radius: 8px;
+        font-size: 11px;
+        color: #f56c6c;
+        font-weight: 500;
+        border-left: 3px solid #f56c6c;
+      }
     }
     
     .empty-transcript {
@@ -3169,6 +4998,212 @@ $purple: #4b70e2;
     .timeline-chart {
       height: 180px;
       width: 100%;
+    }
+  }
+  
+  // 内联时间轴（去背景版）
+  .multi-track-timeline-inline {
+    margin: 16px 0;
+    padding: 0;
+    
+    .timeline-chart-inline {
+      height: 200px;
+      width: 100%;
+    }
+  }
+  
+  // 底部仪表盘横向布局（两栏）
+  .bottom-dashboard-grid {
+    margin-top: 20px;
+  }
+  
+  // 仪表盘雷达图（紧凑版）
+  .dashboard-radar {
+    .card-header-compact {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      
+      .card-title-compact {
+        font-size: 13px;
+        font-weight: 600;
+        color: $black;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      
+      .current-frame-badge-small {
+        font-size: 11px;
+        color: $gray;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+    }
+    
+    .radar-with-score {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      gap: 20px;
+      
+      .radar-chart-area {
+        flex: 1;
+        
+        .radar-chart-compact {
+          height: 220px;
+          width: 100%;
+        }
+        
+        .fusion-formula-compact {
+          text-align: center;
+          font-size: 11px;
+          color: $gray;
+          margin-top: 8px;
+        }
+      }
+      
+      .score-side-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        
+        .score-number-side {
+          font-size: 64px;
+          font-weight: 700;
+          line-height: 1;
+          margin-bottom: 8px;
+          
+          &.low { color: #67c23a; }
+          &.medium { color: #e6a23c; }
+          &.high { color: #f56c6c; }
+        }
+        
+        .score-label-side {
+          font-size: 13px;
+          color: $gray;
+          font-weight: 500;
+        }
+      }
+    }
+  }
+  
+  // 仪表盘信息面板（右侧）
+  .dashboard-info-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    
+    .ai-profiling-compact,
+    .global-stats-compact {
+      flex: 1;
+      
+      .card-header-compact {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        .card-title-compact {
+          font-size: 13px;
+          font-weight: 600;
+          color: $black;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .profiling-hint-small {
+          font-size: 10px;
+          color: $gray;
+        }
+      }
+      
+      .profiling-content-compact {
+        padding: 12px 16px;
+        
+        .profiling-section-inline {
+          margin-bottom: 12px;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+          
+          .section-title-small {
+            font-size: 11px;
+            font-weight: 600;
+            color: $gray;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }
+          
+          .keyword-chips-small {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            
+            .keyword-chip-small {
+              padding: 3px 8px;
+              background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+              border-radius: 10px;
+              font-size: 11px;
+              color: #667eea;
+              font-weight: 500;
+            }
+          }
+          
+          .feature-chips-small {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            
+            .feature-chip-small {
+              padding: 3px 8px;
+              background: #f5f7fa;
+              border-radius: 10px;
+              font-size: 11px;
+              color: $gray;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            }
+          }
+        }
+      }
+      
+      .global-stats-grid-compact {
+        padding: 12px 16px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        
+        .stat-item-compact {
+          text-align: center;
+          
+          .stat-label-compact {
+            font-size: 11px;
+            color: $gray;
+            margin-bottom: 4px;
+          }
+          
+          .stat-value-compact {
+            font-size: 18px;
+            font-weight: 700;
+            color: $black;
+            
+            &.risk-high {
+              color: #f56c6c;
+            }
+          }
+        }
+      }
     }
   }
   
@@ -3239,5 +5274,4 @@ $purple: #4b70e2;
       }
     }
   }
-}
 </style>
