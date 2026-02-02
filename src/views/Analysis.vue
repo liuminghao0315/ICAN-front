@@ -4885,6 +4885,7 @@ $purple: #4b70e2;
           justify-content: center;
           color: white;
           box-shadow: 0 4px 12px rgba(75, 112, 226, 0.3);
+          margin-left:-10px;
         }
         
         .file-info {
@@ -7133,6 +7134,7 @@ $purple: #4b70e2;
     padding: 0 10px;
     gap: 16px 0; /* 行间距16px, 列间距0 */
     border: none;
+    margin-right:-12px;
     box-shadow: none;
   }
 
@@ -7140,13 +7142,24 @@ $purple: #4b70e2;
   .stat-pro-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 0 24px; /* 保持原来的内边距 */
+    gap: 11px;
+    padding: 4px 8px; /* 保持原来的内边距 */
     transition: transform 0.2s;
   }
 
   .stat-pro-item:hover {
     transform: translateY(-2px); /* 微动效 */
+  }
+
+  /* 针对不同列的卡片设置不同的padding */
+  /* 第1列（1,5）- 绿色框左侧：增加左边距，减少右边距 */
+  .stat-pro-item:nth-child(4n+1) {
+    padding-left:10px;
+  }
+
+  /* 第4列（4,8）- 红色框右侧：右边距减为0 */
+  .stat-pro-item:nth-child(4n+4) {
+    padding-right:0;
   }
 
   /* 图标容器：大、方、淡色背景 */
