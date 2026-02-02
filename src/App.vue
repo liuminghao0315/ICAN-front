@@ -14,7 +14,18 @@
   box-sizing: border-box;
 }
 
-html, body {
+html {
+  font-family: 'Montserrat', sans-serif;
+  overflow-x: hidden !important;
+  overflow-y: scroll; /* 强制显示滚动条，避免抖动（兼容性后备） */
+  scrollbar-gutter: stable; /* 现代浏览器：预留滚动条空间 */
+  width: 100%;
+  max-width: 100vw;
+  margin: 0;
+  padding: 0;
+}
+
+body {
   font-family: 'Montserrat', sans-serif;
   overflow-x: hidden !important;
   width: 100%;
@@ -56,7 +67,6 @@ html, body {
 
 body {
   position: relative;
-  overflow-x: hidden !important;
 }
 
 #app {

@@ -423,6 +423,7 @@
                   class="transcript-segment"
                   :class="{ 
                     'active': selectedEvidenceId === evidence.id,
+                    'inactive': selectedEvidenceId === evidence.id && !isCurrentEvidenceActive,
                     'high-risk': evidence.riskLevel === 'HIGH',
                     'medium-risk': evidence.riskLevel === 'MEDIUM'
                   }"
@@ -476,30 +477,32 @@
                   高校舆情风险画像
                 </span>
                 <span class="current-frame-badge-small">
-                  <el-icon :size="9"><VideoPlay /></el-icon>
-                  当前帧: {{ currentEvidence?.time || '00:00' }}
+                  <el-icon :size="12"><VideoPlay /></el-icon>
+                  当前帧: {{ formattedCurrentTime }}
                 </span>
               </div>
-              <div class="radar-with-score">
-                <div class="radar-chart-area">
-                  <v-chart 
-                    ref="radarChartRef" 
-                    :option="multiModalRadarOption"
-                    :update-options="{ notMerge: false, lazyUpdate: false }"
-                    class="radar-chart-compact"
-                    @mouseenter="isMouseOnRadar = true"
-                    @mouseleave="isMouseOnRadar = false"
-                    @finished="onRadarChartFinished"
-                  />
-                  <div class="fusion-formula-compact">
-                    舆情风险 = 负面情感×0.35 + 传播风险×0.25 + 影响范围×0.25 + 紧迫度×0.15
+              <div class="radar-container">
+                <div class="radar-with-score">
+                  <div class="radar-chart-area">
+                    <v-chart 
+                      ref="radarChartRef" 
+                      :option="multiModalRadarOption"
+                      :update-options="{ notMerge: false, lazyUpdate: false }"
+                      class="radar-chart-compact"
+                      @mouseenter="isMouseOnRadar = true"
+                      @mouseleave="isMouseOnRadar = false"
+                      @finished="onRadarChartFinished"
+                    />
+                  </div>
+                  <div class="score-side-panel">
+                    <div class="score-number-side" :class="getCurrentRiskClass()">
+                      {{ getCurrentRiskScore() }}
+                    </div>
+                    <div class="score-label-side">当前风险分</div>
                   </div>
                 </div>
-                <div class="score-side-panel">
-                  <div class="score-number-side" :class="getCurrentRiskClass()">
-                    {{ getCurrentRiskScore() }}
-                  </div>
-                  <div class="score-label-side">当前风险分</div>
+                <div class="fusion-formula-compact">
+                  风险分 = 身份置信×0.15 + 学校关联×0.20 + 负面情感×0.30 + 传播×0.15 + 影响×0.10 + 紧迫度×0.10
                 </div>
               </div>
             </div>
@@ -988,7 +991,9 @@ const DETECTION_COLORS: Record<string, string> = {
   logo: '#4a90e2',      // 校徽/Logo - 蓝色
   scene: '#a29bfe',     // 校园场景 - 紫色
   emotion: '#ff6348',   // 情绪检测 - 橙红色
-  mention: '#ff4757'    // 学校提及 - 红色（重点关注）
+  mention: '#ff4757',   // 学校提及 - 红色（重点关注）
+  uniform: '#ff9500',   // 校服检测 - 橙色
+  banner: '#ff3b30'     // 横幅检测 - 红色
 }
 
 const DETECTION_LABELS: Record<string, string> = {
@@ -997,7 +1002,9 @@ const DETECTION_LABELS: Record<string, string> = {
   logo: '校徽/Logo',
   scene: '校园场景',
   emotion: '情绪检测',
-  mention: '学校提及'
+  mention: '学校提及',
+  uniform: '校服检测',
+  banner: '横幅检测'
 }
 
 // 时间轴图表引用
@@ -1015,11 +1022,35 @@ const analysisPageRef = ref<HTMLDivElement | null>(null)
 // 页面级ResizeObserver实例
 let pageResizeObserver: ResizeObserver | null = null
 
+// ==================== CV视觉模态：视频显示区域计算（精确定位检测框） ====================
+// 视频播放器ResizeObserver实例
+let videoResizeObserver: ResizeObserver | null = null
+
+// 视频实际显示区域信息（用于精确定位检测框）
+interface VideoDisplayArea {
+  offsetX: number      // 视频显示区域左侧偏移（像素）
+  offsetY: number      // 视频显示区域顶部偏移（像素）
+  displayWidth: number // 视频实际显示宽度（像素）
+  displayHeight: number // 视频实际显示高度（像素）
+  containerWidth: number // 容器宽度（像素）
+  containerHeight: number // 容器高度（像素）
+}
+
+const videoDisplayArea = ref<VideoDisplayArea>({
+  offsetX: 0,
+  offsetY: 0,
+  displayWidth: 0,
+  displayHeight: 0,
+  containerWidth: 0,
+  containerHeight: 0
+})
+
 // ==================== V1.5 新增：Mock证据数据 ====================
 interface RiskEvidence {
   id: string
   time: string // 显示用，如 "00:42"
-  timeSeconds: number // 用于时间轴定位
+  timeSeconds: number // 起始时间（秒）
+  timeEndSeconds?: number // 结束时间（秒）
   content: string // 台词
   riskLevel: 'HIGH' | 'MEDIUM' | 'LOW'
   imageUrl: string // 对应这一刻的截图URL
@@ -1061,8 +1092,9 @@ interface SceneInfo {
 const mockRiskEvidence: RiskEvidence[] = [
   {
     id: 'evidence-1',
-    time: '00:15',
-    timeSeconds: 15,
+    time: '00:05-00:10',
+    timeSeconds: 5,
+    timeEndSeconds: 10,
     content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
     riskLevel: 'LOW',
     imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop', // 大学校园
@@ -1074,8 +1106,9 @@ const mockRiskEvidence: RiskEvidence[] = [
   },
   {
     id: 'evidence-2',
-    time: '00:42',
-    timeSeconds: 42,
+    time: '00:15-00:22',
+    timeSeconds: 15,
+    timeEndSeconds: 22,
     content: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
     riskLevel: 'HIGH',
     imageUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&h=450&fit=crop', // 抗议场景
@@ -1087,8 +1120,9 @@ const mockRiskEvidence: RiskEvidence[] = [
   },
   {
     id: 'evidence-3',
-    time: '01:08',
-    timeSeconds: 68,
+    time: '00:25-00:32',
+    timeSeconds: 25,
+    timeEndSeconds: 32,
     content: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
     riskLevel: 'MEDIUM',
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=450&fit=crop', // 人群讨论
@@ -1100,8 +1134,9 @@ const mockRiskEvidence: RiskEvidence[] = [
   },
   {
     id: 'evidence-4',
-    time: '01:45',
-    timeSeconds: 105,
+    time: '00:35-00:42',
+    timeSeconds: 35,
+    timeEndSeconds: 42,
     content: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
     riskLevel: 'MEDIUM',
     imageUrl: 'https://images.unsplash.com/photo-1577896851905-4dcc0c7f1f1c?w=800&h=450&fit=crop', // 严肃场景
@@ -1113,8 +1148,9 @@ const mockRiskEvidence: RiskEvidence[] = [
   },
   {
     id: 'evidence-5',
-    time: '02:15',
-    timeSeconds: 135,
+    time: '00:45-00:50',
+    timeSeconds: 45,
+    timeEndSeconds: 50,
     content: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
     riskLevel: 'LOW',
     imageUrl: 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=800&h=450&fit=crop', // 校园环境
@@ -1140,12 +1176,12 @@ const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/202
 // 雷达图动态数据（高校舆情分析维度）
 // 维度顺序：[身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
 const mockRadarDataByTime = [
-  { timeStart: 0, timeEnd: 18, data: [85, 65, 15, 20, 25, 15] },      // 0-18s: 自我介绍，明确学生身份
-  { timeStart: 18, timeEnd: 45, data: [85, 80, 40, 35, 45, 30] },     // 18-45s: 陈述问题，涉及学校系统
-  { timeStart: 45, timeEnd: 72, data: [85, 95, 88, 70, 85, 75] },     // 45-72s: 情绪激动，强烈批评学校
-  { timeStart: 72, timeEnd: 98, data: [85, 90, 65, 55, 70, 50] },     // 72-98s: 持续不满，可能引发共鸣
-  { timeStart: 98, timeEnd: 125, data: [85, 85, 35, 40, 50, 35] },    // 98-125s: 提出诉求，语气缓和
-  { timeStart: 125, timeEnd: 999, data: [85, 80, 25, 45, 40, 25] }    // 125s+: 呼吁传播，有一定传播风险
+  { timeStart: 0, timeEnd: 10, data: [85, 65, 15, 20, 25, 15] },      // 0-10s: 自我介绍，明确学生身份
+  { timeStart: 10, timeEnd: 20, data: [85, 80, 40, 35, 45, 30] },     // 10-20s: 陈述问题，涉及学校系统
+  { timeStart: 20, timeEnd: 30, data: [85, 95, 88, 70, 85, 75] },     // 20-30s: 情绪激动，强烈批评学校
+  { timeStart: 30, timeEnd: 40, data: [85, 90, 65, 55, 70, 50] },     // 30-40s: 持续不满，可能引发共鸣
+  { timeStart: 40, timeEnd: 50, data: [85, 85, 35, 40, 50, 35] },     // 40-50s: 提出诉求，语气缓和
+  { timeStart: 50, timeEnd: 999, data: [85, 80, 25, 45, 40, 25] }     // 50s+: 呼吁传播，有一定传播风险
 ]
 
 // 当前时间点的雷达图数据（动态计算）
@@ -1174,6 +1210,14 @@ const filteredRiskEvidence = computed(() => {
   return mockRiskEvidence
 })
 
+// 判断当前选中的字幕是否正在播放中（用于区分"正在播放"和"已结束"状态）
+const isCurrentEvidenceActive = computed(() => {
+  if (!selectedEvidenceId.value || !currentEvidence.value) return false
+  const currentTime = currentPlayTime.value
+  const evidence = currentEvidence.value
+  return currentTime >= evidence.timeSeconds && currentTime < (evidence.timeEndSeconds || evidence.timeSeconds + 10)
+})
+
 // ==================== CV视觉模态：当前显示的检测框和场景 ====================
 // 当前显示的所有检测框（根据视频时间筛选）
 const currentDetections = computed(() => {
@@ -1189,6 +1233,14 @@ const currentScene = computed(() => {
   return mockScenes.find(scene => 
     currentTime >= scene.timeStart && currentTime <= scene.timeEnd
   )
+})
+
+// 格式化当前播放时间为 MM:SS 格式
+const formattedCurrentTime = computed(() => {
+  const seconds = Math.floor(currentPlayTime.value)
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 })
 
 // ==================== 逻辑修复：视频档案数据（本地上传场景） ====================
@@ -1520,8 +1572,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 35, y: 20, width: 25, height: 35 },
     confidence: 0.96,
     label: '平静表情',
-    timeStart: 15,
-    timeEnd: 42,
+    timeStart: 5,
+    timeEnd: 15,
     metadata: {
       emotion: 'calm',
       emotionIcon: '😐',
@@ -1535,8 +1587,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 32, y: 18, width: 28, height: 38 },
     confidence: 0.98,
     label: '愤怒表情',
-    timeStart: 42,
-    timeEnd: 68,
+    timeStart: 15,
+    timeEnd: 30,
     metadata: {
       emotion: 'angry',
       emotionIcon: '😡',
@@ -1550,8 +1602,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 30, y: 15, width: 30, height: 40 },
     confidence: 0.94,
     label: '严肃表情',
-    timeStart: 68,
-    timeEnd: 105,
+    timeStart: 30,
+    timeEnd: 50,
     metadata: {
       emotion: 'serious',
       emotionIcon: '😟',
@@ -1567,8 +1619,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 15, y: 55, width: 40, height: 12 },
     confidence: 0.98,
     label: 'OCR敏感词：[抵制]',
-    timeStart: 42,
-    timeEnd: 50,
+    timeStart: 15,
+    timeEnd: 20,
     metadata: {}
   },
   {
@@ -1577,8 +1629,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 20, y: 60, width: 35, height: 10 },
     confidence: 0.91,
     label: 'OCR敏感词：[追究]',
-    timeStart: 100,
-    timeEnd: 110,
+    timeStart: 35,
+    timeEnd: 40,
     metadata: {}
   },
   
@@ -1589,8 +1641,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 70, y: 25, width: 15, height: 15 },
     confidence: 0.95,
     label: '检测到北大校徽',
-    timeStart: 20,
-    timeEnd: 60,
+    timeStart: 10,
+    timeEnd: 30,
     metadata: {}
   },
   
@@ -1601,8 +1653,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 30, y: 45, width: 35, height: 50 },
     confidence: 0.89,
     label: '检测到北大校服',
-    timeStart: 15,
-    timeEnd: 70,
+    timeStart: 5,
+    timeEnd: 35,
     metadata: {}
   },
   
@@ -1613,8 +1665,8 @@ const mockDetections: Detection[] = [
     boundingBox: { x: 10, y: 70, width: 80, height: 20 },
     confidence: 0.93,
     label: '检测到横幅标语',
-    timeStart: 45,
-    timeEnd: 55,
+    timeStart: 20,
+    timeEnd: 28,
     metadata: {}
   }
 ]
@@ -1627,23 +1679,23 @@ const mockScenes: SceneInfo[] = [
     icon: '🏫',
     confidence: 0.92,
     timeStart: 0,
-    timeEnd: 45
+    timeEnd: 20
   },
   {
     id: 'scene-2',
     name: '宿舍',
     icon: '🛏️',
     confidence: 0.88,
-    timeStart: 45,
-    timeEnd: 90
+    timeStart: 20,
+    timeEnd: 35
   },
   {
     id: 'scene-3',
     name: '户外场景',
     icon: '🌳',
     confidence: 0.85,
-    timeStart: 90,
-    timeEnd: 135
+    timeStart: 35,
+    timeEnd: 50
   }
 ]
 
@@ -1685,7 +1737,16 @@ const multiModalRadarOption = computed(() => {
   return {
     tooltip: {
       trigger: 'item',
-      appendToBody: true,
+      appendToBody: true,  // 允许自由移动
+      confine: false,
+      // 强制左上方，无任何判断
+      position: function (point: number[], params: any, dom: HTMLElement, rect: any, size: {contentSize: number[], viewSize: number[]}) {
+        const [mouseX, mouseY] = point
+        const [contentWidth, contentHeight] = size.contentSize
+        
+        // 强制左上方（永远！）
+        return [mouseX - contentWidth - 15, mouseY - contentHeight - 15]
+      },
       enterable: true,
       backgroundColor: 'rgba(255, 255, 255, 0.98)',
       borderColor: 'rgba(209, 217, 230, 0.4)',
@@ -1696,7 +1757,7 @@ const multiModalRadarOption = computed(() => {
         fontSize: 13,
         lineHeight: 20
       },
-      extraCssText: 'box-shadow: 0 4px 20px rgba(0,0,0,0.12); border-radius: 12px; z-index: 99999 !important; max-width: 300px; max-height: 520px; overflow-y: auto;',
+      extraCssText: 'box-shadow: 0 4px 20px rgba(0,0,0,0.12); border-radius: 12px; max-width: 340px; max-height: 550px; overflow-y: auto;',
       formatter: (params: any) => {
         if (!params || !params.name) return ''
         
@@ -2006,8 +2067,28 @@ const multiModalTimelineOption = computed(() => {
   return {
     tooltip: {
       trigger: 'axis',
-      // 不限制范围，让它自由浮动，只设置z-index保证在最上层
-      appendToBody: true,
+      appendToBody: true,  // 允许自由移动
+      confine: false,
+      // 强制上方显示，不做任何判断
+      position: function (point: number[], params: any, dom: HTMLElement, rect: any, size: {contentSize: number[], viewSize: number[]}) {
+        const [mouseX, mouseY] = point
+        const [contentWidth, contentHeight] = size.contentSize
+        const viewWidth = window.innerWidth
+        
+        // 强制在鼠标上方
+        let x = mouseX + 15
+        let y = mouseY - contentHeight - 15
+        
+        // 只检测左右边界
+        if (x + contentWidth > viewWidth - 20) {
+          x = mouseX - contentWidth - 15
+        }
+        if (x < 20) {
+          x = 20
+        }
+        
+        return [x, y]
+      },
       axisPointer: { 
         type: 'line',
         snap: false,  // 不吸附到数据点，精确跟随鼠标位置
@@ -2022,7 +2103,7 @@ const multiModalTimelineOption = computed(() => {
       borderWidth: 1,
       padding: 14,
       textStyle: { color: '#181818', fontSize: 12 },
-      extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 10px; z-index: 99999 !important;',
+      extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 10px;',
       formatter: (params: any) => {
         if (!params || params.length === 0) return ''
         
@@ -2533,6 +2614,8 @@ const riskTimelineOption = computed(() => {
 const selectVideo = (video: VideoInfo) => {
   selectedVideoId.value = video.id
   showVideoDrawer.value = false
+  // 更新 URL 参数，确保地址栏显示当前选中的视频ID
+  router.replace({ query: { videoId: video.id } })
   loadAnalysisByVideo()
 }
 
@@ -3011,12 +3094,16 @@ const onVideoTimeUpdate = () => {
   
   // 实时更新当前证据（根据播放时间自动切换）
   const currentTime = newTime
-  const nearestEvidence = mockRiskEvidence.find(
-    e => Math.abs(e.timeSeconds - currentTime) < 2.5
+  // 修正：根据时间段判断，只有当前时间在字幕的时间范围内才高亮
+  const currentEvidenceByTime = mockRiskEvidence.find(
+    e => currentTime >= e.timeSeconds && currentTime < (e.timeEndSeconds || e.timeSeconds + 10)
   )
   
-  if (nearestEvidence && nearestEvidence.id !== selectedEvidenceId.value) {
-    selectedEvidenceId.value = nearestEvidence.id
+  if (currentEvidenceByTime && currentEvidenceByTime.id !== selectedEvidenceId.value) {
+    selectedEvidenceId.value = currentEvidenceByTime.id
+  } else if (!currentEvidenceByTime && selectedEvidenceId.value) {
+    // 如果当前时间不在任何字幕时间段内，保持之前的选中状态（不取消高亮）
+    // selectedEvidenceId.value = '' // 可选：取消高亮
   }
   
   // 更新当前台词段落高亮
@@ -3091,12 +3178,98 @@ const updateProgressLine = (time: number) => {
   })
 }
 
+// ==================== CV视觉模态：精确计算视频显示区域（object-fit: contain） ====================
+/**
+ * 计算视频在 object-fit: contain 模式下的实际显示区域
+ * 用于精确定位检测框，避免容器尺寸变化时检测框错位
+ */
+const calculateVideoDisplayArea = () => {
+  const videoElement = mainVideoPlayerRef.value
+  if (!videoElement) {
+    console.warn('[检测框定位] 视频元素不存在')
+    return
+  }
+  
+  // 获取容器元素（video的父元素）
+  const container = videoElement.parentElement
+  if (!container) {
+    console.warn('[检测框定位] 容器元素不存在')
+    return
+  }
+  
+  // 获取视频原始尺寸
+  const videoWidth = videoElement.videoWidth
+  const videoHeight = videoElement.videoHeight
+  
+  // 视频元数据未加载完成
+  if (!videoWidth || !videoHeight) {
+    console.warn('[检测框定位] 视频元数据未加载，videoWidth:', videoWidth, 'videoHeight:', videoHeight)
+    return
+  }
+  
+  // 获取容器实际尺寸
+  const containerWidth = container.clientWidth
+  const containerHeight = container.clientHeight
+  
+  // 容器尺寸异常
+  if (!containerWidth || !containerHeight) {
+    console.warn('[检测框定位] 容器尺寸异常，containerWidth:', containerWidth, 'containerHeight:', containerHeight)
+    return
+  }
+  
+  // 计算宽高比
+  const videoRatio = videoWidth / videoHeight
+  const containerRatio = containerWidth / containerHeight
+  
+  let displayWidth: number
+  let displayHeight: number
+  let offsetX: number
+  let offsetY: number
+  
+  // 根据 object-fit: contain 规则计算实际显示区域
+  if (videoRatio > containerRatio) {
+    // 视频更宽 → 视频宽度填满容器，高度按比例缩放，上下有黑边
+    displayWidth = containerWidth
+    displayHeight = containerWidth / videoRatio
+    offsetX = 0
+    offsetY = (containerHeight - displayHeight) / 2
+  } else {
+    // 视频更高（或相等）→ 视频高度填满容器，宽度按比例缩放，左右有黑边（或无黑边）
+    displayWidth = containerHeight * videoRatio
+    displayHeight = containerHeight
+    offsetX = (containerWidth - displayWidth) / 2
+    offsetY = 0
+  }
+  
+  // 更新响应式数据
+  videoDisplayArea.value = {
+    offsetX,
+    offsetY,
+    displayWidth,
+    displayHeight,
+    containerWidth,
+    containerHeight
+  }
+  
+  console.log('[检测框定位] 计算完成:', {
+    视频原始尺寸: `${videoWidth}x${videoHeight}`,
+    容器尺寸: `${containerWidth}x${containerHeight}`,
+    视频宽高比: videoRatio.toFixed(3),
+    容器宽高比: containerRatio.toFixed(3),
+    显示区域: `${displayWidth.toFixed(1)}x${displayHeight.toFixed(1)}`,
+    偏移量: `(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`
+  })
+}
+
 // 视频加载完成
 const onVideoLoaded = () => {
   // 更新视频真实时长，确保图表时间轴与视频进度精确对齐
   if (mainVideoPlayerRef.value && mainVideoPlayerRef.value.duration) {
     videoDuration.value = mainVideoPlayerRef.value.duration
   }
+  
+  // 计算视频显示区域（用于精确定位检测框）
+  calculateVideoDisplayArea()
   
   // 自动跳转到第一个高风险证据
   if (selectedEvidenceId.value) {
@@ -3116,18 +3289,50 @@ const jumpToTime = (time: number) => {
   }
 }
 
-// 获取检测框样式（业界标准：支持分类颜色）
+// 获取检测框样式（业界标准：支持分类颜色 + 精确定位）
 const getDetectionBoxStyle = (detection: Detection) => {
   const box = detection.boundingBox
   const color = DETECTION_COLORS[detection.type] || '#fff'
+  const area = videoDisplayArea.value
+  
+  // 如果视频显示区域尚未计算，返回默认样式（避免闪烁）
+  if (!area.displayWidth || !area.displayHeight || !area.containerWidth || !area.containerHeight) {
+    return {
+      left: '0%',
+      top: '0%',
+      width: '0%',
+      height: '0%',
+      borderColor: color,
+      '--detection-color': color,
+      opacity: '0' // 隐藏未定位的检测框
+    }
+  }
+  
+  // ==================== 精确坐标转换 ====================
+  // 步骤1：将检测框的百分比坐标转换为相对于视频内容的像素坐标
+  const boxLeftInVideo = (box.x / 100) * area.displayWidth
+  const boxTopInVideo = (box.y / 100) * area.displayHeight
+  const boxWidthInVideo = (box.width / 100) * area.displayWidth
+  const boxHeightInVideo = (box.height / 100) * area.displayHeight
+  
+  // 步骤2：加上视频在容器中的偏移量，得到相对于容器的像素坐标
+  const boxLeftInContainer = area.offsetX + boxLeftInVideo
+  const boxTopInContainer = area.offsetY + boxTopInVideo
+  
+  // 步骤3：转换为相对于容器的百分比坐标
+  const leftPercent = (boxLeftInContainer / area.containerWidth) * 100
+  const topPercent = (boxTopInContainer / area.containerHeight) * 100
+  const widthPercent = (boxWidthInVideo / area.containerWidth) * 100
+  const heightPercent = (boxHeightInVideo / area.containerHeight) * 100
   
   return {
-    left: `${box.x}%`,
-    top: `${box.y}%`,
-    width: `${box.width}%`,
-    height: `${box.height}%`,
+    left: `${leftPercent}%`,
+    top: `${topPercent}%`,
+    width: `${widthPercent}%`,
+    height: `${heightPercent}%`,
     borderColor: color,
-    '--detection-color': color // CSS变量，用于标签背景
+    '--detection-color': color,
+    opacity: '1'
   }
 }
 
@@ -3220,9 +3425,9 @@ const getCurrentRiskScore = (): number => {
  */
 const getCurrentRiskClass = (): string => {
   const score = getCurrentRiskScore()
-  if (score >= 70) return 'risk-high'
-  if (score >= 40) return 'risk-medium'
-  return 'risk-low'
+  if (score >= 70) return 'high'
+  if (score >= 40) return 'medium'
+  return 'low'
 }
 
 /**
@@ -3418,6 +3623,63 @@ watch(() => route.query, (query) => {
   }
 }, { immediate: true })
 
+// 监听 viewMode 变化，控制父容器的 padding-bottom
+const updateContainerPadding = () => {
+  const mainContent = document.querySelector('.main-content')
+  if (mainContent) {
+    if (viewMode.value === 'interactive') {
+      mainContent.classList.add('interactive-mode-no-padding')
+    } else {
+      mainContent.classList.remove('interactive-mode-no-padding')
+    }
+  }
+}
+
+watch(viewMode, () => {
+  updateContainerPadding()
+})
+
+// 字幕自动滚动函数（提取为独立函数，多处复用）
+const scrollToActiveSubtitle = () => {
+  if (!selectedEvidenceId.value) return
+  
+  nextTick(() => {
+    // 找到字幕容器和当前高亮的字幕元素
+    const transcriptContainer = document.querySelector('.transcript-list')
+    const activeSegment = document.querySelector('.transcript-segment.active')
+    
+    if (transcriptContainer && activeSegment) {
+      // 计算滚动位置，使当前字幕居中
+      const containerRect = transcriptContainer.getBoundingClientRect()
+      const segmentRect = activeSegment.getBoundingClientRect()
+      
+      // 计算目标 scrollTop：将字幕滚动到容器中央
+      const containerScrollTop = transcriptContainer.scrollTop
+      const segmentOffsetTop = segmentRect.top - containerRect.top
+      const targetScrollTop = containerScrollTop + segmentOffsetTop - (containerRect.height / 2) + (segmentRect.height / 2)
+      
+      // 平滑滚动到目标位置
+      transcriptContainer.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth'
+      })
+    }
+  })
+}
+
+// 监听字幕切换，自动滚动到当前字幕（歌词滚动效果）
+watch(selectedEvidenceId, () => {
+  scrollToActiveSubtitle()
+})
+
+// 监听字幕活跃状态变化，从停顿恢复到播放时也要滚动
+watch(isCurrentEvidenceActive, (newActive, oldActive) => {
+  // 从非活跃变为活跃时，触发滚动（处理第一条字幕的边界情况）
+  if (newActive && !oldActive) {
+    scrollToActiveSubtitle()
+  }
+})
+
 // 订阅任务完成事件，自动刷新视频列表
 subscribeCompleted((data) => {
   fetchVideos()
@@ -3460,6 +3722,9 @@ const handleChartResize = () => {
   if (timelineChartRef.value && typeof timelineChartRef.value.resize === 'function') {
     timelineChartRef.value.resize()
   }
+  
+  // 同时重新计算视频显示区域，确保检测框位置正确
+  calculateVideoDisplayArea()
 }
 
 onMounted(() => {
@@ -3495,6 +3760,22 @@ onMounted(() => {
     
     pageResizeObserver.observe(analysisPageRef.value)
   }
+  
+  // ==================== CV视觉模态：监听视频播放器容器尺寸变化 ====================
+  // 当容器尺寸变化时（浏览器缩放、侧边栏收缩等），重新计算检测框位置
+  if (mainVideoPlayerRef.value && mainVideoPlayerRef.value.parentElement) {
+    videoResizeObserver = new ResizeObserver(() => {
+      // 使用防抖，避免频繁计算
+      setTimeout(() => {
+        calculateVideoDisplayArea()
+      }, 100)
+    })
+    
+    videoResizeObserver.observe(mainVideoPlayerRef.value.parentElement)
+  }
+  
+  // 初始化容器 padding 控制
+  updateContainerPadding()
 })
 
 // 组件卸载时清理监听器
@@ -3504,6 +3785,18 @@ onUnmounted(() => {
   if (pageResizeObserver) {
     pageResizeObserver.disconnect()
     pageResizeObserver = null
+  }
+  
+  // 清理视频播放器 ResizeObserver
+  if (videoResizeObserver) {
+    videoResizeObserver.disconnect()
+    videoResizeObserver = null
+  }
+  
+  // 清理容器 padding 控制
+  const mainContent = document.querySelector('.main-content')
+  if (mainContent) {
+    mainContent.classList.remove('interactive-mode-no-padding')
   }
 })
 </script>
@@ -5801,6 +6094,7 @@ $purple: #4b70e2;
     }
     
     .transcript-segment {
+      position: relative;
       padding: 12px 14px;
       margin-bottom: 10px;
       background: $bg;
@@ -5820,6 +6114,24 @@ $purple: #4b70e2;
         border-left-color: $purple;
         box-shadow: 4px 4px 10px $neu-2;
         transform: scale(1.02);
+      }
+      
+      // 已结束状态：降低亮度，保持上下文但视觉上区分
+      &.inactive {
+        opacity: 0.5;
+        transform: scale(1);
+        
+        &::after {
+          content: '已结束';
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          font-size: 10px;
+          color: $gray;
+          background: rgba($neu-2, 0.5);
+          padding: 2px 8px;
+          border-radius: 4px;
+        }
       }
       
       &.high-risk {
@@ -6047,7 +6359,8 @@ $purple: #4b70e2;
       }
       
       .current-frame-badge-small {
-        font-size: 11px;
+        font-size: 14px;
+        font-weight: 600;
         color: $gray;
         display: flex;
         align-items: center;
@@ -6055,51 +6368,63 @@ $purple: #4b70e2;
       }
     }
     
-    .radar-with-score {
+    .radar-container {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       padding: 12px;
-      gap: 20px;
       
-      .radar-chart-area {
-        flex: 1;
-        max-width: 380px;
+      .radar-with-score {
+        display: flex;
+        align-items: center;
+        padding-left: 40px;
+        gap: 20px;
+        margin-bottom: 12px;
         
-        .radar-chart-compact {
-          height: 220px;
-          width: 100%;
+        .radar-chart-area {
+          flex: 1;
+          max-width: 380px;
+          
+          .radar-chart-compact {
+            height: 220px;
+            width: 100%;
+          }
         }
         
-        .fusion-formula-compact {
-          text-align: center;
-          font-size: 11px;
-          color: $gray;
-          margin-top: 8px;
+        .score-side-panel {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          
+          .score-number-side {
+            font-size: 64px;
+            font-weight: 700;
+            line-height: 1;
+            margin-top: -12px;
+            margin-bottom: 4px;
+            transition: color 0.3s ease;
+            
+            &.low { color: #67c23a; }
+            &.medium { color: #e6a23c; }
+            &.high { color: #f56c6c; }
+          }
+          
+          .score-label-side {
+            font-size: 13px;
+            color: $gray;
+            font-weight: 500;
+          }
         }
       }
       
-      .score-side-panel {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        
-        .score-number-side {
-          font-size: 64px;
-          font-weight: 700;
-          line-height: 1;
-          margin-bottom: 8px;
-          
-          &.low { color: #67c23a; }
-          &.medium { color: #e6a23c; }
-          &.high { color: #f56c6c; }
-        }
-        
-        .score-label-side {
-          font-size: 13px;
-          color: $gray;
-          font-weight: 500;
-        }
+      .fusion-formula-compact {
+        text-align: center;
+        font-size: 11px;
+        color: $gray;
+        padding: 8px 16px;
+        background: rgba($purple, 0.05);
+        border-radius: 8px;
+        line-height: 1.6;
       }
     }
   }

@@ -826,6 +826,11 @@ $purple: #4b70e2;
     }
   }
 }
+
+// 分析页面交互视图专用样式 - 移除底部内边距
+.main-content.interactive-mode-no-padding {
+  padding-bottom: 0;
+}
 </style>
 
 <!-- 全局样式用于 Teleport 的下拉菜单 -->
