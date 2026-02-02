@@ -86,7 +86,7 @@
           <el-icon :size="48"><DataAnalysis /></el-icon>
         </div>
         <h3>{{ emptyMessage }}</h3>
-        <p>选择已分析的视频即可查看详细的多模态分析结果</p>
+        <p>选择已分析的视频即可查看详细的高校舆情分析结果</p>
         <button class="neu-btn primary-btn" @click="$router.push('/videos')">
           <el-icon><VideoPlay /></el-icon>
           去我的视频
@@ -104,25 +104,30 @@
           <div class="archive-header">
             <div class="file-section">
               <div class="file-icon">
-                <el-icon :size="28"><UserFilled /></el-icon>
+                <el-icon :size="28"><VideoCamera /></el-icon>
               </div>
               
               <div class="file-info">
+                <!-- 文件名 + 时长 -->
                 <div class="file-main">
                   <span class="file-name">{{ mockVideoArchive.fileName }}</span>
-                  
-                  <span class="identity-badge" :class="'identity-' + mockAIProfile.identityStatus">
-                    <el-icon :size="12"><Warning /></el-icon>
-                    {{ mockAIProfile.identityLabel }} ({{ Math.round(mockAIProfile.confidence * 100) }}%)
-                  </span>
-                  
-                  <span class="status-badge success">
-                    <el-icon :size="11"><CircleCheck /></el-icon>
-                    {{ mockVideoArchive.analysisStatus }}
+                  <span class="duration-badge">
+                    <el-icon :size="11"><Clock /></el-icon>
+                    {{ formatDuration(mockVideoArchive.duration) }}
                   </span>
                 </div>
 
-                <div class="ai-profile-row">
+                <!-- 用户描述信息(如果有) -->
+                <div class="video-description" v-if="mockVideoArchive.description">
+                  <span class="description-text">{{ mockVideoArchive.description }}</span>
+                </div>
+
+                <!-- 视频内容人物特征 -->
+                <div class="content-features-row">
+                  <div class="feature-label">
+                    <el-icon :size="14"><User /></el-icon>
+                    视频主要人物:
+                  </div>
                   <span class="profile-tag">
                     <el-icon><Male /></el-icon> {{ mockAIProfile.staticFeatures.gender }}
                   </span>
@@ -132,43 +137,40 @@
                   <span class="profile-tag">
                     <el-icon><School /></el-icon> {{ mockAIProfile.staticFeatures.clothing }}
                   </span>
-                  
-                  <span class="divider-vertical">|</span>
-                  
-                  <span v-for="(kw, idx) in mockAIProfile.detectedKeywords.slice(0, 3)" :key="idx" class="keyword-tag-mini">
-                    {{ kw }}
+                  <span class="profile-tag">
+                    <el-icon><Microphone /></el-icon> {{ mockAIProfile.staticFeatures.voiceProfile }}
                   </span>
                 </div>
 
-                <div class="file-meta">
-                  <span class="meta-item">
-                    <el-icon :size="11"><Clock /></el-icon>
-                    {{ formatDuration(mockVideoArchive.duration) }}
-                  </span>
-                  <span class="meta-item">
-                    <el-icon :size="11"><Files /></el-icon>
-                    {{ formatFileSize(mockVideoArchive.fileSize) }}
-                  </span>
-                  <span class="meta-item">
-                    <el-icon :size="11"><Monitor /></el-icon>
-                    {{ mockVideoArchive.resolution }}
-                  </span>
+                <!-- 检测到的关键内容 -->
+                <div class="detected-keywords-row">
+                  <div class="feature-label">
+                    <el-icon :size="14"><Search /></el-icon>
+                    内容关键词:
+                  </div>
+                  <div class="keywords-container">
+                    <span v-for="(kw, idx) in mockAIProfile.detectedKeywords" :key="idx" 
+                          class="keyword-tag-detected"
+                          :class="{ 'university-related': isUniversityKeyword(kw) }">
+                      {{ kw }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
             
             <div class="global-stats-section stats-pro-container">
+              <!-- 高校舆情分析核心指标 -->
               <div class="stat-pro-item">
-                <div class="pro-icon icon-bg-risk">
-                  <el-icon><WarningFilled /></el-icon>
+                <div class="pro-icon icon-bg-identity">
+                  <el-icon><User /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">风险评级</div>
-                  <div class="pro-value text-risk">
-                    高危
-                    <span class="pro-tag-risk">LV.5</span>
+                  <div class="pro-label">身份判定</div>
+                  <div class="pro-value text-identity">
+                    {{ mockIdentityAnalysis.identityLabel }}
                   </div>
-                  <div class="pro-subtitle">严重</div>
+                  <div class="pro-subtitle">置信度 {{ Math.round(mockIdentityAnalysis.confidence * 100) }}%</div>
                 </div>
               </div>
               
@@ -181,57 +183,46 @@
                   <div class="pro-value text-uni">
                     {{ mockUniversityBaseline.universityName }}
                   </div>
-                  <div class="pro-subtitle">匹配度 92%</div>
+                  <div class="pro-subtitle">匹配度 {{ Math.round(mockUniversityBaseline.logoConfidence * 100) }}%</div>
                 </div>
               </div>
               
               <div class="stat-pro-item">
-                <div class="pro-icon icon-bg-account">
-                  <el-icon><User /></el-icon>
+                <div class="pro-icon icon-bg-topic">
+                  <el-icon><ChatDotRound /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">账号成分</div>
-                  <div class="pro-value text-account">
-                    营销号
+                  <div class="pro-label">内容主题</div>
+                  <div class="pro-value text-topic">
+                    {{ mockContentAnalysis.topicCategory }}
                   </div>
-                  <div class="pro-subtitle">置信度 88%</div>
+                  <div class="pro-subtitle">{{ mockContentAnalysis.topicSubCategory }}</div>
                 </div>
               </div>
               
               <div class="stat-pro-item">
-                <div class="pro-icon icon-bg-action">
-                  <el-icon><DocumentChecked /></el-icon>
-                </div>
-                <div class="pro-content">
-                  <div class="pro-label">处置建议</div>
-                  <div class="pro-value text-action">
-                    建议上报
-                  </div>
-                  <div class="pro-subtitle">需人工复核</div>
-                </div>
-              </div>
-              
-              <div class="stat-pro-item">
-                <div class="pro-icon icon-bg-normal">
-                  <el-icon><CircleCloseFilled /></el-icon>
-                </div>
-                <div class="pro-content">
-                  <div class="pro-label">违规片段</div>
-                  <div class="pro-value text-normal">
-                    {{ mockVideoRisks.length }} <span class="pro-unit">处</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="stat-pro-item">
-                <div class="pro-icon icon-bg-normal">
+                <div class="pro-icon" :class="getSentimentIconClass(mockContentAnalysis.sentimentTowardSchool)">
                   <el-icon><TrendCharts /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">情绪波动</div>
-                  <div class="pro-value text-normal">
-                    {{ angryEmotionCount }} <span class="pro-unit">次</span>
+                  <div class="pro-label">对学校态度</div>
+                  <div class="pro-value" :class="getSentimentTextClass(mockContentAnalysis.sentimentTowardSchool)">
+                    {{ getSentimentLabel(mockContentAnalysis.sentimentTowardSchool) }}
                   </div>
+                  <div class="pro-subtitle">情感强度 {{ Math.round(mockContentAnalysis.sentimentIntensity * 100) }}%</div>
+                </div>
+              </div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon" :class="getOpinionRiskIconClass(mockOpinionRisk.riskLevel)">
+                  <el-icon><WarningFilled /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">舆论风险</div>
+                  <div class="pro-value" :class="getOpinionRiskTextClass(mockOpinionRisk.riskLevel)">
+                    {{ mockOpinionRisk.riskLabel }}
+                  </div>
+                  <div class="pro-subtitle">{{ mockOpinionRisk.riskReason }}</div>
                 </div>
               </div>
               
@@ -242,20 +233,35 @@
                 <div class="pro-content">
                   <div class="pro-label">传播潜力</div>
                   <div class="pro-value text-spread">
-                    8.5 <span class="pro-unit">指数</span>
+                    {{ mockOpinionRisk.spreadPotential }} <span class="pro-unit">/ 10</span>
                   </div>
+                  <div class="pro-subtitle">{{ getSpreadPotentialLabel(mockOpinionRisk.spreadPotential) }}</div>
                 </div>
               </div>
               
               <div class="stat-pro-item">
-                <div class="pro-icon icon-bg-tone">
-                  <el-icon><ChatDotRound /></el-icon>
+                <div class="pro-icon icon-bg-mention">
+                  <el-icon><Document /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">内容调性</div>
-                  <div class="pro-value text-tone">
-                    煽动 负面
+                  <div class="pro-label">学校提及</div>
+                  <div class="pro-value text-mention">
+                    {{ mockContentAnalysis.schoolMentionCount }} <span class="pro-unit">次</span>
                   </div>
+                  <div class="pro-subtitle">含 {{ mockContentAnalysis.negativeMentionCount }} 处负面</div>
+                </div>
+              </div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-action">
+                  <el-icon><DocumentChecked /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">处置建议</div>
+                  <div class="pro-value text-action">
+                    {{ mockOpinionRisk.actionSuggestion }}
+                  </div>
+                  <div class="pro-subtitle">{{ mockOpinionRisk.actionDetail }}</div>
                 </div>
               </div>
             </div>
@@ -285,20 +291,58 @@
                 <p>请选择风险证据</p>
               </div>
               
-              <!-- 检测框叠加层（显示当前证据的检测框） -->
-              <div class="detection-overlay" v-if="currentEvidence && currentEvidence.label">
+              <!-- CV视觉模态：多检测框叠加层（业界标准） -->
+              <div class="detections-overlay">
                 <div 
-                  class="detection-box pulse-glow"
-                  :style="currentEvidence.boxStyle"
+                  v-for="detection in currentDetections" 
+                  :key="detection.id"
+                  class="detection-box"
+                  :class="[
+                    `detection-type-${detection.type}`,
+                    detection.confidence > 0.9 ? 'high-confidence' : ''
+                  ]"
+                  :style="getDetectionBoxStyle(detection)"
                 >
-                  <span class="detection-label">
-                    {{ currentEvidence.label }} ({{ Math.round(currentEvidence.confidence * 100) }}%)
-                  </span>
+                  <div class="detection-label-container">
+                    <span class="detection-label">
+                      <span v-if="detection.metadata?.emotionIcon" class="emotion-icon">
+                        {{ detection.metadata.emotionIcon }}
+                      </span>
+                      {{ detection.label }}
+                      <span class="confidence-badge">{{ Math.round(detection.confidence * 100) }}%</span>
+                    </span>
+                  </div>
                 </div>
               </div>
               
               <!-- 扫描线特效 -->
               <div class="scanline-effect"></div>
+              
+              <!-- CV视觉模态：场景标签（右上角半透明悬浮） -->
+              <div class="scene-badge-overlay" v-if="currentScene">
+                <div class="scene-badge">
+                  <span class="scene-icon">{{ currentScene.icon }}</span>
+                  <span class="scene-content">
+                    <span class="scene-name">{{ currentScene.name }}</span>
+                    <span class="scene-confidence">置信度 {{ Math.round(currentScene.confidence * 100) }}%</span>
+                  </span>
+                </div>
+              </div>
+              
+              <!-- CV视觉模态：检测类型图例（左上角） -->
+              <div class="detection-legend">
+                <div class="legend-title">检测类型</div>
+                <div class="legend-items">
+                  <div 
+                    v-for="(color, type) in DETECTION_COLORS" 
+                    :key="type"
+                    class="legend-item"
+                  >
+                    <span class="legend-color" :style="{ backgroundColor: color }"></span>
+                    <span class="legend-label">{{ DETECTION_LABELS[type] }}</span>
+                  </div>
+                </div>
+              </div>
               
               <!-- 当前帧信息叠加（顶部） -->
               <div class="frame-info-overlay" v-if="currentEvidence">
@@ -347,15 +391,34 @@
                   <el-icon :size="14"><Microphone /></el-icon>
                   语音转文字与风险定位
                 </span>
-                <span class="detection-badge">
-                  <el-icon :size="10"><User /></el-icon>
-                  主讲人：男性
-                </span>
+                <div class="risk-filter-group">
+                  <button 
+                    class="filter-btn"
+                    :class="{ active: riskFilter === 'all' }"
+                    @click="riskFilter = 'all'"
+                  >
+                    全部
+                  </button>
+                  <button 
+                    class="filter-btn"
+                    :class="{ active: riskFilter === 'medium-high' }"
+                    @click="riskFilter = 'medium-high'"
+                  >
+                    中/高风险
+                  </button>
+                  <button 
+                    class="filter-btn"
+                    :class="{ active: riskFilter === 'high' }"
+                    @click="riskFilter = 'high'"
+                  >
+                    高风险
+                  </button>
+                </div>
               </div>
               
               <div class="transcript-list">
                 <div 
-                  v-for="evidence in mockRiskEvidence" 
+                  v-for="evidence in filteredRiskEvidence" 
                   :key="evidence.id"
                   class="transcript-segment"
                   :class="{ 
@@ -410,7 +473,7 @@
               <div class="card-header-compact">
                 <span class="card-title-compact">
                   <el-icon :size="14"><DataAnalysis /></el-icon>
-                  多模态风险融合画像
+                  高校舆情风险画像
                 </span>
                 <span class="current-frame-badge-small">
                   <el-icon :size="9"><VideoPlay /></el-icon>
@@ -419,9 +482,17 @@
               </div>
               <div class="radar-with-score">
                 <div class="radar-chart-area">
-                  <v-chart :option="multiModalRadarOption" class="radar-chart-compact" />
+                  <v-chart 
+                    ref="radarChartRef" 
+                    :option="multiModalRadarOption"
+                    :update-options="{ notMerge: false, lazyUpdate: false }"
+                    class="radar-chart-compact"
+                    @mouseenter="isMouseOnRadar = true"
+                    @mouseleave="isMouseOnRadar = false"
+                    @finished="onRadarChartFinished"
+                  />
                   <div class="fusion-formula-compact">
-                    综合风险 = 文本×0.4 + 视频×0.3 + 音频×0.3
+                    舆情风险 = 负面情感×0.35 + 传播风险×0.25 + 影响范围×0.25 + 紧迫度×0.15
                   </div>
                 </div>
                 <div class="score-side-panel">
@@ -910,8 +981,33 @@ const currentSegmentIndex = ref(-1)
 // 当前显示的检测框
 const currentDetection = ref<any>(null)
 
+// ==================== 检测框颜色配置（业界标准） ====================
+const DETECTION_COLORS: Record<string, string> = {
+  face: '#00ff88',      // 人脸识别 - 绿色
+  ocr: '#ffd700',       // 文字识别 - 金色
+  logo: '#4a90e2',      // 校徽/Logo - 蓝色
+  scene: '#a29bfe',     // 校园场景 - 紫色
+  emotion: '#ff6348',   // 情绪检测 - 橙红色
+  mention: '#ff4757'    // 学校提及 - 红色（重点关注）
+}
+
+const DETECTION_LABELS: Record<string, string> = {
+  face: '人脸识别',
+  ocr: '文字识别',
+  logo: '校徽/Logo',
+  scene: '校园场景',
+  emotion: '情绪检测',
+  mention: '学校提及'
+}
+
 // 时间轴图表引用
 const timelineChartRef = ref<any>(null)
+
+// 雷达图表引用
+const radarChartRef = ref<any>(null)
+
+// 记录鼠标是否在雷达图上（用于保持tooltip显示）
+const isMouseOnRadar = ref(false)
 
 // 分析页面根容器引用
 const analysisPageRef = ref<HTMLDivElement | null>(null)
@@ -932,6 +1028,33 @@ interface RiskEvidence {
   confidence: number // 置信度
   keywords: string[] // 高亮关键词
   emotion?: string // 语音情绪
+}
+
+// ==================== CV视觉模态：检测框数据结构 ====================
+interface Detection {
+  id: string
+  type: 'face' | 'ocr' | 'logo' | 'uniform' | 'banner' | 'object'
+  boundingBox: { x: number; y: number; width: number; height: number } // 百分比坐标
+  confidence: number // 置信度 0-1
+  label: string // 检测标签，如 "愤怒表情"、"北大校徽"
+  timeStart: number // 开始时间（秒）
+  timeEnd: number // 结束时间（秒）
+  metadata?: {
+    emotion?: string // 表情：angry, calm, serious, tense
+    emotionIcon?: string // 表情图标：😡, 😐, 😟
+    age?: number // 年龄（仅人脸）
+    gender?: string // 性别（仅人脸）
+  }
+}
+
+// ==================== CV视觉模态：场景识别数据结构 ====================
+interface SceneInfo {
+  id: string
+  name: string // 场景名称，如 "教室"、"宿舍"
+  icon: string // 场景图标，如 "🏫"、"🛏️"
+  confidence: number // 置信度 0-1
+  timeStart: number // 开始时间（秒）
+  timeEnd: number // 结束时间（秒）
 }
 
 // Mock证据数组（5条证据，覆盖高/中/低风险）
@@ -1006,12 +1129,66 @@ const mockRiskEvidence: RiskEvidence[] = [
 // 当前选中的证据ID
 const selectedEvidenceId = ref<string>('')
 
+// 风险过滤器状态
+const riskFilter = ref<'all' | 'medium-high' | 'high'>('all')
+
 // 真实视频URL
 const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/2026/02/01/ae8f478c008b448c865a03cabdeeec1a.mp4')
+
+// ==================== 动态雷达图数据（根据视频时间变化） ====================
+// 不同时间段的雷达图数据（高校舆情分析6个维度）
+// 雷达图动态数据（高校舆情分析维度）
+// 维度顺序：[身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
+const mockRadarDataByTime = [
+  { timeStart: 0, timeEnd: 18, data: [85, 65, 15, 20, 25, 15] },      // 0-18s: 自我介绍，明确学生身份
+  { timeStart: 18, timeEnd: 45, data: [85, 80, 40, 35, 45, 30] },     // 18-45s: 陈述问题，涉及学校系统
+  { timeStart: 45, timeEnd: 72, data: [85, 95, 88, 70, 85, 75] },     // 45-72s: 情绪激动，强烈批评学校
+  { timeStart: 72, timeEnd: 98, data: [85, 90, 65, 55, 70, 50] },     // 72-98s: 持续不满，可能引发共鸣
+  { timeStart: 98, timeEnd: 125, data: [85, 85, 35, 40, 50, 35] },    // 98-125s: 提出诉求，语气缓和
+  { timeStart: 125, timeEnd: 999, data: [85, 80, 25, 45, 40, 25] }    // 125s+: 呼吁传播，有一定传播风险
+]
+
+// 当前时间点的雷达图数据（动态计算）
+const currentRadarData = computed(() => {
+  const currentTime = currentPlayTime.value
+  const dataPoint = mockRadarDataByTime.find(
+    item => currentTime >= item.timeStart && currentTime < item.timeEnd
+  )
+  return dataPoint ? dataPoint.data : mockRadarDataByTime[0].data
+})
 
 // 当前选中的证据对象
 const currentEvidence = computed(() => {
   return mockRiskEvidence.find(e => e.id === selectedEvidenceId.value) || mockRiskEvidence[0]
+})
+
+// 过滤后的风险证据列表
+const filteredRiskEvidence = computed(() => {
+  if (riskFilter.value === 'all') {
+    return mockRiskEvidence
+  } else if (riskFilter.value === 'medium-high') {
+    return mockRiskEvidence.filter(e => e.riskLevel === 'HIGH' || e.riskLevel === 'MEDIUM')
+  } else if (riskFilter.value === 'high') {
+    return mockRiskEvidence.filter(e => e.riskLevel === 'HIGH')
+  }
+  return mockRiskEvidence
+})
+
+// ==================== CV视觉模态：当前显示的检测框和场景 ====================
+// 当前显示的所有检测框（根据视频时间筛选）
+const currentDetections = computed(() => {
+  const currentTime = currentPlayTime.value
+  return mockDetections.filter(detection => 
+    currentTime >= detection.timeStart && currentTime <= detection.timeEnd
+  )
+})
+
+// 当前场景信息
+const currentScene = computed(() => {
+  const currentTime = currentPlayTime.value
+  return mockScenes.find(scene => 
+    currentTime >= scene.timeStart && currentTime <= scene.timeEnd
+  )
 })
 
 // ==================== 逻辑修复：视频档案数据（本地上传场景） ====================
@@ -1024,17 +1201,19 @@ interface VideoArchive {
   uploadSource: string // 来源：本地上传
   analysisStatus: string // 分析状态
   manualTag?: string // 可选：人工标记的备注对象
+  description?: string // 可选：用户上传时填写的视频描述
 }
 
 const mockVideoArchive: VideoArchive = {
-  fileName: 'video_evidence_20240201.mp4',
+  fileName: '北大学生吐槽选课系统_20240201.mp4',
   fileSize: 128 * 1024 * 1024, // 128MB
   duration: 195, // 3分15秒
   resolution: '1920×1080',
   uploadTime: '2024-02-01 14:30:25',
-  uploadSource: '本地上传',
+  uploadSource: '抖音平台',
   analysisStatus: '分析完成',
-  manualTag: '疑似违规宣传视频' // 人工备注
+  manualTag: '校园舆情-选课系统', // 人工备注
+  description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，可能引发其他学生共鸣转发。' // 视频内容摘要
 }
 
 // 匹配基准库配置
@@ -1051,6 +1230,135 @@ const mockUniversityBaseline: UniversityBaseline = {
   logoConfidence: 0.92,
   sceneDatabase: 'V2.3.1'
 }
+
+// ==================== 高校舆情分析核心数据 ====================
+
+// 身份判定分析
+interface IdentityAnalysis {
+  identityType: 'student' | 'alumni' | 'staff' | 'unrelated' | 'unknown'
+  identityLabel: string
+  confidence: number
+  evidences: string[]  // 判定依据
+}
+
+const mockIdentityAnalysis: IdentityAnalysis = {
+  identityType: 'student',
+  identityLabel: '疑似在校学生',
+  confidence: 0.85,
+  evidences: [
+    '语音中提及"我们学校"、"我是北大的"',
+    '画面出现校园场景（图书馆、教学楼）',
+    '穿着疑似校园服饰'
+  ]
+}
+
+// 内容分析（高校舆情视角）
+interface ContentAnalysis {
+  topicCategory: string  // 内容主题大类
+  topicSubCategory: string  // 内容主题细分
+  sentimentTowardSchool: 'positive' | 'neutral' | 'negative'  // 对学校的情感倾向
+  sentimentIntensity: number  // 情感强度 0-1
+  schoolMentionCount: number  // 学校相关提及次数
+  negativeMentionCount: number  // 负面提及次数
+  keyTopics: string[]  // 涉及的具体话题
+}
+
+const mockContentAnalysis: ContentAnalysis = {
+  topicCategory: '校园政策',
+  topicSubCategory: '选课制度吐槽',
+  sentimentTowardSchool: 'negative',
+  sentimentIntensity: 0.72,
+  schoolMentionCount: 8,
+  negativeMentionCount: 5,
+  keyTopics: ['选课系统崩溃', '课程名额不足', '热门课抢不到']
+}
+
+// 舆论风险评估
+interface OpinionRisk {
+  riskLevel: 'low' | 'medium' | 'high'
+  riskLabel: string
+  riskScore: number  // 0-100
+  riskReason: string
+  spreadPotential: number  // 传播潜力 1-10
+  actionSuggestion: string
+  actionDetail: string
+  potentialImpacts: string[]
+}
+
+const mockOpinionRisk: OpinionRisk = {
+  riskLevel: 'medium',
+  riskLabel: '中等风险',
+  riskScore: 58,
+  riskReason: '可能引发跟风吐槽',
+  spreadPotential: 6.5,
+  actionSuggestion: '建议关注',
+  actionDetail: '持续监控舆情动态',
+  potentialImpacts: [
+    '可能引发其他学生共鸣转发',
+    '对学校选课系统形象有一定负面影响',
+    '建议教务处关注并优化系统'
+  ]
+}
+
+// 辅助函数：获取情感标签
+const getSentimentLabel = (sentiment: string): string => {
+  const labels: Record<string, string> = {
+    'positive': '正面/积极',
+    'neutral': '中性/客观',
+    'negative': '负面/不满'
+  }
+  return labels[sentiment] || '未知'
+}
+
+// 辅助函数：获取情感图标样式
+const getSentimentIconClass = (sentiment: string): string => {
+  const classes: Record<string, string> = {
+    'positive': 'icon-bg-positive',
+    'neutral': 'icon-bg-neutral',
+    'negative': 'icon-bg-negative'
+  }
+  return classes[sentiment] || 'icon-bg-neutral'
+}
+
+// 辅助函数：获取情感文字样式
+const getSentimentTextClass = (sentiment: string): string => {
+  const classes: Record<string, string> = {
+    'positive': 'text-positive',
+    'neutral': 'text-neutral',
+    'negative': 'text-negative'
+  }
+  return classes[sentiment] || 'text-neutral'
+}
+
+// 辅助函数：获取舆论风险图标样式
+const getOpinionRiskIconClass = (level: string): string => {
+  const classes: Record<string, string> = {
+    'low': 'icon-bg-risk-low',
+    'medium': 'icon-bg-risk-medium',
+    'high': 'icon-bg-risk-high'
+  }
+  return classes[level] || 'icon-bg-risk-medium'
+}
+
+// 辅助函数：获取舆论风险文字样式
+const getOpinionRiskTextClass = (level: string): string => {
+  const classes: Record<string, string> = {
+    'low': 'text-risk-low',
+    'medium': 'text-risk-medium',
+    'high': 'text-risk-high'
+  }
+  return classes[level] || 'text-risk-medium'
+}
+
+// 辅助函数：获取传播潜力标签
+const getSpreadPotentialLabel = (score: number): string => {
+  if (score >= 8) return '极易传播'
+  if (score >= 6) return '较易传播'
+  if (score >= 4) return '一般'
+  return '传播性低'
+}
+
+// ==================== 高校舆情分析核心数据 END ====================
 
 // AI目标侧写数据（从视频内容推测）
 interface AIProfileResult {
@@ -1071,86 +1379,93 @@ interface AIProfileResult {
 
 const mockAIProfile: AIProfileResult = {
   identityStatus: 'suspected',
-  identityLabel: '疑似本校学生',
+  identityLabel: '疑似在校学生',
   confidence: 0.85,
-  matchSource: `检测到 [${mockUniversityBaseline.universityName}] 校徽 (置信度 ${Math.round(mockUniversityBaseline.logoConfidence * 100)}%)`,
+  matchSource: `语音中自称"北大计算机系学生"，检测到校园场景`,
   detectedKeywords: [
-    '自称"阿强"',
-    '提及"我们学校"',
-    '提及"第一教学楼"'
+    '北大',
+    '北京大学',
+    '计算机系',
+    '我们学校',
+    '选课系统',
+    '教务处',
+    '失望',
+    '不负责任',
+    '热门课',
+    '抢不到'
   ],
   staticFeatures: {
     gender: '男性',
-    ageRange: '20-25岁',
-    voiceProfile: '成年男性/沙哑音色',
-    clothing: '学士服'
+    ageRange: '20-24岁',
+    voiceProfile: '年轻男性/情绪激动',
+    clothing: '休闲装'
   },
-  sceneType: '第一教学楼',
-  sceneConfidence: 0.92
+  sceneType: '校园宿舍',
+  sceneConfidence: 0.88
 }
 
 // 模拟数据：带时间戳的转录文本
 const mockTranscriptSegments = computed(() => {
   if (!analysisData.value) return []
   
-  // 基于实际转录文本生成模拟分段
+  // 基于实际转录文本生成模拟分段 - 高校舆情场景
   const transcription = analysisData.value.transcription || ''
   const duration = (analysisData.value.videoFeatures as any)?.duration || 180
   
   return [
     {
       start: 0,
-      end: 15,
-      text: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
+      end: 18,
+      text: '大家好，我是北大计算机系大三的学生，今天想跟大家聊聊我们学校选课系统的问题...',
       emotion: 'calm',
       riskLevel: 'low',
-      keywords: [],
-      reason: '该时段内容正常，无明显风险'
+      keywords: ['北大', '学生'],
+      reason: '自我介绍，明确表明本校学生身份'
     },
     {
-      start: 15,
-      end: 42,
-      text: '首先声明一下，这个视频的内容都是基于事实的，没有任何夸张成分...',
+      start: 18,
+      end: 45,
+      text: '每学期选课的时候，系统都会崩溃，这个问题已经存在好几年了，学校一直没有解决...',
       emotion: 'calm',
       riskLevel: 'low',
-      keywords: [],
-      reason: '陈述性语言，情绪稳定'
+      keywords: ['选课', '系统崩溃'],
+      reason: '陈述事实，情绪平稳，但涉及对学校的批评'
     },
     {
-      start: 42,
-      end: 68,
-      text: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
+      start: 45,
+      end: 72,
+      text: '我觉得作为全国顶尖的大学，连一个选课系统都搞不好，真的太让人失望了，这是对学生的不负责任！',
       emotion: 'angry',
       riskLevel: 'high',
-      keywords: ['欺骗', '抵制', '联合'],
-      reason: '含有煽动性言论，使用"欺骗""抵制"等敏感词汇'
+      keywords: ['失望', '不负责任', '顶尖大学'],
+      reason: '情绪激动，对学校表达强烈不满，涉及学校声誉'
     },
     {
-      start: 68,
-      end: 95,
-      text: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
+      start: 72,
+      end: 98,
+      text: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
       emotion: 'serious',
       riskLevel: 'medium',
-      keywords: ['风险', '真相'],
-      reason: '涉及敏感话题，语气较为严肃'
+      keywords: ['抢不到', '热门课'],
+      reason: '持续表达不满，可能引发其他学生共鸣'
     },
     {
-      start: 95,
+      start: 98,
       end: 125,
-      text: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
-      emotion: 'tense',
-      riskLevel: 'medium',
-      keywords: ['追究'],
-      reason: '带有威胁性表述，情绪紧张'
+      text: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
+      emotion: 'calm',
+      riskLevel: 'low',
+      keywords: ['教务处', '诉求'],
+      reason: '提出诉求，语气缓和，有建设性'
     },
     {
       start: 125,
       end: Math.min(duration, 155),
-      text: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+      text: '如果学校能改进选课系统，对学生来说是一件好事，希望这个视频能被更多人看到。',
       emotion: 'calm',
       riskLevel: 'low',
       keywords: [],
-      reason: '总结性陈述，风险较低'
+      reason: '总结性陈述，呼吁传播，有一定传播风险'
     }
   ].filter(seg => seg.end <= duration)
 })
@@ -1159,33 +1474,178 @@ const mockTranscriptSegments = computed(() => {
 const mockVideoRisks = computed(() => {
   if (!analysisData.value) return []
   
+  // 高校舆情相关检测点
   return [
     {
-      time: 45,
-      type: '非官方横幅',
-      confidence: 0.98,
-      boundingBox: { x: 20, y: 30, width: 40, height: 30 },
-      reason: '检测到未经授权的横幅标语',
-      riskLevel: 'high'
+      time: 5,
+      type: '校园场景识别',
+      confidence: 0.95,
+      boundingBox: { x: 10, y: 10, width: 80, height: 60 },
+      reason: '检测到北京大学教学楼背景',
+      riskLevel: 'low'  // 场景识别本身不是风险，是身份判定依据
     },
     {
-      time: 52,
-      type: '激动手势',
-      confidence: 0.85,
-      boundingBox: { x: 35, y: 45, width: 25, height: 30 },
-      reason: '人物出现过激肢体动作',
+      time: 48,
+      type: '负面情绪表达',
+      confidence: 0.88,
+      boundingBox: { x: 30, y: 40, width: 40, height: 35 },
+      reason: '说话者面部表情显示不满情绪',
       riskLevel: 'medium'
     },
     {
-      time: 105,
-      type: '违规标识',
-      confidence: 0.91,
-      boundingBox: { x: 15, y: 25, width: 35, height: 25 },
-      reason: '画面中出现违规标识物',
+      time: 55,
+      type: '学校名称提及',
+      confidence: 0.96,
+      boundingBox: { x: 20, y: 75, width: 60, height: 15 },
+      reason: '语音中直接提及"北大"、"顶尖大学"等',
+      riskLevel: 'high'  // 涉及学校声誉时为高风险
+    },
+    {
+      time: 72,
+      type: '情绪激动峰值',
+      confidence: 0.92,
+      boundingBox: { x: 25, y: 35, width: 50, height: 40 },
+      reason: '音量升高，语速加快，表达强烈不满',
       riskLevel: 'high'
     }
   ]
 })
+
+// ==================== CV视觉模态：检测框Mock数据（业界标准） ====================
+const mockDetections: Detection[] = [
+  // 人脸检测 - 3个时间段
+  {
+    id: 'face-1',
+    type: 'face',
+    boundingBox: { x: 35, y: 20, width: 25, height: 35 },
+    confidence: 0.96,
+    label: '平静表情',
+    timeStart: 15,
+    timeEnd: 42,
+    metadata: {
+      emotion: 'calm',
+      emotionIcon: '😐',
+      age: 22,
+      gender: '男性'
+    }
+  },
+  {
+    id: 'face-2',
+    type: 'face',
+    boundingBox: { x: 32, y: 18, width: 28, height: 38 },
+    confidence: 0.98,
+    label: '愤怒表情',
+    timeStart: 42,
+    timeEnd: 68,
+    metadata: {
+      emotion: 'angry',
+      emotionIcon: '😡',
+      age: 22,
+      gender: '男性'
+    }
+  },
+  {
+    id: 'face-3',
+    type: 'face',
+    boundingBox: { x: 30, y: 15, width: 30, height: 40 },
+    confidence: 0.94,
+    label: '严肃表情',
+    timeStart: 68,
+    timeEnd: 105,
+    metadata: {
+      emotion: 'serious',
+      emotionIcon: '😟',
+      age: 22,
+      gender: '男性'
+    }
+  },
+  
+  // OCR检测 - 2个敏感词
+  {
+    id: 'ocr-1',
+    type: 'ocr',
+    boundingBox: { x: 15, y: 55, width: 40, height: 12 },
+    confidence: 0.98,
+    label: 'OCR敏感词：[抵制]',
+    timeStart: 42,
+    timeEnd: 50,
+    metadata: {}
+  },
+  {
+    id: 'ocr-2',
+    type: 'ocr',
+    boundingBox: { x: 20, y: 60, width: 35, height: 10 },
+    confidence: 0.91,
+    label: 'OCR敏感词：[追究]',
+    timeStart: 100,
+    timeEnd: 110,
+    metadata: {}
+  },
+  
+  // 校徽检测 - 1个
+  {
+    id: 'logo-1',
+    type: 'logo',
+    boundingBox: { x: 70, y: 25, width: 15, height: 15 },
+    confidence: 0.95,
+    label: '检测到北大校徽',
+    timeStart: 20,
+    timeEnd: 60,
+    metadata: {}
+  },
+  
+  // 校服检测 - 1个
+  {
+    id: 'uniform-1',
+    type: 'uniform',
+    boundingBox: { x: 30, y: 45, width: 35, height: 50 },
+    confidence: 0.89,
+    label: '检测到北大校服',
+    timeStart: 15,
+    timeEnd: 70,
+    metadata: {}
+  },
+  
+  // 横幅检测 - 1个
+  {
+    id: 'banner-1',
+    type: 'banner',
+    boundingBox: { x: 10, y: 70, width: 80, height: 20 },
+    confidence: 0.93,
+    label: '检测到横幅标语',
+    timeStart: 45,
+    timeEnd: 55,
+    metadata: {}
+  }
+]
+
+// ==================== CV视觉模态：场景识别Mock数据 ====================
+const mockScenes: SceneInfo[] = [
+  {
+    id: 'scene-1',
+    name: '教室',
+    icon: '🏫',
+    confidence: 0.92,
+    timeStart: 0,
+    timeEnd: 45
+  },
+  {
+    id: 'scene-2',
+    name: '宿舍',
+    icon: '🛏️',
+    confidence: 0.88,
+    timeStart: 45,
+    timeEnd: 90
+  },
+  {
+    id: 'scene-3',
+    name: '户外场景',
+    icon: '🌳',
+    confidence: 0.85,
+    timeStart: 90,
+    timeEnd: 135
+  }
+]
 
 // 模拟数据：音频情绪波动（增强版 - 包含详细原因）
 const mockAudioEmotions = computed(() => {
@@ -1212,19 +1672,124 @@ const highRiskSegmentCount = computed(() => {
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
 const multiModalRadarOption = computed(() => {
+  // 高校舆情分析维度说明映射
+  const dimensionDesc: Record<string, string> = {
+    '身份置信度': '判定发布者为本校学生/校友的置信程度',
+    '学校关联度': '视频内容与学校相关话题的关联程度',
+    '负面情感度': '对学校表达负面情绪的强度',
+    '传播风险': '内容引发校园舆论传播的可能性',
+    '影响范围': '对学校声誉的潜在影响程度',
+    '处置紧迫度': '需要校方介入处理的紧迫程度'
+  }
+  
   return {
     tooltip: {
       trigger: 'item',
-      formatter: '{b}: {c}%'
+      appendToBody: true,
+      enterable: true,
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      borderColor: 'rgba(209, 217, 230, 0.4)',
+      borderWidth: 1,
+      padding: 16,
+      textStyle: { 
+        color: '#181818', 
+        fontSize: 13,
+        lineHeight: 20
+      },
+      extraCssText: 'box-shadow: 0 4px 20px rgba(0,0,0,0.12); border-radius: 12px; z-index: 99999 !important; max-width: 300px; max-height: 520px; overflow-y: auto;',
+      formatter: (params: any) => {
+        if (!params || !params.name) return ''
+        
+        const values = params.value || []
+        const dimensions = ['身份置信度', '学校关联度', '负面情感度', '传播风险', '影响范围', '处置紧迫度']
+        
+        let html = `
+          <div style="min-width: 260px;">
+            <div style="font-size: 14px; font-weight: 600; color: #f56c6c; margin-bottom: 8px; border-bottom: 2px solid #f56c6c; padding-bottom: 6px;">
+              <i class="fas fa-chart-area" style="margin-right: 4px;"></i>
+              ${params.name}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+        `
+        
+        dimensions.forEach((dim, index) => {
+          const value = values[index] || 0
+          let levelText = '正常'
+          let levelColor = '#52c41a'
+          
+          if (value >= 80) {
+            levelText = '极高'
+            levelColor = '#f56c6c'
+          } else if (value >= 60) {
+            levelText = '高'
+            levelColor = '#ff7875'
+          } else if (value >= 40) {
+            levelText = '中'
+            levelColor = '#faad14'
+          } else if (value >= 20) {
+            levelText = '低'
+            levelColor = '#95de64'
+          }
+          
+          html += `
+            <div style="background: rgba(0,0,0,0.02); padding: 6px 8px; border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                <span style="font-weight: 600; color: #333; font-size: 12px;">${dim}</span>
+                <span style="font-weight: 700; font-size: 14px; color: ${levelColor};">${value}%</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="flex: 1; height: 5px; background: rgba(0,0,0,0.08); border-radius: 2px; overflow: hidden;">
+                  <div style="width: ${value}%; height: 100%; background: ${levelColor};"></div>
+                </div>
+                <span style="font-size: 10px; font-weight: 600; color: ${levelColor}; min-width: 40px; text-align: right;">${levelText}</span>
+              </div>
+            </div>
+          `
+        })
+        
+        // 计算综合风险
+        const avgRisk = values.reduce((a: number, b: number) => a + b, 0) / values.length
+        let overallLevel = '正常'
+        let overallColor = '#52c41a'
+        
+        if (avgRisk >= 70) {
+          overallLevel = '高风险'
+          overallColor = '#f56c6c'
+        } else if (avgRisk >= 50) {
+          overallLevel = '中等风险'
+          overallColor = '#faad14'
+        } else if (avgRisk >= 30) {
+          overallLevel = '低风险'
+          overallColor = '#95de64'
+        }
+        
+        html += `
+            </div>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8e8e8; text-align: center;">
+              <span style="font-size: 11px; color: #666;">综合风险：</span>
+              <span style="font-size: 16px; font-weight: 700; color: ${overallColor}; margin-left: 4px;">
+                ${Math.round(avgRisk)}
+              </span>
+              <span style="font-size: 11px; font-weight: 600; color: ${overallColor}; margin-left: 4px;">
+                (${overallLevel})
+              </span>
+            </div>
+          </div>
+        `
+        
+        return html
+      }
     },
     radar: {
+      center: ['45%', '50%'],  // 👈 添加这行：雷达图中心位置 [左右, 上下]
+      radius: '75%', 
       indicator: [
-        { name: '文本攻击性', max: 100 },
-        { name: '语音情绪激昂度', max: 100 },
-        { name: '画面违规度', max: 100 },
-        { name: '传播潜力', max: 100 },
-        { name: '高校关联度', max: 100 },
-        { name: '历史风险', max: 100 }
+        { name: '身份置信度', max: 100 },
+        { name: '学校关联度', max: 100 },
+        { name: '负面情感度', max: 100 },
+        { name: '传播风险', max: 100 },
+        { name: '影响范围', max: 100 },
+        { name: '处置紧迫度', max: 100 }
       ],
       shape: 'polygon',
       splitNumber: 4,
@@ -1257,8 +1822,8 @@ const multiModalRadarOption = computed(() => {
         symbolSize: 6,
         data: [
           {
-            value: [88, 92, 75, 65, 95, 45], // 对应6个维度的分数
-            name: '当前视频风险画像',
+            value: currentRadarData.value, // 动态数据：根据视频时间变化
+            name: '高校舆情风险画像',
             itemStyle: {
               color: '#f56c6c'
             },
@@ -1275,7 +1840,15 @@ const multiModalRadarOption = computed(() => {
           show: false
         }
       }
-    ]
+    ],
+    // 动画配置：平滑过渡动画
+    animation: true,
+    animationDuration: 800,        // 初始加载动画：800ms
+    animationEasing: 'cubicInOut',
+    animationDurationUpdate: 600,  // 数据更新动画：600ms，平滑过渡
+    animationEasingUpdate: 'cubicOut', // 缓出效果，更自然
+    // 静默更新：不触发鼠标事件重置
+    silent: false
   }
 })
 
@@ -1551,7 +2124,7 @@ const multiModalTimelineOption = computed(() => {
     },
     legend: {
       data: ['视频风险', '音频情绪', '文本风险'],
-      bottom: 10,
+      bottom: 5, // 减小图例距离底部的距离
       textStyle: { 
         color: '#666', 
         fontSize: 11,
@@ -1566,7 +2139,7 @@ const multiModalTimelineOption = computed(() => {
     grid: {
       left: 21,
       right: 22,
-      bottom: '30%',
+      bottom:65, // 从30%改为固定50px，缩小图例与折线图的间距
       top: '5%',
       containLabel: false
     },
@@ -2075,6 +2648,19 @@ const formatFileSize = (bytes: number): string => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
+// 判断是否为高校相关关键词
+const isUniversityKeyword = (keyword: string): boolean => {
+  const universityRelatedPatterns = [
+    /大学|学院|学校/,
+    /校园|校区|校徽|校服|学士服/,
+    /教学楼|图书馆|实验室|宿舍|食堂/,
+    /学生会|社团|选课|期末|考试/,
+    /教授|导师|辅导员|班级/,
+    /北大|清华|复旦|交大|浙大/
+  ]
+  return universityRelatedPatterns.some(pattern => pattern.test(keyword))
+}
+
 const getStatusText = (status: string): string => {
   const texts: Record<string, string> = {
     'UPLOADED': '待分析',
@@ -2530,14 +3116,18 @@ const jumpToTime = (time: number) => {
   }
 }
 
-// 获取检测框样式
-const getDetectionBoxStyle = (detection: any) => {
+// 获取检测框样式（业界标准：支持分类颜色）
+const getDetectionBoxStyle = (detection: Detection) => {
   const box = detection.boundingBox
+  const color = DETECTION_COLORS[detection.type] || '#fff'
+  
   return {
     left: `${box.x}%`,
     top: `${box.y}%`,
     width: `${box.width}%`,
-    height: `${box.height}%`
+    height: `${box.height}%`,
+    borderColor: color,
+    '--detection-color': color // CSS变量，用于标签背景
   }
 }
 
@@ -2616,19 +3206,13 @@ const formatTotalDuration = (): string => {
 
 // ==================== 绿圈实时分析栏：计算当前帧风险 ====================
 /**
- * 获取当前帧的综合风险分数
+ * 获取当前帧的综合风险分数（动态计算，与雷达图同步）
  */
 const getCurrentRiskScore = (): number => {
-  if (!currentEvidence.value) return 0
-  
-  // 根据风险等级返回分数
-  const riskScores: Record<string, number> = {
-    'HIGH': 88,
-    'MEDIUM': 65,
-    'LOW': 25
-  }
-  
-  return riskScores[currentEvidence.value.riskLevel] || 0
+  // 使用当前时间点的雷达图数据计算综合风险
+  const radarData = currentRadarData.value
+  const avgRisk = radarData.reduce((a, b) => a + b, 0) / radarData.length
+  return Math.round(avgRisk) // 四舍五入到整数
 }
 
 /**
@@ -2843,6 +3427,32 @@ subscribeCompleted((data) => {
     loadAnalysisByVideo()
   }
 })
+
+// 雷达图渲染完成事件处理
+const onRadarChartFinished = () => {
+  // 如果鼠标在雷达图上，在渲染完成后立即触发 tooltip
+  if (isMouseOnRadar.value && radarChartRef.value) {
+    // 使用 setTimeout 确保在下一个事件循环中执行
+    setTimeout(() => {
+      try {
+        // 获取 ECharts 实例
+        const chartInstance = (radarChartRef.value as any)?.$refs?.chart || 
+                             (radarChartRef.value as any)?.chart ||
+                             (radarChartRef.value as any)
+        
+        if (chartInstance && typeof chartInstance.dispatchAction === 'function') {
+          chartInstance.dispatchAction({
+            type: 'showTip',
+            seriesIndex: 0,
+            dataIndex: 0
+          })
+        }
+      } catch (e) {
+        console.warn('触发tooltip失败:', e)
+      }
+    }, 10)
+  }
+}
 
 // 图表resize处理函数
 const handleChartResize = () => {
@@ -4661,39 +5271,62 @@ $purple: #4b70e2;
       }
     }
     
-    .detection-overlay {
+    // CV视觉模态：多检测框容器（业界标准）
+    .detections-overlay {
       position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
+      width: 100%;
+      height: 100%;
       pointer-events: none;
+      z-index: 10;
+    }
+    
+    // 单个检测框（业界标准样式：YOLO/OpenCV风格）
+    .detection-box {
+      position: absolute;
+      border-width: 2px;
+      border-style: solid;
+      border-radius: 2px;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s ease;
+      animation: fadeIn 0.3s ease;
       
-      .detection-box {
+      // 高置信度框：脉冲动画
+      &.high-confidence {
+        animation: fadeIn 0.3s ease, pulse 2s ease-in-out infinite;
+      }
+      
+      // 标签容器（左上角外部显示，业界标准）
+      .detection-label-container {
         position: absolute;
-        border: 3px solid #f56c6c;
-        background: rgba(245, 108, 108, 0.12); /* 修复：降低背景透明度，减少遮挡 */
-        transition: all 0.3s ease;
-        border-style: dashed; /* 修复：改为虚线，更友好 */
+        left: 0;
+        bottom: 100%;
+        margin-bottom: 2px;
+        white-space: nowrap;
+      }
+      
+      // 标签样式
+      .detection-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: var(--detection-color);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 2px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        font-family: 'SF Pro Display', -apple-system, sans-serif;
         
-        // V1.5: 脉冲呼吸灯动画
-        &.pulse-glow {
-          animation: pulse-glow 2s ease-in-out infinite;
+        .emotion-icon {
+          font-size: 14px;
         }
         
-        .detection-label {
-          position: absolute;
-          top: -28px;
-          left: -3px;
-          background: rgba(245, 108, 108, 0.95); /* 修复：半透明背景 */
-          backdrop-filter: blur(4px);
-          color: white;
-          padding: 4px 10px;
-          font-size: 12px;
-          font-weight: 600;
-          border-radius: 6px;
-          white-space: nowrap;
-          box-shadow: 0 2px 8px rgba(245, 108, 108, 0.4);
+        .confidence-badge {
+          font-size: 11px;
+          opacity: 0.9;
         }
       }
     }
@@ -4714,6 +5347,96 @@ $purple: #4b70e2;
       animation: scanline 4s linear infinite;
       pointer-events: none;
       z-index: 1;
+    }
+    
+    // CV视觉模态：场景标签容器（右上角）
+    .scene-badge-overlay {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 20;
+      pointer-events: none;
+    }
+    
+    .scene-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      animation: slideInRight 0.4s ease;
+      
+      .scene-icon {
+        font-size: 20px;
+      }
+      
+      .scene-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      
+      .scene-name {
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      
+      .scene-confidence {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 11px;
+      }
+    }
+    
+    // CV视觉模态：检测类型图例（左下角，避免遮挡）
+    .detection-legend {
+      position: absolute;
+      bottom: 60px;
+      left: 12px;
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      border-radius: 8px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      animation: fadeIn 0.5s ease;
+      pointer-events: none;
+      
+      .legend-title {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 11px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .legend-items {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      
+      .legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      
+      .legend-label {
+        color: #fff;
+        font-size: 12px;
+      }
     }
     
     // 当前帧信息叠加层（视频顶部）
@@ -4874,6 +5597,38 @@ $purple: #4b70e2;
     }
   }
   
+  // CV视觉模态：检测框动画（业界标准）
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 20px var(--detection-color);
+    }
+  }
+  
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
   .video-meta-bar {
     display: flex;
     justify-content: space-between;
@@ -4996,6 +5751,37 @@ $purple: #4b70e2;
         font-size: 10px;
         font-weight: 600;
         color: $purple;
+      }
+      
+      // 风险过滤器按钮组
+      .risk-filter-group {
+        display: flex;
+        gap: 6px;
+        
+        .filter-btn {
+          padding: 4px 12px;
+          font-size: 11px;
+          font-weight: 600;
+          border: 1px solid rgba($neu-2, 0.6);
+          border-radius: 6px;
+          background: #fff;
+          color: $gray;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          
+          &:hover {
+            border-color: $purple;
+            color: $purple;
+            background: rgba($purple, 0.05);
+          }
+          
+          &.active {
+            border-color: $purple;
+            background: $purple;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba($purple, 0.25);
+          }
+        }
       }
     }
     
@@ -5226,13 +6012,13 @@ $purple: #4b70e2;
     }
   }
   
-  // 内联时间轴（去背景版）
+  // 内联时间轴（去背景版，优化间距和高度）
   .multi-track-timeline-inline {
-    margin: 16px 0;
+    margin: -10px 0 16px 0; // 上间距减小，与视频更紧凑
     padding: 0;
     
     .timeline-chart-inline {
-      height: 200px;
+      height: 300px; // 增加高度，填补空白
       width: 100%;
     }
   }
@@ -5272,11 +6058,12 @@ $purple: #4b70e2;
     .radar-with-score {
       display: flex;
       align-items: center;
-      padding: 16px;
+      padding: 12px;
       gap: 20px;
       
       .radar-chart-area {
         flex: 1;
+        max-width: 380px;
         
         .radar-chart-compact {
           height: 220px;
@@ -5551,6 +6338,74 @@ $purple: #4b70e2;
     }
   }
   
+  /* 视频内容特征样式 */
+  .duration-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: rgba(64, 158, 255, 0.1);
+    border-radius: 6px;
+    font-size: 12px;
+    color: #409EFF;
+    margin-left: 12px;
+  }
+
+  .video-description {
+    margin: 6px 0 10px 0;
+  }
+
+  .description-text {
+    font-size: 12px;
+    color: #909399;
+    line-height: 1.5;
+  }
+
+  .content-features-row,
+  .detected-keywords-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .feature-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: #606266;
+    font-weight: 600;
+    min-width: 100px;
+  }
+
+  .keywords-container {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .keyword-tag-detected {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    background: rgba(144, 147, 153, 0.1);
+    border: 1px solid rgba(144, 147, 153, 0.2);
+    border-radius: 6px;
+    font-size: 12px;
+    color: #606266;
+    transition: all 0.3s;
+  }
+
+  .keyword-tag-detected.university-related {
+    background: rgba(230, 162, 60, 0.15);
+    border-color: rgba(230, 162, 60, 0.4);
+    color: #E6A23C;
+    font-weight: 600;
+  }
+
   /* AI 侧写相关样式 */
   .ai-profile-row {
     display: flex;
@@ -6015,6 +6870,92 @@ $purple: #4b70e2;
   .icon-bg-tone {
     background: rgba(235, 47, 150, 0.1);
     color: #eb2f96;
+  }
+
+  /* 高校舆情分析新增样式 */
+  .icon-bg-identity {
+    background: rgba(64, 158, 255, 0.1);
+    color: #409EFF;
+  }
+
+  .icon-bg-topic {
+    background: rgba(114, 46, 209, 0.1);
+    color: #722ed1;
+  }
+
+  .icon-bg-mention {
+    background: rgba(250, 173, 20, 0.1);
+    color: #faad14;
+  }
+
+  /* 情感倾向样式 */
+  .icon-bg-positive {
+    background: rgba(82, 196, 26, 0.1);
+    color: #52c41a;
+  }
+
+  .icon-bg-neutral {
+    background: rgba(144, 147, 153, 0.1);
+    color: #909399;
+  }
+
+  .icon-bg-negative {
+    background: rgba(245, 108, 108, 0.1);
+    color: #F56C6C;
+  }
+
+  /* 舆论风险等级样式 */
+  .icon-bg-risk-low {
+    background: rgba(82, 196, 26, 0.1);
+    color: #52c41a;
+  }
+
+  .icon-bg-risk-medium {
+    background: rgba(250, 173, 20, 0.1);
+    color: #faad14;
+  }
+
+  .icon-bg-risk-high {
+    background: rgba(245, 108, 108, 0.1);
+    color: #F56C6C;
+  }
+
+  /* 情感倾向文字样式 */
+  .text-positive {
+    color: #52c41a;
+  }
+
+  .text-neutral {
+    color: #909399;
+  }
+
+  .text-negative {
+    color: #F56C6C;
+  }
+
+  /* 舆论风险文字样式 */
+  .text-risk-low {
+    color: #52c41a;
+  }
+
+  .text-risk-medium {
+    color: #faad14;
+  }
+
+  .text-risk-high {
+    color: #F56C6C;
+  }
+
+  .text-identity {
+    color: #409EFF;
+  }
+
+  .text-topic {
+    color: #722ed1;
+  }
+
+  .text-mention {
+    color: #faad14;
   }
 
   /* 内容排版 */
