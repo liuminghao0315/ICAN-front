@@ -104,60 +104,159 @@
           <div class="archive-header">
             <div class="file-section">
               <div class="file-icon">
-                <el-icon :size="28"><VideoCamera /></el-icon>
+                <el-icon :size="28"><UserFilled /></el-icon>
               </div>
+              
               <div class="file-info">
                 <div class="file-main">
                   <span class="file-name">{{ mockVideoArchive.fileName }}</span>
+                  
+                  <span class="identity-badge" :class="'identity-' + mockAIProfile.identityStatus">
+                    <el-icon :size="12"><Warning /></el-icon>
+                    {{ mockAIProfile.identityLabel }} ({{ Math.round(mockAIProfile.confidence * 100) }}%)
+                  </span>
+                  
                   <span class="status-badge success">
                     <el-icon :size="11"><CircleCheck /></el-icon>
                     {{ mockVideoArchive.analysisStatus }}
                   </span>
                 </div>
+
+                <div class="ai-profile-row">
+                  <span class="profile-tag">
+                    <el-icon><Male /></el-icon> {{ mockAIProfile.staticFeatures.gender }}
+                  </span>
+                  <span class="profile-tag">
+                    <el-icon><Calendar /></el-icon> {{ mockAIProfile.staticFeatures.ageRange }}
+                  </span>
+                  <span class="profile-tag">
+                    <el-icon><School /></el-icon> {{ mockAIProfile.staticFeatures.clothing }}
+                  </span>
+                  
+                  <span class="divider-vertical">|</span>
+                  
+                  <span v-for="(kw, idx) in mockAIProfile.detectedKeywords.slice(0, 3)" :key="idx" class="keyword-tag-mini">
+                    {{ kw }}
+                  </span>
+                </div>
+
                 <div class="file-meta">
                   <span class="meta-item">
-                    <el-icon :size="11"><Folder /></el-icon>
-                    {{ mockVideoArchive.uploadSource }}
+                    <el-icon :size="11"><Clock /></el-icon>
+                    {{ formatDuration(mockVideoArchive.duration) }}
                   </span>
                   <span class="meta-item">
                     <el-icon :size="11"><Files /></el-icon>
                     {{ formatFileSize(mockVideoArchive.fileSize) }}
                   </span>
                   <span class="meta-item">
-                    <el-icon :size="11"><Clock /></el-icon>
-                    {{ formatDuration(mockVideoArchive.duration) }}
-                  </span>
-                  <span class="meta-item">
                     <el-icon :size="11"><Monitor /></el-icon>
                     {{ mockVideoArchive.resolution }}
                   </span>
                 </div>
-                <div class="baseline-info">
-                  <el-icon :size="11"><School /></el-icon>
-                  <span class="baseline-text">
-                    匹配基准：{{ mockUniversityBaseline.universityName }} (ID: {{ mockUniversityBaseline.universityId }})
-                  </span>
-                  <span class="baseline-version">场景库: {{ mockUniversityBaseline.sceneDatabase }}</span>
-                </div>
               </div>
             </div>
-            <!-- 全局统计信息（右侧） -->
-            <div class="global-stats-section">
-              <div class="stat-item-archive">
-                <div class="stat-label-archive">违规片段</div>
-                <div class="stat-value-archive">{{ mockVideoRisks.length }}<span class="stat-unit">处</span></div>
+            
+            <div class="global-stats-section stats-pro-container">
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-risk">
+                  <el-icon><WarningFilled /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">风险评级</div>
+                  <div class="pro-value text-risk">
+                    高危
+                    <span class="pro-tag-risk">LV.5</span>
+                  </div>
+                  <div class="pro-subtitle">严重</div>
+                </div>
               </div>
-              <div class="stat-item-archive">
-                <div class="stat-label-archive">最高风险</div>
-                <div class="stat-value-archive risk-high">高危</div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-uni">
+                  <el-icon><School /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">涉及高校</div>
+                  <div class="pro-value text-uni">
+                    {{ mockUniversityBaseline.universityName }}
+                  </div>
+                  <div class="pro-subtitle">匹配度 92%</div>
+                </div>
               </div>
-              <div class="stat-item-archive">
-                <div class="stat-label-archive">涉及高校</div>
-                <div class="stat-value-archive">{{ mockUniversityBaseline.universityName }}</div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-account">
+                  <el-icon><User /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">账号成分</div>
+                  <div class="pro-value text-account">
+                    营销号
+                  </div>
+                  <div class="pro-subtitle">置信度 88%</div>
+                </div>
               </div>
-              <div class="stat-item-archive">
-                <div class="stat-label-archive">情绪波动</div>
-                <div class="stat-value-archive">{{ angryEmotionCount }}<span class="stat-unit">次</span></div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-action">
+                  <el-icon><DocumentChecked /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">处置建议</div>
+                  <div class="pro-value text-action">
+                    建议上报
+                  </div>
+                  <div class="pro-subtitle">需人工复核</div>
+                </div>
+              </div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-normal">
+                  <el-icon><CircleCloseFilled /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">违规片段</div>
+                  <div class="pro-value text-normal">
+                    {{ mockVideoRisks.length }} <span class="pro-unit">处</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-normal">
+                  <el-icon><TrendCharts /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">情绪波动</div>
+                  <div class="pro-value text-normal">
+                    {{ angryEmotionCount }} <span class="pro-unit">次</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-spread">
+                  <el-icon><Share /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">传播潜力</div>
+                  <div class="pro-value text-spread">
+                    8.5 <span class="pro-unit">指数</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="stat-pro-item">
+                <div class="pro-icon icon-bg-tone">
+                  <el-icon><ChatDotRound /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">内容调性</div>
+                  <div class="pro-value text-tone">
+                    煽动 负面
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -330,60 +429,6 @@
                     {{ getCurrentRiskScore() }}
                   </div>
                   <div class="score-label-side">当前风险分</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 底部：AI侧写 + 全局统计 -->
-        <div class="bottom-dashboard-grid">
-          <div class="dashboard-info-panel">
-            <!-- AI目标侧写（紧凑版） -->
-            <div class="neu-card ai-profiling-compact">
-              <div class="card-header-compact">
-                <span class="card-title-compact">
-                  <el-icon :size="14"><UserFilled /></el-icon>
-                  AI目标侧写
-                </span>
-                <span class="profiling-hint-small">基于视频内容推测</span>
-              </div>
-              <div class="profiling-content-compact">
-                <div class="profiling-section-inline">
-                  <div class="section-title-small">
-                    <el-icon :size="11"><ChatLineRound /></el-icon>
-                    检出关键词
-                  </div>
-                  <div class="keyword-chips-small">
-                    <span v-for="(kw, idx) in mockAIProfile.detectedKeywords" :key="idx" class="keyword-chip-small">
-                      {{ kw }}
-                    </span>
-                  </div>
-                </div>
-                
-                <div class="profiling-section-inline">
-                  <div class="section-title-small">
-                    <el-icon :size="11"><User /></el-icon>
-                    静态身份特征
-                  </div>
-                  <div class="feature-chips-small">
-                    <span class="feature-chip-small">
-                      <el-icon :size="9"><Male /></el-icon>
-                      {{ mockAIProfile.staticFeatures.gender }}
-                    </span>
-                    <span class="feature-chip-small">
-                      <el-icon :size="9"><Calendar /></el-icon>
-                      {{ mockAIProfile.staticFeatures.ageRange }}
-                    </span>
-                    <span class="feature-chip-small">
-                      <el-icon :size="9"><Sound /></el-icon>
-                      {{ mockAIProfile.staticFeatures.voiceProfile }}
-                    </span>
-                    <span class="feature-chip-small">
-                      <el-icon :size="9"><Shirt /></el-icon>
-                      {{ mockAIProfile.staticFeatures.clothing }}
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -5504,5 +5549,547 @@ $purple: #4b70e2;
         }
       }
     }
+  }
+  
+  /* AI 侧写相关样式 */
+  .ai-profile-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .identity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-left: 12px;
+  }
+  .identity-badge.identity-suspected {
+    background: #fef0f0;
+    color: #f56c6c;
+    border: 1px solid #fde2e2;
+  }
+
+  .profile-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #f0f2f5;
+    color: #606266;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .keyword-tag-mini {
+    font-size: 11px;
+    color: #4b70e2;
+    background: rgba(75, 112, 226, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .divider-vertical {
+    color: #dcdfe6;
+    margin: 0 4px;
+    font-size: 10px;
+  }
+
+  /* --- Data Ribbon 一体化状态栏样式 --- */
+  .stats-ribbon-container {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #ebeef5;
+    border-radius: 12px;
+    padding: 10px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    height: auto;
+    min-height: 70px;
+  }
+
+  .ribbon-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 0 20px;
+    transition: all 0.3s ease;
+  }
+
+  .ribbon-item:hover {
+    background-color: #fafafa;
+  }
+
+  .ribbon-divider {
+    width: 1px;
+    height: 40px;
+    background: #f0f2f5;
+  }
+
+  /* 图标容器 */
+  .ribbon-icon-wrapper {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .icon-risk {
+    background: rgba(245, 108, 108, 0.1);
+    color: #f56c6c;
+  }
+
+  .icon-uni {
+    background: rgba(64, 158, 255, 0.1);
+    color: #409eff;
+  }
+
+  .icon-warn {
+    background: rgba(230, 162, 60, 0.1);
+    color: #e6a23c;
+  }
+
+  .icon-emotion {
+    background: rgba(103, 194, 58, 0.1);
+    color: #67c23a;
+  }
+
+  /* 内容区域 */
+  .ribbon-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .ribbon-label {
+    font-size: 11px;
+    color: #909399;
+    margin-bottom: 2px;
+  }
+
+  .ribbon-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #303133;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ribbon-value .unit {
+    font-size: 12px;
+    color: #909399;
+    font-weight: 400;
+  }
+
+  .ribbon-sub-text {
+    font-size: 10px;
+    color: #409eff;
+    margin-top: 2px;
+  }
+
+  /* 特殊文字颜色 */
+  .text-risk {
+    color: #f56c6c;
+  }
+
+  .text-uni {
+    color: #409eff;
+  }
+
+  .ribbon-badge {
+    font-size: 10px;
+    background: #f56c6c;
+    color: white;
+    padding: 1px 5px;
+    border-radius: 4px;
+    vertical-align: middle;
+  }
+
+  /* --- 修复版：极简无框统计样式 --- */
+  /* 容器：完全透明，靠右对齐 */
+  .minimal-stats-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* 靠右 */
+    gap: 32px; /* 大间距，代替分割线 */
+    background: transparent !important; /* 移除背景 */
+    border: none !important; /* 移除边框 */
+    box-shadow: none !important; /* 移除阴影 */
+    padding: 0;
+    height: auto;
+  }
+
+  /* 单个数据组 */
+  .stat-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* 浮动图标：变小，变淡 */
+  .stat-icon-floating {
+    font-size: 24px;
+    color: #d1d9e6; /* 与背景融合的灰色 */
+  }
+
+  .group-risk .stat-icon-floating {
+    color: rgba(245, 108, 108, 0.3);
+  }
+
+  .group-uni .stat-icon-floating {
+    color: rgba(64, 158, 255, 0.3);
+  }
+
+  /* 文本列 */
+  .stat-text-col {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 极小标签 */
+  .stat-label-tiny {
+    font-size: 10px;
+    color: #909399;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }
+
+  /* 数值样式：纯排版冲击力 */
+  .stat-value-huge {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stat-value-large {
+    font-size: 18px;
+    font-weight: 700;
+    color: #303133;
+  }
+
+  .stat-value-medium {
+    font-size: 18px;
+    font-weight: 600;
+    color: #606266;
+  }
+
+  .unit-text {
+    font-size: 12px;
+    color: #909399;
+    font-weight: 400;
+  }
+
+  /* 颜色强调 */
+  .text-risk {
+    color: #f56c6c;
+  }
+
+  .text-uni {
+    color: #409eff;
+  }
+
+  /* 呼吸红点（替代复杂的 Badge） */
+  .risk-dot {
+    width: 8px;
+    height: 8px;
+    background: #f56c6c;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
+    animation: pulse-red 2s infinite;
+  }
+
+  @keyframes pulse-red {
+    0% {
+      box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 6px rgba(245, 108, 108, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(245, 108, 108, 0);
+    }
+  }
+
+  /* --- V4 最终版：彩色胶囊样式 --- */
+  /* 1. 大容器：白色底座 */
+  .stats-ribbon-container {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border-radius: 16px; /* 更圆润 */
+    padding: 6px; /* 内边距，让胶囊悬浮 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); /* 恢复阴影 */
+    gap: 8px; /* 胶囊之间的间距 */
+    height: auto;
+    border: 1px solid rgba(255,255,255,0.6);
+  }
+
+  /* 2. 通用胶囊块 */
+  .stat-capsule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    transition: all 0.2s;
+    height: 56px;
+  }
+
+  /* 3. 红色胶囊 (风险) */
+  .capsule-risk {
+    background: #FEF2F2; /* 浅红背景 */
+    border: 1px solid #FEE2E2;
+  }
+
+  .capsule-risk .capsule-icon {
+    color: #F56C6C;
+    background: rgba(255,255,255,0.6);
+  }
+
+  .text-risk {
+    color: #F56C6C;
+    font-weight: 800;
+  }
+
+  /* 4. 蓝色胶囊 (高校) */
+  .capsule-uni {
+    background: #ECF5FF; /* 浅蓝背景 */
+    border: 1px solid #D9ECFF;
+  }
+
+  .capsule-uni .capsule-icon {
+    color: #409EFF;
+    background: rgba(255,255,255,0.6);
+  }
+
+  .text-uni {
+    color: #409EFF;
+    font-weight: 700;
+  }
+
+  /* 5. 普通胶囊 (透明) */
+  .capsule-normal {
+    background: transparent;
+    padding-left: 12px;
+    border: 1px solid transparent;
+  }
+
+  .capsule-normal:hover {
+    background: #F5F7FA; /* 悬停微灰 */
+  }
+
+  /* 内部元素细节 */
+  .capsule-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .capsule-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .capsule-label {
+    font-size: 11px;
+    color: #909399;
+    margin-bottom: 2px;
+  }
+
+  .capsule-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .capsule-tag {
+    font-size: 10px;
+    background: #F56C6C;
+    color: white;
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1.4;
+  }
+
+  .unit {
+    font-size: 12px;
+    color: #909399;
+    font-weight: 400;
+  }
+
+  /* --- V5 最终版：专业仪表盘样式 --- */
+  /* 容器：4列x2行网格布局 */
+  .stats-pro-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    background: transparent;
+    padding: 0 10px;
+    gap: 16px 0; /* 行间距16px, 列间距0 */
+    border: none;
+    box-shadow: none;
+  }
+
+  /* 单个数据项 */
+  .stat-pro-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px; /* 保持原来的内边距 */
+    transition: transform 0.2s;
+  }
+
+  .stat-pro-item:hover {
+    transform: translateY(-2px); /* 微动效 */
+  }
+
+  /* 图标容器：大、方、淡色背景 */
+  .pro-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px; /* 方圆形 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  /* 图标配色 */
+  .icon-bg-risk {
+    background: rgba(245, 108, 108, 0.1);
+    color: #F56C6C;
+  }
+
+  .icon-bg-uni {
+    background: rgba(64, 158, 255, 0.1);
+    color: #409EFF;
+  }
+
+  .icon-bg-normal {
+    background: rgba(144, 147, 153, 0.1);
+    color: #909399;
+  }
+
+  .icon-bg-account {
+    background: rgba(250, 173, 20, 0.1);
+    color: #faad14;
+  }
+
+  .icon-bg-action {
+    background: rgba(82, 196, 26, 0.1);
+    color: #52c41a;
+  }
+
+  .icon-bg-spread {
+    background: rgba(114, 46, 209, 0.1);
+    color: #722ed1;
+  }
+
+  .icon-bg-tone {
+    background: rgba(235, 47, 150, 0.1);
+    color: #eb2f96;
+  }
+
+  /* 内容排版 */
+  .pro-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .pro-label {
+    font-size: 11px;
+    color: #909399;
+  }
+
+  .pro-value {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* 文字颜色 */
+  .text-risk {
+    color: #F56C6C;
+  }
+
+  .text-uni {
+    color: #409EFF;
+  }
+
+  .text-normal {
+    color: #303133;
+  }
+
+  .text-account {
+    color: #faad14;
+  }
+
+  .text-action {
+    color: #52c41a;
+  }
+
+  .text-spread {
+    color: #722ed1;
+  }
+
+  .text-tone {
+    color: #eb2f96;
+  }
+
+  .pro-unit {
+    font-size: 12px;
+    color: #C0C4CC;
+    font-weight: 400;
+    margin-top: 4px;
+  }
+
+  .pro-subtitle {
+    font-size: 10px;
+    color: #909399;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  /* 风险标签 LV.5 */
+  .pro-tag-risk {
+    font-size: 10px;
+    background: #F56C6C;
+    color: white;
+    padding: 1px 5px;
+    border-radius: 4px;
+    vertical-align: middle;
+    font-weight: 600;
   }
 </style>
