@@ -131,7 +131,7 @@
       </div>
       
       <div class="filter-actions">
-        <button class="refresh-btn" @click="fetchVideos" title="刷新">
+        <button class="refresh-btn" @click="fetchVideos">
           <el-icon><Refresh /></el-icon>
         </button>
       </div>

@@ -79,17 +79,7 @@
               />
             </div>
             
-            <div class="form-group">
-              <label class="form-label">视频描述</label>
-              <textarea
-                v-model="videoForm.description"
-                class="neu-textarea"
-                placeholder="请输入视频描述（可选）"
-                rows="4"
-                maxlength="500"
-                :disabled="uploadState.status === 'uploading'"
-              ></textarea>
-            </div>
+            <!-- 视频描述已改为AI自动生成，无需用户输入 -->
             
             <div class="form-actions">
               <button
@@ -179,8 +169,8 @@ const uploadState = reactive({
 })
 
 const videoForm = reactive({
-  title: '',
-  description: ''
+  title: ''
+  // description已改为AI自动生成，不再由用户输入
 })
 
 // 处理文件选择
@@ -294,9 +284,7 @@ const uploadSimple = async (file: File) => {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('title', videoForm.title)
-  if (videoForm.description) {
-    formData.append('description', videoForm.description)
-  }
+  // description由AI分析后自动生成，不再上传
   
   const response = await uploadVideoSimple(formData)
   if (response.code === 200) {
@@ -352,9 +340,7 @@ const uploadWithChunks = async (file: File) => {
     formData.append('chunkSize', String(chunk.size))
     formData.append('totalSize', String(file.size))
     formData.append('title', videoForm.title)
-    if (videoForm.description) {
-      formData.append('description', videoForm.description)
-    }
+    // description由AI分析后自动生成，不再上传
     
     const response = await uploadChunk(formData)
     if (response.code !== 200) {
@@ -377,7 +363,6 @@ const clearFile = () => {
   uploadState.progress = 0
   uploadState.videoId = ''
   videoForm.title = ''
-  videoForm.description = ''
 }
 
 // 继续上传

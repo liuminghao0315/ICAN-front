@@ -160,7 +160,7 @@
       </div>
       
       <div class="filter-actions">
-        <button class="refresh-btn" @click="fetchTasks" title="刷新">
+        <button class="refresh-btn" @click="fetchTasks">
           <el-icon><Refresh /></el-icon>
         </button>
       </div>

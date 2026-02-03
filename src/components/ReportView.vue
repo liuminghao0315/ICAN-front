@@ -3,25 +3,38 @@
     <!-- 报告标题 -->
     <div class="report-header">
       <h1 class="report-title">高校舆情视频分析报告</h1>
-      <div class="report-meta">
-        <span class="meta-item">
-          <el-icon><VideoPlay /></el-icon>
-          {{ analysisData.videoInfo.fileName }}
-        </span>
-        <span class="meta-item">
-          <el-icon><Clock /></el-icon>
-          上传时间：{{ analysisData.videoInfo.uploadTime }}
-        </span>
-        <span class="meta-item">
-          <el-icon><TrendCharts /></el-icon>
-          来源：{{ analysisData.videoInfo.uploadSource }}
-        </span>
-        <span class="meta-item">
-          <el-icon><Timer /></el-icon>
-          时长：{{ formatDuration(analysisData.videoInfo.duration) }}
-        </span>
+      
+      <div class="report-info-grid">
+        <div class="info-item">
+          <span class="info-label">视频文件</span>
+          <span class="info-value">{{ analysisData.videoInfo.fileName }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">上传时间</span>
+          <span class="info-value">{{ analysisData.videoInfo.uploadTime }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">视频时长</span>
+          <span class="info-value">{{ formatDuration(analysisData.videoInfo.duration) }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">分辨率</span>
+          <span class="info-value">{{ analysisData.videoInfo.resolution }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">上传来源</span>
+          <span class="info-value">{{ analysisData.videoInfo.uploadSource }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">分析状态</span>
+          <span class="info-value status-completed">{{ analysisData.videoInfo.analysisStatus }}</span>
+        </div>
       </div>
-      <div class="report-description">{{ analysisData.videoInfo.description }}</div>
+      
+      <div v-if="analysisData.videoInfo.description" class="report-summary">
+        <h3 class="summary-title">AI分析摘要</h3>
+        <p class="summary-content">{{ analysisData.videoInfo.description }}</p>
+      </div>
     </div>
 
     <!-- 核心分析结果 - 6个卡片 -->
@@ -105,24 +118,27 @@
       <div v-for="(card, cardKey) in evidenceCards" :key="cardKey" class="evidence-section">
         <h3 class="evidence-section-title">
           <span class="evidence-badge-report">{{ card.label }}</span>
-          <span class="evidence-count-report">共{{ analysisData.evidences[cardKey]?.length || 0 }}处证据</span>
+          <span class="evidence-count-report">{{ analysisData.evidences[cardKey]?.length || 0 }}处证据</span>
         </h3>
         
-        <div class="evidence-list-report">
+        <div v-if="analysisData.evidences[cardKey] && analysisData.evidences[cardKey].length > 0" class="evidence-list-report">
           <div v-for="(evidence, index) in analysisData.evidences[cardKey]" :key="index" class="evidence-item-report">
             <div class="evidence-timeline-mark" :class="'mark-' + evidence.type"></div>
             <div class="evidence-content-report">
               <div class="evidence-header-report">
                 <span class="evidence-type-badge" :class="'type-' + evidence.type">
-                  {{ evidence.type === 'video' ? '视频' : evidence.type === 'audio' ? '音频' : '文本' }}
+                  {{ evidence.type === 'video' ? '📹 视频' : evidence.type === 'audio' ? '🎤 音频' : '📝 文本' }}
                 </span>
                 <span class="evidence-time-report">{{ formatTimeDisplay(evidence.timestamp) }}</span>
-                <span class="evidence-confidence-report">置信度 {{ evidence.confidence }}%</span>
+                <span class="evidence-confidence-report">{{ evidence.confidence }}%</span>
               </div>
               <div class="evidence-desc-report">{{ evidence.description }}</div>
-              <div v-if="evidence.keyword" class="evidence-keyword-report">"{{ evidence.keyword }}"</div>
+              <div v-if="evidence.keyword" class="evidence-keyword-report">关键词："{{ evidence.keyword }}"</div>
             </div>
           </div>
+        </div>
+        <div v-else class="empty-evidence">
+          <p>暂无证据数据</p>
         </div>
       </div>
     </div>
@@ -130,9 +146,38 @@
     <!-- 多模态融合分析 -->
     <div class="report-section">
       <h2 class="section-title">三、多模态融合分析</h2>
+      <p class="section-desc">AI通过视频画面、音频声纹、文本内容三个维度进行综合分析，加权计算得出最终结果</p>
+      
       <div v-for="(card, cardKey) in evidenceCards" :key="cardKey + '-fusion'" class="fusion-section">
-        <h3 class="fusion-title">{{ card.label }} - 融合分析</h3>
-        <div class="fusion-grid">
+        <div class="fusion-header-bar">
+          <h3 class="fusion-title">{{ card.label }}</h3>
+          <span class="fusion-result-badge">{{ analysisData.modalityFusion[cardKey]?.resultLabel }}：{{ analysisData.modalityFusion[cardKey]?.resultValue }}</span>
+        </div>
+        
+        <!-- 统计类型卡片特殊处理 -->
+        <div v-if="analysisData.modalityFusion[cardKey]?.resultType === 'statistics'" class="fusion-statistics">
+          <div class="stats-summary">
+            <div class="stats-item positive">
+              <span class="stats-icon">✅</span>
+              <span class="stats-label">正面</span>
+              <span class="stats-count">{{ analysisData.modalityFusion[cardKey]?.statistics?.positive || 0 }}次</span>
+            </div>
+            <div class="stats-item neutral">
+              <span class="stats-icon">➖</span>
+              <span class="stats-label">中性</span>
+              <span class="stats-count">{{ analysisData.modalityFusion[cardKey]?.statistics?.neutral || 0 }}次</span>
+            </div>
+            <div class="stats-item negative">
+              <span class="stats-icon">❌</span>
+              <span class="stats-label">负面</span>
+              <span class="stats-count">{{ analysisData.modalityFusion[cardKey]?.statistics?.negative || 0 }}次</span>
+            </div>
+          </div>
+          <p class="stats-note">共分析{{ analysisData.modalityFusion[cardKey]?.statistics?.total || 0 }}处情感表达，采用统计方法而非加权计算</p>
+        </div>
+        
+        <!-- 加权计算类型 -->
+        <div v-else class="fusion-grid">
           <div class="fusion-card video-fusion">
             <div class="fusion-header">
               <el-icon><VideoCamera /></el-icon>
@@ -184,54 +229,68 @@
     <!-- 高风险台词定位 -->
     <div class="report-section">
       <h2 class="section-title">四、高风险台词定位</h2>
-      <div class="transcript-risk-list">
+      <div v-if="highRiskSegments.length > 0" class="transcript-risk-list">
         <div v-for="(segment, index) in highRiskSegments" :key="index" class="transcript-item-report">
           <div class="transcript-timeline">{{ formatTimeDisplay(segment.start) }}</div>
           <div class="transcript-content-report">
-            <div class="transcript-text">{{ segment.text }}</div>
+            <div class="transcript-text">"{{ segment.text }}"</div>
             <div class="transcript-meta">
               <span class="risk-badge-report" :class="'risk-' + segment.riskLevel.toLowerCase()">
-                {{ segment.riskLevel === 'high' ? '高风险' : '中风险' }}
+                {{ segment.riskLevel === 'high' ? '⚠️ 高风险' : '⚡ 中等风险' }}
               </span>
               <span class="risk-reason">{{ segment.reason }}</span>
             </div>
           </div>
         </div>
       </div>
+      <div v-else class="empty-risk">
+        <p>✅ 未检测到高风险或中等风险台词</p>
+      </div>
     </div>
 
     <!-- 多模态风险时间分布 -->
     <div class="report-section">
-      <h2 class="section-title">五、多模态风险时间分布</h2>
+      <h2 class="section-title">五、风险时间分布分析</h2>
+      <p class="section-desc">展示视频播放全过程中，视频画面、音频情绪、文本内容三个维度的风险指数变化曲线</p>
       <div class="chart-container-report">
         <v-chart :option="timelineChartOption" class="timeline-chart-report" />
       </div>
-      <p class="chart-note">图表说明：显示视频、音频、文本三模态在全时段的风险指数变化趋势</p>
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-dot video"></span>蓝色曲线 = 视频画面风险</span>
+        <span class="legend-item"><span class="legend-dot audio"></span>粉色曲线 = 音频情绪风险</span>
+        <span class="legend-item"><span class="legend-dot text"></span>青色曲线 = 文本内容风险</span>
+      </div>
     </div>
 
     <!-- 高校舆情风险画像 -->
     <div class="report-section">
-      <h2 class="section-title">六、高校舆情风险画像</h2>
+      <h2 class="section-title">六、综合风险评估（六维度雷达图）</h2>
+      <p class="section-desc">从六个关键维度对视频进行综合风险评估：身份置信度、学校关联度、负面情感度、传播风险、影响范围、处置紧迫度</p>
+      
       <div class="radar-charts-grid">
         <!-- 平均雷达图 -->
         <div class="radar-chart-wrapper">
-          <h3 class="radar-subtitle">整体平均风险画像</h3>
+          <div class="radar-header">
+            <h3 class="radar-subtitle">📊 整体平均风险画像</h3>
+            <p class="radar-desc">基于视频全时段的平均风险水平</p>
+          </div>
           <div class="chart-container-report">
             <v-chart :option="averageRadarChartOption" class="radar-chart-report" />
           </div>
-          <p class="radar-note">基于全视频时段的平均风险评估</p>
         </div>
         
         <!-- 最高风险雷达图 -->
-        <div class="radar-chart-wrapper">
-          <h3 class="radar-subtitle">峰值风险画像</h3>
+        <div class="radar-chart-wrapper peak-risk">
+          <div class="radar-header">
+            <h3 class="radar-subtitle">🔴 峰值风险画像</h3>
+            <p class="radar-desc">最高风险时段：{{ formatTimeDisplay(peakRisk.timeStart) }} - {{ formatTimeDisplay(peakRisk.timeEnd) }}</p>
+          </div>
           <div class="chart-container-report">
             <v-chart :option="peakRadarChartOption" class="radar-chart-report" />
           </div>
-          <p class="radar-note">最高风险时段：{{ formatTimeDisplay(peakRisk.timeStart) }} - {{ formatTimeDisplay(peakRisk.timeEnd) }}（综合{{ peakRisk.avgRisk }}分）</p>
+          <p class="peak-score">综合风险值：<strong>{{ peakRisk.avgRisk }}</strong>分</p>
         </div>
       </div>
-      <p class="chart-note">维度说明：从身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫六个维度综合评估</p>
     </div>
 
     <!-- 操作按钮 -->
@@ -424,45 +483,71 @@ $purple: #4b70e2;
 }
 
 .report-header {
-  text-align: center;
-  margin-bottom: 40px;
-  padding-bottom: 30px;
+  margin-bottom: 45px;
+  padding-bottom: 35px;
   border-bottom: 3px solid $purple;
 }
 
 .report-title {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 700;
   color: $black;
-  margin: 0 0 20px 0;
+  margin: 0 0 30px 0;
+  text-align: center;
+  letter-spacing: 1px;
 }
 
-.report-meta {
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
+.report-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 25px;
+  padding: 25px;
+  background: linear-gradient(135deg, #f0f2f5 0%, #f5f7fa 100%);
+  border-radius: 12px;
 }
 
-.meta-item {
+.info-item {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #999;
+  font-weight: 500;
+}
+
+.info-value {
   font-size: 14px;
-  color: $gray;
+  color: $black;
+  font-weight: 600;
   
-  .el-icon {
-    color: $purple;
+  &.status-completed {
+    color: #52c41a;
   }
 }
 
-.report-description {
+.report-summary {
+  background: #fffbf0;
+  border-left: 4px solid $purple;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.summary-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: $purple;
+  margin: 0 0 10px 0;
+}
+
+.summary-content {
   font-size: 14px;
   color: #666;
   line-height: 1.8;
-  max-width: 900px;
-  margin: 0 auto;
+  margin: 0;
   text-align: justify;
 }
 
@@ -475,9 +560,16 @@ $purple: #4b70e2;
   font-size: 22px;
   font-weight: 700;
   color: $black;
-  margin: 0 0 20px 0;
+  margin: 0 0 12px 0;
   padding-bottom: 10px;
   border-bottom: 2px solid #e8ecef;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: #999;
+  margin: -8px 0 20px 0;
+  font-style: italic;
 }
 
 // 核心卡片网格
@@ -623,23 +715,112 @@ $purple: #4b70e2;
   font-size: 13px;
   color: $purple;
   font-weight: 600;
-  font-style: italic;
+  margin-top: 5px;
+  padding: 5px 10px;
+  background: rgba(75, 112, 226, 0.08);
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.empty-evidence {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 13px;
 }
 
 // 多模态融合分析样式
 .fusion-section {
   margin-bottom: 25px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 10px;
+  padding: 25px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  border: 1px solid #e8ecef;
   page-break-inside: avoid;
 }
 
+.fusion-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8ecef;
+}
+
 .fusion-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
-  color: #333;
-  margin: 0 0 15px 0;
+  color: $black;
+  margin: 0;
+}
+
+.fusion-result-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: $purple;
+  background: rgba(75, 112, 226, 0.1);
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.fusion-statistics {
+  padding: 15px 0;
+}
+
+.stats-summary {
+  display: flex;
+  justify-content: space-around;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 25px;
+  border-radius: 10px;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  
+  &.positive {
+    border-top: 3px solid #67c23a;
+    .stats-count { color: #67c23a; }
+  }
+  
+  &.neutral {
+    border-top: 3px solid #909399;
+    .stats-count { color: #909399; }
+  }
+  
+  &.negative {
+    border-top: 3px solid #f56c6c;
+    .stats-count { color: #f56c6c; }
+  }
+}
+
+.stats-icon {
+  font-size: 24px;
+}
+
+.stats-label {
+  font-size: 12px;
+  color: #999;
+}
+
+.stats-count {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.stats-note {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  margin: 10px 0 0 0;
+  font-style: italic;
 }
 
 .fusion-grid {
@@ -742,6 +923,8 @@ $purple: #4b70e2;
   color: #333;
   line-height: 1.8;
   margin-bottom: 10px;
+  font-style: italic;
+  quotes: '"' '"';
 }
 
 .transcript-meta {
@@ -772,58 +955,116 @@ $purple: #4b70e2;
   color: #666;
 }
 
+.empty-risk {
+  text-align: center;
+  padding: 40px;
+  background: #f0fdf4;
+  border-radius: 12px;
+  
+  p {
+    margin: 0;
+    font-size: 15px;
+    color: #52c41a;
+    font-weight: 600;
+  }
+}
+
 // 图表容器样式
 .chart-container-report {
   background: white;
-  padding: 20px;
+  padding: 25px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  margin-bottom: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .timeline-chart-report {
   width: 100%;
-  height: 300px;
+  height: 350px;
 }
 
 .radar-chart-report {
   width: 100%;
-  height: 400px;
+  height: 380px;
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 15px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  
+  &.video { background: #667eea; }
+  &.audio { background: #f093fb; }
+  &.text { background: #4facfe; }
 }
 
 // 两个雷达图并排显示
 .radar-charts-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 25px;
-  margin-bottom: 15px;
+  gap: 30px;
 }
 
 .radar-chart-wrapper {
   display: flex;
   flex-direction: column;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  
+  &.peak-risk {
+    border: 2px solid #f56c6c;
+  }
+}
+
+.radar-header {
+  margin-bottom: 15px;
 }
 
 .radar-subtitle {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
-  color: #333;
-  margin: 0 0 12px 0;
+  color: $black;
+  margin: 0 0 6px 0;
   text-align: center;
 }
 
-.radar-note {
-  font-size: 11px;
-  color: #999;
-  margin: 8px 0 0 0;
-  text-align: center;
-}
-
-.chart-note {
+.radar-desc {
   font-size: 12px;
   color: #999;
   margin: 0;
   text-align: center;
+}
+
+.peak-score {
+  text-align: center;
+  font-size: 13px;
+  color: #666;
+  margin: 12px 0 0 0;
+  
+  strong {
+    font-size: 20px;
+    color: #f56c6c;
+    font-weight: 700;
+  }
 }
 
 // 操作按钮样式

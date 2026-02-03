@@ -105,7 +105,7 @@
           <div class="video-source-badge">
             <div class="source-label">
               <el-icon :size="14"><Upload /></el-icon>
-              <span>本地上传视频</span>
+              <span>{{ mockVideoArchive.uploadSource }}视频</span>
             </div>
             <span class="source-hint">以下传播相关数据为AI预测值</span>
           </div>
@@ -122,12 +122,13 @@
                   <span class="file-name">{{ mockVideoArchive.fileName }}</span>
                   <span class="duration-badge">
                     <el-icon :size="11"><Clock /></el-icon>
-                    {{ formatDuration(mockVideoArchive.duration) }}
+                    {{ formatDuration(videoDuration) }}
                   </span>
                 </div>
 
-                <!-- 用户描述信息(如果有) -->
+                <!-- AI分析摘要(如果有) -->
                 <div class="video-description" v-if="mockVideoArchive.description">
+                  <span class="description-label">AI分析摘要：</span>
                   <span class="description-text">{{ mockVideoArchive.description }}</span>
                 </div>
 
@@ -160,8 +161,8 @@
                   <div class="keywords-container">
                     <span v-for="(kw, idx) in mockAIProfile.detectedKeywords" :key="idx" 
                           class="keyword-tag-detected"
-                          :class="{ 'university-related': isUniversityKeyword(kw) }">
-                      {{ kw }}
+                          :class="{ 'university-related': kw.isUniversityRelated }">
+                      {{ kw.word }}
                     </span>
                   </div>
                 </div>
@@ -170,7 +171,8 @@
             
             <div class="global-stats-section stats-pro-container">
               <!-- 高校舆情分析核心指标 -->
-              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'identity' }" @click="openEvidenceDrawer('identity')" title="点击查看详细证据">
+              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'identity' }" @click="openEvidenceDrawer('identity')">
+                <div class="card-tooltip">{{ currentCardId === 'identity' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
                 <div class="pro-icon icon-bg-identity">
                   <el-icon><User /></el-icon>
                 </div>
@@ -183,7 +185,8 @@
                 </div>
               </div>
               
-              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'university' }" @click="openEvidenceDrawer('university')" title="点击查看详细证据">
+              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'university' }" @click="openEvidenceDrawer('university')">
+                <div class="card-tooltip">{{ currentCardId === 'university' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
                 <div class="pro-icon icon-bg-uni">
                   <el-icon><School /></el-icon>
                 </div>
@@ -196,7 +199,8 @@
                 </div>
               </div>
               
-              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'topic' }" @click="openEvidenceDrawer('topic')" title="点击查看详细证据">
+              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'topic' }" @click="openEvidenceDrawer('topic')">
+                <div class="card-tooltip">{{ currentCardId === 'topic' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
                 <div class="pro-icon icon-bg-topic">
                   <el-icon><ChatDotRound /></el-icon>
                 </div>
@@ -209,7 +213,8 @@
                 </div>
               </div>
               
-              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'attitude' }" @click="openEvidenceDrawer('attitude')" title="点击查看详细证据">
+              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'attitude' }" @click="openEvidenceDrawer('attitude')">
+                <div class="card-tooltip">{{ currentCardId === 'attitude' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
                 <div class="pro-icon" :class="getSentimentIconClass(mockContentAnalysis.sentimentTowardSchool)">
                   <el-icon><TrendCharts /></el-icon>
                 </div>
@@ -222,20 +227,15 @@
                 </div>
               </div>
               
-              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'opinionRisk' }" @click="openEvidenceDrawer('opinionRisk')" title="点击查看详细证据">
+              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'opinionRisk' }" @click="openEvidenceDrawer('opinionRisk')">
+                <div class="card-tooltip">{{ currentCardId === 'opinionRisk' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
                 <div class="pro-icon" :class="getOpinionRiskIconClass(mockOpinionRisk.riskLevel)">
                   <el-icon><WarningFilled /></el-icon>
                 </div>
                 <div class="pro-content">
                   <div class="pro-label">
                     潜在舆论风险 <span class="evidence-badge">({{ cardEvidencesMap.opinionRisk.length }})</span>
-                    <el-tooltip 
-                      content="基于视频内容分析，预测如上传到公开平台后可能引发的舆论反应" 
-                      placement="top"
-                      popper-class="custom-tooltip"
-                    >
-                      <span class="ai-predict-badge">AI预测</span>
-                    </el-tooltip>
+                    <span class="ai-predict-badge">AI预测</span>
                   </div>
                   <div class="pro-value" :class="getOpinionRiskTextClass(mockOpinionRisk.riskLevel)">
                     {{ mockOpinionRisk.riskLabel }}
@@ -244,7 +244,8 @@
                 </div>
               </div>
               
-              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'action' }" @click="openEvidenceDrawer('action')" title="点击查看详细证据">
+              <div class="stat-pro-item" :class="{ 'active': currentCardId === 'action' }" @click="openEvidenceDrawer('action')">
+                <div class="card-tooltip">{{ currentCardId === 'action' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
                 <div class="pro-icon icon-bg-action">
                   <el-icon><DocumentChecked /></el-icon>
                 </div>
@@ -306,7 +307,6 @@
                       { 'mark-near-end': (evidence.timestamp / videoDuration) > 0.85 }
                     ]"
                     :style="{ left: (evidence.timestamp / videoDuration * 100) + '%' }"
-                    :title="`${formatTimeDisplay(evidence.timestamp)} - ${currentCardData.label}: ${evidence.description}`"
                     @click="jumpToTime(evidence.timestamp)"
                   >
                     <div class="mark-dot"></div>
@@ -445,7 +445,17 @@
                   <div class="header-info">
                     <div class="panel-title-row">
                       <span class="panel-category">{{ currentCardData.label }}</span>
-                      <span class="panel-confidence-inline">{{ currentCardData.confidenceLabel || '置信度' }} {{ currentCardData.confidence }}%</span>
+                      <span class="panel-confidence-inline">
+                        {{ currentCardData.confidenceLabel || '置信度' }} {{ currentCardData.confidence }}%
+                        <el-tooltip 
+                          v-if="currentCardId === 'opinionRisk'"
+                          content="基于视频内容分析，预测如上传到公开平台后可能引发的舆论反应" 
+                          placement="top"
+                          popper-class="custom-tooltip"
+                        >
+                          <span class="ai-predict-badge-panel">AI预测</span>
+                        </el-tooltip>
+                      </span>
                     </div>
                     <h2 class="panel-main-value" :class="getPanelValueClass()">{{ currentCardData.value }}</h2>
                   </div>
@@ -743,14 +753,16 @@
                                 :class="'sentiment-' + evidence.sentiment">
                             {{ evidence.sentiment === 'positive' ? '正面' : evidence.sentiment === 'neutral' ? '中性' : '负面' }}
                           </span>
-                          {{ evidence.keyword }} 
-                          <span class="confidence-badge-inline">{{ evidence.confidence }}%</span>
+                          {{ evidence.keyword }}
                         </div>
-                        <div 
-                          v-if="evidence.timestamp !== undefined" 
-                          class="text-time-inline"
-                        >
-                          {{ formatTimeDisplay(evidence.timestamp) }}
+                        <div class="text-meta-inline">
+                          <span 
+                            v-if="evidence.timestamp !== undefined" 
+                            class="text-time-inline"
+                          >
+                            {{ formatTimeDisplay(evidence.timestamp) }}
+                          </span>
+                          <span class="confidence-badge-inline">{{ evidence.confidence }}%</span>
                         </div>
                       </div>
                     </div>
@@ -1461,20 +1473,7 @@ const getPanelValueClass = (): string => {
   }
 }
 
-// 辅助函数：获取传播潜力标签
-const getSpreadPotentialLabel = (score: number): string => {
-  if (score >= 8) return '极易传播'
-  if (score >= 6) return '较易传播'
-  if (score >= 4) return '一般'
-  return '传播性低'
-}
-
-// 辅助函数：将传播潜力数值转换为风险等级
-const getPotentialRiskLevel = (spreadValue: number): string => {
-  if (spreadValue >= 7) return '高风险'
-  if (spreadValue >= 4) return '中等风险'
-  return '低风险'
-}
+// 传播潜力标签应该由Python后端判断并返回，前端不再自己判断
 
 // ==================== 高校舆情分析核心数据 END ====================
 
@@ -2661,13 +2660,7 @@ const formatScore = (score: number | null | undefined): string => {
   return (score * 100).toFixed(1) + '%'
 }
 
-// 格式化潜在传播风险（将0-1的数值转换为风险等级）
-const formatPotentialRisk = (score: number | null | undefined): string => {
-  if (score === null || score === undefined) return '未知'
-  if (score >= 0.7) return '高风险'
-  if (score >= 0.4) return '中等风险'
-  return '低风险'
-}
+// 风险等级应该由Python后端直接返回，前端不再根据数值判断
 
 const formatDate = (dateStr: string): string => {
   return new Date(dateStr).toLocaleString('zh-CN')
@@ -2687,18 +2680,7 @@ const formatFileSize = (bytes: number): string => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
-// 判断是否为高校相关关键词
-const isUniversityKeyword = (keyword: string): boolean => {
-  const universityRelatedPatterns = [
-    /大学|学院|学校/,
-    /校园|校区|校徽|校服|学士服/,
-    /教学楼|图书馆|实验室|宿舍|食堂/,
-    /学生会|社团|选课|期末|考试/,
-    /教授|导师|辅导员|班级/,
-    /北大|清华|复旦|交大|浙大/
-  ]
-  return universityRelatedPatterns.some(pattern => pattern.test(keyword))
-}
+// 判断逻辑已移到Python后端，通过isUniversityRelated字段控制
 
 const getStatusText = (status: string): string => {
   const texts: Record<string, string> = {
@@ -2784,29 +2766,7 @@ const getEmotionText = (emotion: string | null | undefined): string => {
   return emotionMap[emotion.toLowerCase()] || emotion
 }
 
-// 获取主要受众年龄段
-const getPrimaryAudience = (ageDistribution: Record<string, number>): string => {
-  if (!ageDistribution) return '未知'
-  
-  let maxAge = ''
-  let maxValue = 0
-  
-  Object.entries(ageDistribution).forEach(([age, value]) => {
-    if (value > maxValue) {
-      maxValue = value
-      maxAge = age
-    }
-  })
-  
-  return maxAge ? `${maxAge}岁` : '未知'
-}
-
-// 判断是否为高校场景
-const isUniversityScene = (sceneType: string | null | undefined): boolean => {
-  if (!sceneType) return false
-  const universityScenes = ['教室', '图书馆', '实验室', '报告厅', '宿舍', '食堂', '校园户外']
-  return universityScenes.includes(sceneType)
-}
+// 所有业务逻辑判断已移到Python后端
 
 // 情感风险样式
 const getSentimentRiskClass = (label: SentimentLabel): string => {
@@ -2987,8 +2947,7 @@ const onChartContainerClick = (event: MouseEvent) => {
         selectedEvidenceId.value = nearestEvidence.id
       }
     }
-    
-    ElMessage.success(`跳转到 ${formatTimestamp(clickedTime)}`)
+    // 跳转已完成，无需提示消息
   }
 }
 
@@ -3022,7 +2981,7 @@ const onTimelineClick = (params: any) => {
         selectedEvidenceId.value = nearestEvidence.id
       }
       
-      ElMessage.success(`跳转到 ${formatTimestamp(clickedTime)}`)
+      // 跳转已完成，无需提示消息
     }
     return
   }
@@ -3033,7 +2992,7 @@ const onTimelineClick = (params: any) => {
   
   const clickedTime = params.data[0]
   playVideo(clickedTime)
-  ElMessage.success(`正在跳转到 ${formatTimestamp(clickedTime)} 播放`)
+  // 报告视图跳转，无需提示消息
 }
 
 // 视频时间更新事件（优化版：分离竖线更新和状态更新）
@@ -3236,12 +3195,12 @@ const onVideoLoaded = () => {
   }
 }
 
-// 跳转到指定时间
+// 跳转到指定时间（不显示提示消息，避免刷屏）
 const jumpToTime = (time: number) => {
   if (mainVideoPlayerRef.value) {
     mainVideoPlayerRef.value.currentTime = time
     mainVideoPlayerRef.value.play().catch(e => console.log('播放失败:', e))
-    ElMessage.success(`跳转到 ${formatTimestamp(time)}`)
+    // 视频已跳转，用户能看到，无需提示消息
   }
 }
 
@@ -3328,8 +3287,7 @@ const selectEvidence = (evidenceId: string) => {
     mainVideoPlayerRef.value.currentTime = evidence.timeSeconds
     mainVideoPlayerRef.value.play().catch(e => console.log('自动播放失败:', e))
   }
-  
-  ElMessage.success(`已定位到风险证据：${currentEvidence.value?.time || ''}`)
+  // 已定位，无需提示消息
 }
 
 /**
@@ -4869,7 +4827,7 @@ $purple: #4b70e2;
     }
     
     .archive-header {
-      padding: 18px 24px;
+      padding: 12px 24px 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -4899,17 +4857,18 @@ $purple: #4b70e2;
           flex: 1;
           
           .file-main {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            position: relative;
             margin-bottom: 8px;
-            flex-wrap: wrap;
+            padding-right: 120px; // 为右上角的时长标签留出空间
+            min-height: 28px; // 确保至少一行的高度
             
             .file-name {
               font-size: 16px;
               font-weight: 700;
               color: $black;
               font-family: 'Courier New', monospace;
+              line-height: 1.4;
+              word-break: break-word; // 长文件名自动换行
             }
             
             .status-badge {
@@ -5712,7 +5671,16 @@ $purple: #4b70e2;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 10px;  // 默认值
+  }
+  
+  // 🎯 非statistics类型（5个卡片）的融合结果 - 增大下边距
+  .modality-card:not(.statistics-type) .modality-header {
+    margin-bottom: 23px;
+  }
+  
+  .result-card:not(.statistics-type) .modality-header {
+    margin-bottom: 23px;
   }
   
   // 模态图标 - 使用系统配色，减小尺寸
@@ -5760,7 +5728,7 @@ $purple: #4b70e2;
     font-weight: 700;
     color: $black;
     line-height: 1.1;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     text-align: center;
     
     .score-unit {
@@ -5774,6 +5742,12 @@ $purple: #4b70e2;
       color: $purple;
       font-size: 38px;
     }
+  }
+  
+  // 🎯 非statistics类型（5个卡片）- 数字向右偏移，平衡视觉重心
+  .modality-card:not(.statistics-type) .modality-score,
+  .result-card:not(.statistics-type) .modality-score {
+    padding-left: 13px;
   }
   
   // 模态详情 - 居中显示
@@ -5928,18 +5902,34 @@ $purple: #4b70e2;
     font-weight: 600;
     color: #666;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    
+    .ai-predict-badge-panel {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 500;
+      color: #909399;
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      cursor: help;
+      margin-left: 12px;
+    }
     
     &::before {
       content: '●';
       color: $purple;
-      margin-right: 4px;
+      margin-right: 3px;
     }
   }
   
   .panel-main-value {
     font-size: 20px;
     font-weight: 700;
-    margin: 0;
+    margin: 3px 0 0 0;
     line-height: 1.2;
     // 默认使用紫色，但会被动态类覆盖
     color: $purple;
@@ -6212,28 +6202,34 @@ $purple: #4b70e2;
     font-size: 13px;
     font-weight: 500;
     color: #333;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
     line-height: 1.6;
-    word-break: break-word; // 允许长词换行
-    
-    // 文本证据的置信度徽章
-    .confidence-badge-inline {
-      font-size: 10px;
-      flex-shrink: 0; // 防止被压缩
-      white-space: nowrap; // 不换行
-    }
+    word-break: break-word;
+  }
+  
+  .text-meta-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
   }
   
   .text-time-inline {
     font-size: 11px;
     font-weight: 700;
-    color: #667eea;  // ✅ 统一用紫色（和视频/音频一致）
-    font-family: 'Consolas', 'Monaco', monospace;  // 等宽字体
+    color: #667eea;
+    font-family: 'Consolas', 'Monaco', monospace;
     white-space: nowrap;
-    flex-shrink: 0; // 时间戳不压缩
+    flex-shrink: 0;
+  }
+  
+  .confidence-badge-inline {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(103, 194, 58, 0.12);
+    color: #67c23a;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   
   // 视频区域
@@ -7740,6 +7736,9 @@ $purple: #4b70e2;
   
   /* 视频内容特征样式 */
   .duration-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -7748,17 +7747,24 @@ $purple: #4b70e2;
     border-radius: 6px;
     font-size: 12px;
     color: #409EFF;
-    margin-left: 12px;
+    white-space: nowrap; // 确保不换行
   }
 
   .video-description {
     margin: 6px 0 10px 0;
+    line-height: 1.6;
+  }
+
+  .description-label {
+    font-size: 12px;
+    color: $purple;
+    font-weight: 600;
   }
 
   .description-text {
     font-size: 12px;
-    color: #909399;
-    line-height: 1.5;
+    color: #666;
+    line-height: 1.6;
   }
 
   .content-features-row,
@@ -8232,8 +8238,46 @@ $purple: #4b70e2;
       transition: background 0.2s ease;
     }
 
+    // 自定义tooltip
+    .card-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 12px;
+      background: rgba(75, 112, 226, 0.95);
+      color: white;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      transition-delay: 0s;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      
+      // 小箭头
+      &::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: rgba(75, 112, 226, 0.95);
+      }
+    }
+
     &:hover {
       transform: translateY(-2px); /* 微动效 */
+      
+      // 悬浮1秒后显示tooltip
+      .card-tooltip {
+        opacity: 1;
+        transition-delay: 1s;
+      }
       
       &::after {
         background: rgba(102, 126, 234, 0.05);

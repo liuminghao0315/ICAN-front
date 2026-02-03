@@ -119,6 +119,14 @@ export interface RiskEvidence {
 }
 
 /**
+ * 检测到的关键词（带高亮标记）
+ */
+export interface DetectedKeyword {
+  word: string                    // 关键词文本
+  isUniversityRelated: boolean   // 是否高校相关（由Python后端判断）
+}
+
+/**
  * AI目标侧写结果
  */
 export interface AIProfileResult {
@@ -126,7 +134,7 @@ export interface AIProfileResult {
   identityLabel: string
   confidence: number
   matchSource: string
-  detectedKeywords: string[]
+  detectedKeywords: DetectedKeyword[]  // 修改为对象数组，包含高亮标记
   staticFeatures: {
     gender: string
     ageRange: string
@@ -180,8 +188,8 @@ export interface VideoInfo {
   uploadTime: string        // 上传时间
   uploadSource: string      // 来源
   analysisStatus: string    // 分析状态
-  manualTag?: string        // 人工标签
-  description: string       // 视频描述/摘要
+  manualTag?: string        // 人工标签（可选）
+  description: string       // AI自动生成的视频内容摘要
 }
 
 /**
@@ -236,7 +244,8 @@ export interface OpinionRiskAnalysis {
   riskLabel: string             // 显示标签
   riskScore: number             // 风险分数 0-100
   riskReason: string            // 风险原因
-  spreadPotential: number       // 传播潜力 1-10
+  spreadPotential: number       // 传播潜力分数 1-10
+  spreadPotentialLabel: string  // 传播潜力标签（由Python判断）
   potentialImpacts: string[]    // 潜在影响
   evidenceCount: number         // 证据数量
 }
@@ -314,10 +323,10 @@ export const mockAnalysisResult: AnalysisResult = {
     duration: 195, // 3分15秒
     resolution: '1920×1080',
     uploadTime: '2024-02-01 14:30:25',
-    uploadSource: '抖音平台',
+    uploadSource: '本地上传',
     analysisStatus: '分析完成',
     manualTag: '校园舆情-选课系统',
-    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，可能引发其他学生共鸣转发。'
+    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，若上传到公开平台可能引发其他学生共鸣转发。'
   },
 
   // ========== 2. 身份判定分析 ==========
@@ -368,6 +377,7 @@ export const mockAnalysisResult: AnalysisResult = {
     riskScore: 58,
     riskReason: '可能引发跟风吐槽',
     spreadPotential: 6.5,
+    spreadPotentialLabel: '较易传播',  // Python根据6.5判断得出
     potentialImpacts: [
       '若上传可能引发其他学生共鸣转发',
       '对学校选课系统形象有一定负面影响',
@@ -1052,7 +1062,18 @@ export const mockAnalysisResult: AnalysisResult = {
     identityLabel: '疑似在校学生',
     confidence: 0.85,
     matchSource: '语音中自称"北大计算机系学生"，检测到校园场景',
-    detectedKeywords: ['北大', '北京大学', '计算机系', '我们学校', '选课系统', '教务处', '失望', '不负责任', '热门课', '抢不到'],
+    detectedKeywords: [
+      { word: '北大', isUniversityRelated: true },
+      { word: '北京大学', isUniversityRelated: true },
+      { word: '计算机系', isUniversityRelated: true },
+      { word: '我们学校', isUniversityRelated: true },
+      { word: '选课系统', isUniversityRelated: true },
+      { word: '教务处', isUniversityRelated: true },
+      { word: '失望', isUniversityRelated: false },
+      { word: '不负责任', isUniversityRelated: false },
+      { word: '热门课', isUniversityRelated: true },
+      { word: '抢不到', isUniversityRelated: false }
+    ],
     staticFeatures: {
       gender: '男性',
       ageRange: '20-24岁',
