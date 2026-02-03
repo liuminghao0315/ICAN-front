@@ -151,6 +151,67 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 export type SentimentLabel = 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE'
 
 /**
+ * 视频来源枚举
+ */
+export type VideoSource = 'local_upload' | 'web_crawl'
+
+/**
+ * 传播数据类型枚举
+ */
+export type SpreadDataType = 'predicted' | 'real'
+
+/**
+ * 传播风险等级
+ */
+export type SpreadRiskLevel = 'low' | 'medium' | 'high'
+
+/**
+ * 预测数据（V1.0本地上传场景）
+ */
+export interface PredictedSpreadData {
+  potentialRisk: SpreadRiskLevel              // 潜在传播风险
+  targetAudience: string[]                     // 目标受众预测（基于内容特征）
+  estimatedImpactLevel: SpreadRiskLevel        // 预估影响力等级
+  contentAppealScore: number                   // 内容吸引力评分（0-100）
+  riskIfPublished: string                      // 如果发布后的风险说明
+}
+
+/**
+ * 真实数据（V2.0网络爬取场景）
+ */
+export interface RealSpreadData {
+  platformName: string           // 平台名称（抖音、B站、小红书）
+  videoUrl: string               // 原始视频链接
+  publishTime: string            // 发布时间
+  authorId: string               // 作者ID
+  authorName: string             // 作者昵称
+  authorFollowers: number        // 作者粉丝数
+  
+  // 传播数据
+  viewCount: number              // 播放量
+  likeCount: number              // 点赞数
+  commentCount: number           // 评论数
+  shareCount: number             // 分享数
+  collectCount: number           // 收藏数
+  
+  // 受众数据（如果平台提供）
+  audienceData?: {
+    ageDistribution?: Record<string, number>
+    genderRatio?: { male: number, female: number }
+    regionDistribution?: Record<string, number>
+  }
+}
+
+/**
+ * 传播分析数据
+ */
+export interface SpreadAnalysis {
+  dataType: SpreadDataType       // 数据类型：predicted（预测）| real（真实）
+  predictedData?: PredictedSpreadData  // V1.0预测数据
+  realData?: RealSpreadData            // V2.0真实数据
+}
+
+/**
  * 视频特征
  */
 export interface VideoFeatures {
@@ -246,7 +307,13 @@ export interface AnalysisResultVO {
   transcription: string
   textFeatures: TextFeatures
   
-  // 受众预测
+  // 🔑 新增：视频来源标识
+  videoSource: VideoSource
+  
+  // 🔑 新增：传播分析数据（可选）
+  spreadAnalysis?: SpreadAnalysis | null
+  
+  // ⚠️ 保留旧字段（向后兼容，但在V2.0中会被spreadAnalysis替代）
   audienceAnalysis: AudienceAnalysis
   spreadPotential: number
   
@@ -451,6 +518,23 @@ export const TASK_TYPE_TEXT: Record<TaskType, string> = {
   VIDEO_ONLY: '仅视频分析',
   AUDIO_ONLY: '仅音频分析',
   TEXT_ONLY: '仅文本分析'
+}
+
+/**
+ * 传播风险等级中文映射
+ */
+export const SPREAD_RISK_TEXT: Record<SpreadRiskLevel, string> = {
+  low: '低风险',
+  medium: '中等风险',
+  high: '高风险'
+}
+
+/**
+ * 视频来源中文映射
+ */
+export const VIDEO_SOURCE_TEXT: Record<VideoSource, string> = {
+  local_upload: '本地上传',
+  web_crawl: '网络爬取'
 }
 
 // ==================== 工具函数 ====================
