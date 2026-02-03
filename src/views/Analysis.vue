@@ -401,7 +401,7 @@
                     <el-icon :size="11"><Microphone /></el-icon>
                     {{ getEmotionText(currentEvidence.emotion) }}
                   </span>
-                  <span v-if="currentEvidence.riskLevel === 'HIGH'" class="info-tag risk-alert">
+                  <span v-if="currentEvidence.riskLevel === 'high'" class="info-tag risk-alert">
                     <el-icon :size="11"><Warning /></el-icon>
                     高风险告警
                   </span>
@@ -799,8 +799,8 @@
                   :class="{ 
                     'active': selectedEvidenceId === evidence.id,
                     'inactive': selectedEvidenceId === evidence.id && !isCurrentEvidenceActive,
-                    'high-risk': evidence.riskLevel === 'HIGH',
-                    'medium-risk': evidence.riskLevel === 'MEDIUM'
+                    'high-risk': evidence.riskLevel === 'high',
+                    'medium-risk': evidence.riskLevel === 'medium'
                   }"
                   @click="selectEvidence(evidence.id)"
                 >
@@ -809,8 +809,8 @@
                     <span v-if="evidence.emotion" class="emotion-badge" :class="getEmotionClass(evidence.emotion)">
                       {{ getEmotionText(evidence.emotion) }}
                     </span>
-                    <span v-if="evidence.riskLevel !== 'LOW'" class="risk-tag" :class="evidence.riskLevel.toLowerCase()">
-                      {{ evidence.riskLevel === 'HIGH' ? '高风险' : '中风险' }}
+                    <span v-if="evidence.riskLevel !== 'low'" class="risk-tag" :class="evidence.riskLevel.toLowerCase()">
+                      {{ evidence.riskLevel === 'high' ? '高风险' : '中风险' }}
                     </span>
                   </div>
                   <div class="segment-text" v-html="highlightKeywords(evidence.content, evidence.keywords)"></div>
@@ -821,7 +821,7 @@
                       <el-icon :size="11"><Headset /></el-icon>
                       情绪: {{ getEmotionText(evidence.emotion) }}
                     </span>
-                    <span v-if="evidence.riskLevel === 'HIGH'" class="audio-feature-tag volume">
+                    <span v-if="evidence.riskLevel === 'high'" class="audio-feature-tag volume">
                       <el-icon :size="11"><Sound /></el-icon>
                       音量: 嘶吼
                     </span>
@@ -930,343 +930,18 @@
         </div>
       </div>
       
-      <!-- 报告视图（原有的完整报告，用于PDF导出） -->
-      <div v-else key="report" class="analysis-content" ref="reportContentRef">
-      <!-- 视频信息 -->
-      <div class="video-info-bar">
-        <div class="video-icon">
-          <el-icon :size="24"><VideoPlay /></el-icon>
-        </div>
-        <div class="video-details">
-          <div class="video-title-row">
-            <span class="video-title">{{ analysisData.videoTitle }}</span>
-            <span class="video-meta">分析时间：{{ formatDate(analysisData.gmtCreated) }}</span>
-          </div>
-          <div class="video-description" v-if="analysisData.videoDescription">
-            {{ analysisData.videoDescription }}
-          </div>
-        </div>
-        <button class="neu-btn play-video-btn" @click="playVideo()" v-if="analysisData.videoUrl">
-          <el-icon><VideoPlay /></el-icon>
-          播放视频
-        </button>
-      </div>
-      
-      <!-- 风险评分卡片 -->
-      <div class="risk-cards-grid">
-        <div class="neu-card risk-card" :class="getRiskClass(analysisData.riskLevel)">
-          <div class="risk-icon">
-            <el-icon :size="28"><Warning /></el-icon>
-          </div>
-          <div class="risk-info">
-            <div class="risk-score">{{ formatScore(analysisData.riskScore) }}</div>
-            <div class="risk-label">风险评分</div>
-            <div class="risk-level">{{ analysisData.riskLevelDesc || getRiskLevelText(analysisData.riskLevel) }}</div>
-          </div>
-        </div>
-        
-        <div class="neu-card stat-card">
-          <div class="stat-icon primary">
-            <el-icon :size="24"><School /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ analysisData.isUniversityRelated ? '是' : '否' }}</div>
-            <div class="stat-label">高校相关</div>
-            <div class="stat-detail" v-if="analysisData.universityName">
-              {{ analysisData.universityName }} ({{ formatScore(analysisData.universityConfidence) }})
-            </div>
-          </div>
-        </div>
-        
-        <div class="neu-card stat-card">
-          <div class="stat-icon" :class="getSentimentClass(analysisData.sentimentLabel)">
-            <el-icon :size="24"><ChatDotRound /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ analysisData.sentimentLabelDesc || getSentimentText(analysisData.sentimentLabel) }}</div>
-            <div class="stat-label">情感倾向</div>
-            <div class="stat-detail">
-              评分: {{ (analysisData.sentimentScore * 100).toFixed(1) }}%
-            </div>
-          </div>
-        </div>
-        
-        <div class="neu-card stat-card">
-          <div class="stat-icon warning">
-            <el-icon :size="24"><Document /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ analysisData.topicCategory || '未分类' }}</div>
-            <div class="stat-label">主题分类</div>
-            <div class="stat-detail" v-if="analysisData.spreadPotential">
-              潜在风险: {{ formatPotentialRisk(analysisData.spreadPotential) }}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 图表展示区域 -->
-      <div class="charts-grid">
-        <div class="neu-card">
-          <div class="card-header">
-            <span class="card-title">风险评分分布</span>
-          </div>
-          <v-chart :option="riskChartOption" class="chart" />
-        </div>
-        
-        <div class="neu-card">
-          <div class="card-header">
-            <span class="card-title">
-              内容适配人群预测
-              <span class="predict-badge-small">AI预测</span>
-            </span>
-          </div>
-          <v-chart :option="audienceChartOption" class="chart" />
-        </div>
-      </div>
-      
-      <!-- 详细分析结果 - 聚焦风险预警 -->
-      <div class="details-grid">
-        <!-- 视频内容分析 -->
-        <div class="neu-card">
-          <div class="card-header">
-            <span class="card-title">
-              <el-icon><VideoCamera /></el-icon>
-              视频内容分析
-            </span>
-          </div>
-          <div class="feature-details" v-if="analysisData.videoFeatures">
-            <div class="feature-item">
-              <span class="feature-label">内容类型</span>
-              <span class="feature-value">{{ analysisData.videoFeatures.sceneType || '未知' }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">高校场景识别</span>
-              <span class="feature-value">
-                {{ isUniversityScene(analysisData.videoFeatures.sceneType) ? '是' : '否' }}
-              </span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">人物出现</span>
-              <span class="feature-value">
-                {{ analysisData.videoFeatures.hasPerson ? '是' : '否' }}
-                <span v-if="analysisData.videoFeatures.faceCount > 0">({{ analysisData.videoFeatures.faceCount }}人)</span>
-              </span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">视频时长</span>
-              <span class="feature-value">{{ formatDuration(analysisData.videoFeatures.duration) }}</span>
-            </div>
-          </div>
-          <div v-else class="empty-feature">
-            <el-icon :size="36"><VideoCamera /></el-icon>
-            <span>暂无视频分析数据</span>
-          </div>
-        </div>
-        
-        <!-- 语音内容分析 -->
-        <div class="neu-card">
-          <div class="card-header">
-            <span class="card-title">
-              <el-icon><Microphone /></el-icon>
-              语音内容识别
-            </span>
-          </div>
-          <div class="feature-details" v-if="analysisData.transcription">
-            <div class="feature-item full">
-              <span class="feature-label">语音转文字内容</span>
-              <div class="feature-value transcription">
-                {{ analysisData.transcription }}
-              </div>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">检测到语音</span>
-              <span class="feature-value">{{ analysisData.audioFeatures?.hasAudio ? '是' : '否' }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">语音清晰度</span>
-              <span class="feature-value">{{ analysisData.audioFeatures?.speechRatio > 0.5 ? '清晰' : '模糊' }}</span>
-            </div>
-          </div>
-          <div v-else class="empty-feature">
-            <el-icon :size="36"><Microphone /></el-icon>
-            <span>暂无语音内容</span>
-          </div>
-        </div>
-        
-        <!-- 文本风险分析 -->
-        <div class="neu-card">
-          <div class="card-header">
-            <span class="card-title">
-              <el-icon><Document /></el-icon>
-              内容风险分析
-            </span>
-          </div>
-          <div class="feature-details" v-if="analysisData.topicKeywords || analysisData.sentimentLabel">
-            <div class="feature-item">
-              <span class="feature-label">主题分类</span>
-              <span class="feature-value">{{ analysisData.topicCategory || '未分类' }}</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-label">言论倾向</span>
-              <span class="feature-value">
-                <span :class="getSentimentRiskClass(analysisData.sentimentLabel)">
-                  {{ getSentimentText(analysisData.sentimentLabel) }}
-                </span>
-              </span>
-            </div>
-            <div class="feature-item full" v-if="analysisData.topicKeywords && analysisData.topicKeywords.length > 0">
-              <span class="feature-label">提取关键词</span>
-              <div class="feature-value keywords-inline">
-                <span 
-                  v-for="(keyword, index) in analysisData.topicKeywords.slice(0, 7)" 
-                  :key="index"
-                  class="keyword-tag-small"
-                  :class="{ primary: index < 3 }"
-                >
-                  {{ keyword }}
-                </span>
-              </div>
-            </div>
-            <div class="feature-item" v-if="analysisData.isUniversityRelated !== undefined">
-              <span class="feature-label">高校相关内容</span>
-              <span class="feature-value">
-                <span :class="analysisData.isUniversityRelated ? 'text-warning' : 'text-muted'">
-                  {{ analysisData.isUniversityRelated ? '是' : '否' }}
-                </span>
-                <span v-if="analysisData.universityName" class="text-primary"> - {{ analysisData.universityName }}</span>
-              </span>
-            </div>
-          </div>
-          <div v-else class="empty-feature">
-            <el-icon :size="36"><Document /></el-icon>
-            <span>暂无文本分析数据</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 内容词云图 -->
-      <div class="neu-card wordcloud-card" v-if="getWordCloudData().length > 0">
-        <div class="card-header">
-          <span class="card-title">
-            <el-icon><DataAnalysis /></el-icon>
-            内容词云分析
-          </span>
-          <span class="card-subtitle">基于语音识别文本的关键词频统计</span>
-        </div>
-        <div class="wordcloud-content">
-          <div class="wordcloud-visual">
-            <span
-              v-for="(item, index) in getWordCloudData().slice(0, 20)"
-              :key="index"
-              class="word-item"
-              :style="getWordStyle(item.value, index)"
-            >
-              {{ item.name }}
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 敏感内容检测 -->
-      <div class="neu-card sensitive-card">
-        <div class="card-header">
-          <span class="card-title">
-            <el-icon><Warning /></el-icon>
-            敏感内容检测
-          </span>
-        </div>
-        <div class="sensitive-content">
-          <div v-if="getSensitiveWords().length === 0" class="no-sensitive">
-            <el-icon :size="36" color="#52c41a"><Select /></el-icon>
-            <p>✅ 未检测到敏感词汇</p>
-            <p class="hint">内容安全，无明显风险</p>
-          </div>
-          <div v-else class="sensitive-list">
-            <div class="sensitive-warning">
-              <el-icon color="#f56c6c"><Warning /></el-icon>
-              <span>检测到 {{ getSensitiveWords().length }} 个敏感词</span>
-            </div>
-            <div 
-              v-for="(item, index) in getSensitiveWords()"
-              :key="index"
-              class="sensitive-item"
-            >
-              <span class="sensitive-word">{{ item.word }}</span>
-              <span class="sensitive-category">{{ item.category }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 潜在传播风险评估 -->
-      <div class="neu-card audience-card" v-if="analysisData.audienceAnalysis">
-        <div class="card-header">
-          <span class="card-title">
-            <el-icon><User /></el-icon>
-            潜在传播风险评估
-          </span>
-          <span class="card-subtitle">
-            <span class="predict-badge-small">AI预测</span>
-            基于内容特征的风险预测，非实际传播数据
-          </span>
-        </div>
-        <div class="audience-content">
-          <div class="audience-stats">
-            <div class="stat-box">
-              <div class="stat-number">{{ formatPotentialRisk(analysisData.spreadPotential) }}</div>
-              <div class="stat-name">潜在传播风险</div>
-              <div class="stat-hint">如上传到平台可能的风险等级</div>
-            </div>
-            <div class="stat-box" v-if="analysisData.audienceAnalysis.ageDistribution">
-              <div class="stat-number">{{ getPrimaryAudience(analysisData.audienceAnalysis.ageDistribution) }}</div>
-              <div class="stat-name">目标人群预测</div>
-              <div class="stat-hint">基于内容特征预测的受众</div>
-            </div>
-          </div>
-          <div class="interests-section" v-if="analysisData.audienceAnalysis.predictedInterests">
-            <h4>内容标签预测</h4>
-            <div class="interests-list">
-              <span 
-                v-for="(interest, index) in analysisData.audienceAnalysis.predictedInterests" 
-                :key="index"
-                class="interest-tag"
-              >
-                {{ interest }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 风险时间轴可视化 -->
-      <div class="neu-card timeline-card" v-if="getRiskTimelineData()">
-        <div class="card-header">
-          <span class="card-title">
-            <el-icon><DataLine /></el-icon>
-            风险时间分布
-          </span>
-          <span class="card-subtitle">视频全时段风险指数变化趋势（点击跳转播放 | 悬停查看详情）</span>
-        </div>
-        <v-chart 
-          :option="riskTimelineOption" 
-          class="risk-timeline-chart"
-          @click="onTimelineClick"
-        />
-      </div>
-      
-      <!-- 操作按钮 - 导出PDF时隐藏 -->
-      <div class="action-buttons" ref="actionButtonsRef">
-        <button class="neu-btn primary-btn" @click="exportReport">
-          <el-icon><Download /></el-icon>
-          导出PDF报告
-        </button>
-        <button class="neu-btn" @click="$router.push('/videos')">
-          <el-icon><VideoPlay /></el-icon>
-          返回视频列表
-        </button>
-      </div>
-      </div> <!-- 闭合报告视图 -->
+      <!-- 报告视图（独立组件） -->
+      <ReportView 
+        v-else 
+        key="report"
+        :analysis-data="mockAnalysisResult"
+        :timeline-chart-option="multiModalTimelineOption"
+        :average-radar-chart-option="averageRadarOption"
+        :peak-radar-chart-option="peakRiskRadarOption"
+        @export-pdf="exportReport"
+        @back-to-list="$router.push('/videos')"
+        ref="reportViewRef"
+      />
       </transition>
     </div> <!-- 闭合分析结果展示区域 -->
     
@@ -1318,8 +993,12 @@ import type { AnalysisResultVO, RiskLevel, SentimentLabel } from '@/types'
 // 导入证据抽屉组件和数据
 import EvidenceDrawer from '@/components/EvidenceDrawer.vue'
 import type { CardData } from '@/components/EvidenceDrawer.vue'
-import { cardEvidencesMap, cardsData, cardFusionMap } from '@/data/evidenceMockData'
-import type { ModalityFusion, StatisticsData } from '@/data/evidenceMockData'
+import ReportView from '@/components/ReportView.vue'
+// 导入统一的分析结果mock数据（核心数据源 - 唯一数据源）
+import { mockAnalysisResult } from '@/data/mockAnalysisResult'
+import type { ModalityFusion, StatisticsData, Evidence, Detection, RiskEvidence, AIProfileResult, SceneInfo } from '@/data/mockAnalysisResult'
+// 导入Element Plus图标
+import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked } from '@element-plus/icons-vue'
 
 // 注册ECharts组件
 use([
@@ -1355,11 +1034,109 @@ const showVideoDrawer = ref(false)
 // 视图模式：交互式 or 报告式
 const viewMode = ref<'interactive' | 'report'>('interactive')
 
+// ==================== 从统一数据源提取数据（替代散落的mock定义） ====================
+// 提取证据映射（使用Record类型以支持字符串索引）
+const cardEvidencesMap: Record<string, Evidence[]> = mockAnalysisResult.evidences as any
+// 提取多模态融合映射（使用Record类型以支持字符串索引）
+const cardFusionMap: Record<string, ModalityFusion> = mockAnalysisResult.modalityFusion as any
+// 提取各个分析结果（便捷引用）
+const mockVideoArchive = mockAnalysisResult.videoInfo
+const mockIdentityAnalysis = mockAnalysisResult.identity
+const mockUniversityBaseline = mockAnalysisResult.university
+const mockContentAnalysis = {
+  topicCategory: mockAnalysisResult.topic.topicCategory,
+  topicSubCategory: mockAnalysisResult.topic.topicSubCategory,
+  sentimentTowardSchool: mockAnalysisResult.attitude.sentimentTowardSchool,
+  sentimentIntensity: mockAnalysisResult.attitude.sentimentIntensity,
+  schoolMentionCount: mockAnalysisResult.attitude.schoolMentionCount,
+  negativeMentionCount: mockAnalysisResult.attitude.negativeMentionCount,
+  keyTopics: mockAnalysisResult.topic.keyTopics
+}
+const mockOpinionRisk = {
+  riskLevel: mockAnalysisResult.opinionRisk.riskLevel,
+  riskLabel: mockAnalysisResult.opinionRisk.riskLabel,
+  riskScore: mockAnalysisResult.opinionRisk.riskScore,
+  riskReason: mockAnalysisResult.opinionRisk.riskReason,
+  spreadPotential: mockAnalysisResult.opinionRisk.spreadPotential,
+  actionSuggestion: mockAnalysisResult.action.actionSuggestion,
+  actionDetail: mockAnalysisResult.action.actionDetail,
+  potentialImpacts: mockAnalysisResult.opinionRisk.potentialImpacts
+}
+// 提取台词转录数据
+const mockTranscriptSegmentsData = mockAnalysisResult.transcriptSegments
+// 提取时间轴数据
+const mockVideoRisksData = mockAnalysisResult.timelineData.videoRisks
+const mockAudioEmotionsData = mockAnalysisResult.timelineData.audioEmotions  
+const mockRadarDataByTime = mockAnalysisResult.timelineData.radarByTime
+// 提取辅助分析数据
+const mockRiskEvidence = mockAnalysisResult.riskEvidences
+const mockAIProfile = mockAnalysisResult.aiProfile
+const mockDetections = mockAnalysisResult.cvDetections
+const mockScenes = mockAnalysisResult.sceneRecognition
+
+// 卡片UI配置（动态从mockAnalysisResult获取数据）
+const cardsData = computed<CardData[]>(() => [
+  {
+    id: 'identity',
+    label: '身份判定',
+    value: mockAnalysisResult.identity.identityLabel,
+    confidence: Math.round(mockAnalysisResult.identity.confidence * 100),
+    confidenceLabel: '识别置信度',
+    icon: User,
+    iconClass: 'icon-bg-identity'
+  },
+  {
+    id: 'university',
+    label: '涉及高校',
+    value: mockAnalysisResult.university.universityName,
+    confidence: Math.round(mockAnalysisResult.university.logoConfidence * 100),
+    confidenceLabel: '匹配度',
+    icon: School,
+    iconClass: 'icon-bg-uni'
+  },
+  {
+    id: 'topic',
+    label: '内容主题',
+    value: mockAnalysisResult.topic.topicCategory,
+    confidence: mockAnalysisResult.modalityFusion.topic.finalScore,
+    confidenceLabel: '主题置信度',
+    icon: ChatDotRound,
+    iconClass: 'icon-bg-topic'
+  },
+  {
+    id: 'attitude',
+    label: '对学校态度',
+    value: mockAnalysisResult.attitude.sentimentLabel,
+    confidence: Math.round((mockAnalysisResult.attitude.statistics.negative / mockAnalysisResult.attitude.statistics.total) * 100),
+    confidenceLabel: '负面占比',
+    icon: TrendCharts,
+    iconClass: 'icon-bg-negative'
+  },
+  {
+    id: 'opinionRisk',
+    label: '潜在舆论风险',
+    value: mockAnalysisResult.opinionRisk.riskLabel,
+    confidence: mockAnalysisResult.opinionRisk.riskScore,
+    confidenceLabel: '风险指数',
+    icon: WarningFilled,
+    iconClass: 'icon-bg-risk-medium'
+  },
+  {
+    id: 'action',
+    label: '处置建议',
+    value: mockAnalysisResult.action.actionSuggestion,
+    confidence: mockAnalysisResult.action.urgencyLevel,
+    confidenceLabel: '紧急程度',
+    icon: DocumentChecked,
+    iconClass: 'icon-bg-action'
+  }
+])
+
 // ==================== 证据详情面板相关状态 ====================
 const currentCardId = ref<string>('')
 const currentCardData = computed<CardData>(() => {
-  const card = cardsData.find(c => c.id === currentCardId.value)
-  return card || cardsData[0]
+  const card = cardsData.value.find(c => c.id === currentCardId.value)
+  return card || cardsData.value[0]
 })
 const currentEvidences = computed(() => {
   return cardEvidencesMap[currentCardId.value] || []
@@ -1535,122 +1312,6 @@ const videoDisplayArea = ref<VideoDisplayArea>({
   containerHeight: 0
 })
 
-// ==================== V1.5 新增：Mock证据数据 ====================
-interface RiskEvidence {
-  id: string
-  time: string // 显示用，如 "00:42"
-  timeSeconds: number // 起始时间（秒）
-  timeEndSeconds?: number // 结束时间（秒）
-  content: string // 台词
-  riskLevel: 'HIGH' | 'MEDIUM' | 'LOW'
-  imageUrl: string // 对应这一刻的截图URL
-  boxStyle: { top: string; left: string; width: string; height: string }
-  label: string // 红框上的字，如 "非官方横幅"
-  confidence: number // 置信度
-  keywords: string[] // 高亮关键词
-  emotion?: string // 语音情绪
-}
-
-// ==================== CV视觉模态：检测框数据结构 ====================
-interface Detection {
-  id: string
-  type: 'face' | 'ocr' | 'logo' | 'uniform' | 'banner' | 'object'
-  boundingBox: { x: number; y: number; width: number; height: number } // 百分比坐标
-  confidence: number // 置信度 0-1
-  label: string // 检测标签，如 "愤怒表情"、"北大校徽"
-  timeStart: number // 开始时间（秒）
-  timeEnd: number // 结束时间（秒）
-  metadata?: {
-    emotion?: string // 表情：angry, calm, serious, tense
-    emotionIcon?: string // 表情图标：😡, 😐, 😟
-    age?: number // 年龄（仅人脸）
-    gender?: string // 性别（仅人脸）
-  }
-}
-
-// ==================== CV视觉模态：场景识别数据结构 ====================
-interface SceneInfo {
-  id: string
-  name: string // 场景名称，如 "教室"、"宿舍"
-  icon: string // 场景图标，如 "🏫"、"🛏️"
-  confidence: number // 置信度 0-1
-  timeStart: number // 开始时间（秒）
-  timeEnd: number // 结束时间（秒）
-}
-
-// Mock证据数组（5条证据，覆盖高/中/低风险）
-const mockRiskEvidence: RiskEvidence[] = [
-  {
-    id: 'evidence-1',
-    time: '00:05-00:10',
-    timeSeconds: 5,
-    timeEndSeconds: 10,
-    content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
-    riskLevel: 'LOW',
-    imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop', // 大学校园
-    boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' }, // 无检测框
-    label: '',
-    confidence: 0,
-    keywords: [],
-    emotion: 'calm'
-  },
-  {
-    id: 'evidence-2',
-    time: '00:15-00:22',
-    timeSeconds: 15,
-    timeEndSeconds: 22,
-    content: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
-    riskLevel: 'HIGH',
-    imageUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&h=450&fit=crop', // 抗议场景
-    boxStyle: { top: '25%', left: '15%', width: '45%', height: '35%' },
-    label: 'OCR敏感词：[抵制]',
-    confidence: 0.98,
-    keywords: ['欺骗', '抵制', '联合'],
-    emotion: 'angry'
-  },
-  {
-    id: 'evidence-3',
-    time: '00:25-00:32',
-    timeSeconds: 25,
-    timeEndSeconds: 32,
-    content: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
-    riskLevel: 'MEDIUM',
-    imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=450&fit=crop', // 人群讨论
-    boxStyle: { top: '35%', left: '30%', width: '30%', height: '40%' },
-    label: '肢体动作：过激手势',
-    confidence: 0.85,
-    keywords: ['风险', '真相'],
-    emotion: 'serious'
-  },
-  {
-    id: 'evidence-4',
-    time: '00:35-00:42',
-    timeSeconds: 35,
-    timeEndSeconds: 42,
-    content: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
-    riskLevel: 'MEDIUM',
-    imageUrl: 'https://images.unsplash.com/photo-1577896851905-4dcc0c7f1f1c?w=800&h=450&fit=crop', // 严肃场景
-    boxStyle: { top: '20%', left: '25%', width: '35%', height: '30%' },
-    label: '抗议性标语区域',
-    confidence: 0.91,
-    keywords: ['追究'],
-    emotion: 'tense'
-  },
-  {
-    id: 'evidence-5',
-    time: '00:45-00:50',
-    timeSeconds: 45,
-    timeEndSeconds: 50,
-    content: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
-    riskLevel: 'LOW',
-    imageUrl: 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=800&h=450&fit=crop', // 校园环境
-    boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
-    label: '',
-    confidence: 0,
-    keywords: [],
-    emotion: 'calm'
-  }
-]
 
 // 当前选中的证据ID
 const selectedEvidenceId = ref<string>('')
@@ -1662,17 +1323,7 @@ const riskFilter = ref<'all' | 'medium-high' | 'high'>('all')
 const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/2026/02/01/ae8f478c008b448c865a03cabdeeec1a.mp4')
 
 // ==================== 动态雷达图数据（根据视频时间变化） ====================
-// 不同时间段的雷达图数据（高校舆情分析6个维度）
-// 雷达图动态数据（高校舆情分析维度）
-// 维度顺序：[身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
-const mockRadarDataByTime = [
-  { timeStart: 0, timeEnd: 10, data: [85, 65, 15, 20, 25, 15] },      // 0-10s: 自我介绍，明确学生身份
-  { timeStart: 10, timeEnd: 20, data: [85, 80, 40, 35, 45, 30] },     // 10-20s: 陈述问题，涉及学校系统
-  { timeStart: 20, timeEnd: 30, data: [85, 95, 88, 70, 85, 75] },     // 20-30s: 情绪激动，强烈批评学校
-  { timeStart: 30, timeEnd: 40, data: [85, 90, 65, 55, 70, 50] },     // 30-40s: 持续不满，可能引发共鸣
-  { timeStart: 40, timeEnd: 50, data: [85, 85, 35, 40, 50, 35] },     // 40-50s: 提出诉求，语气缓和
-  { timeStart: 50, timeEnd: 999, data: [85, 80, 25, 45, 40, 25] }     // 50s+: 呼吁传播，有一定传播风险
-]
+// 雷达图时间段数据已从mockAnalysisResult导入（第1307行）
 
 // 当前时间点的雷达图数据（动态计算）
 const currentRadarData = computed(() => {
@@ -1693,9 +1344,9 @@ const filteredRiskEvidence = computed(() => {
   if (riskFilter.value === 'all') {
     return mockRiskEvidence
   } else if (riskFilter.value === 'medium-high') {
-    return mockRiskEvidence.filter(e => e.riskLevel === 'HIGH' || e.riskLevel === 'MEDIUM')
+    return mockRiskEvidence.filter(e => e.riskLevel === 'high' || e.riskLevel === 'medium')
   } else if (riskFilter.value === 'high') {
-    return mockRiskEvidence.filter(e => e.riskLevel === 'HIGH')
+    return mockRiskEvidence.filter(e => e.riskLevel === 'high')
   }
   return mockRiskEvidence
 })
@@ -1733,114 +1384,9 @@ const formattedCurrentTime = computed(() => {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 })
 
-// ==================== 逻辑修复：视频档案数据（本地上传场景） ====================
-interface VideoArchive {
-  fileName: string // 视频文件名
-  fileSize: number // 文件大小（字节）
-  duration: number // 时长（秒）
-  resolution: string // 分辨率
-  uploadTime: string // 上传时间
-  uploadSource: string // 来源：本地上传
-  analysisStatus: string // 分析状态
-  manualTag?: string // 可选：人工标记的备注对象
-  description?: string // 可选：用户上传时填写的视频描述
-}
+// ==================== 视频档案数据已从mockAnalysisResult导入 ====================
 
-const mockVideoArchive: VideoArchive = {
-  fileName: '北大学生吐槽选课系统_20240201.mp4',
-  fileSize: 128 * 1024 * 1024, // 128MB
-  duration: 195, // 3分15秒
-  resolution: '1920×1080',
-  uploadTime: '2024-02-01 14:30:25',
-  uploadSource: '抖音平台',
-  analysisStatus: '分析完成',
-  manualTag: '校园舆情-选课系统', // 人工备注
-  description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，可能引发其他学生共鸣转发。' // 视频内容摘要
-}
-
-// 匹配基准库配置
-interface UniversityBaseline {
-  universityName: string
-  universityId: string
-  logoConfidence: number // 校徽匹配置信度
-  sceneDatabase: string // 场景库版本
-}
-
-const mockUniversityBaseline: UniversityBaseline = {
-  universityName: '北京大学',
-  universityId: 'PKU_001',
-  logoConfidence: 0.92,
-  sceneDatabase: 'V2.3.1'
-}
-
-// ==================== 高校舆情分析核心数据 ====================
-
-// 身份判定分析
-interface IdentityAnalysis {
-  identityType: 'student' | 'alumni' | 'staff' | 'unrelated' | 'unknown'
-  identityLabel: string
-  confidence: number
-  evidences: string[]  // 判定依据
-}
-
-const mockIdentityAnalysis: IdentityAnalysis = {
-  identityType: 'student',
-  identityLabel: '疑似在校学生',
-  confidence: 0.85,
-  evidences: [
-    '语音中提及"我们学校"、"我是北大的"',
-    '画面出现校园场景（图书馆、教学楼）',
-    '穿着疑似校园服饰'
-  ]
-}
-
-// 内容分析（高校舆情视角）
-interface ContentAnalysis {
-  topicCategory: string  // 内容主题大类
-  topicSubCategory: string  // 内容主题细分
-  sentimentTowardSchool: 'positive' | 'neutral' | 'negative'  // 对学校的情感倾向
-  sentimentIntensity: number  // 情感强度 0-1
-  schoolMentionCount: number  // 学校相关提及次数
-  negativeMentionCount: number  // 负面提及次数
-  keyTopics: string[]  // 涉及的具体话题
-}
-
-const mockContentAnalysis: ContentAnalysis = {
-  topicCategory: '校园政策',
-  topicSubCategory: '选课制度吐槽',
-  sentimentTowardSchool: 'negative',
-  sentimentIntensity: 0.72,
-  schoolMentionCount: 8,
-  negativeMentionCount: 5,
-  keyTopics: ['选课系统崩溃', '课程名额不足', '热门课抢不到']
-}
-
-// 舆论风险评估
-interface OpinionRisk {
-  riskLevel: 'low' | 'medium' | 'high'
-  riskLabel: string
-  riskScore: number  // 0-100
-  riskReason: string
-  spreadPotential: number  // 传播潜力 1-10
-  actionSuggestion: string
-  actionDetail: string
-  potentialImpacts: string[]
-}
-
-const mockOpinionRisk: OpinionRisk = {
-  riskLevel: 'medium',
-  riskLabel: '中等风险',
-  riskScore: 58,
-  riskReason: '可能引发跟风吐槽',
-  spreadPotential: 6.5,
-  actionSuggestion: '建议关注',
-  actionDetail: '持续监控舆情动态',
-  potentialImpacts: [
-    '可能引发其他学生共鸣转发',
-    '对学校选课系统形象有一定负面影响',
-    '建议教务处关注并优化系统'
-  ]
-}
+// ==================== 旧的interface定义已删除，统一使用mockAnalysisResult ====================
 
 // 辅助函数：获取情感标签
 const getSentimentLabel = (sentiment: string): string => {
@@ -1932,306 +1478,16 @@ const getPotentialRiskLevel = (spreadValue: number): string => {
 
 // ==================== 高校舆情分析核心数据 END ====================
 
-// AI目标侧写数据（从视频内容推测）
-interface AIProfileResult {
-  identityStatus: 'confirmed' | 'suspected' | 'unknown'
-  identityLabel: string
-  confidence: number
-  matchSource: string // 匹配依据来源
-  detectedKeywords: string[] // 从语音/字幕提取的关键词
-  staticFeatures: {
-    gender: string // 性别
-    ageRange: string // 年龄段
-    voiceProfile: string // 声纹属性
-    clothing: string // 穿着
-  }
-  sceneType: string
-  sceneConfidence: number
-}
 
-const mockAIProfile: AIProfileResult = {
-  identityStatus: 'suspected',
-  identityLabel: '疑似在校学生',
-  confidence: 0.85,
-  matchSource: `语音中自称"北大计算机系学生"，检测到校园场景`,
-  detectedKeywords: [
-    '北大',
-    '北京大学',
-    '计算机系',
-    '我们学校',
-    '选课系统',
-    '教务处',
-    '失望',
-    '不负责任',
-    '热门课',
-    '抢不到'
-  ],
-  staticFeatures: {
-    gender: '男性',
-    ageRange: '20-24岁',
-    voiceProfile: '年轻男性/情绪激动',
-    clothing: '休闲装'
-  },
-  sceneType: '校园宿舍',
-  sceneConfidence: 0.88
-}
+// 台词转录数据（直接使用统一数据源）
+const mockTranscriptSegments = computed(() => mockTranscriptSegmentsData)
 
-// 模拟数据：带时间戳的转录文本
-const mockTranscriptSegments = computed(() => {
-  if (!analysisData.value) return []
-  
-  // 基于实际转录文本生成模拟分段 - 高校舆情场景
-  const transcription = analysisData.value.transcription || ''
-  const duration = (analysisData.value.videoFeatures as any)?.duration || 180
-  
-  return [
-    {
-      start: 0,
-      end: 18,
-      text: '大家好，我是北大计算机系大三的学生，今天想跟大家聊聊我们学校选课系统的问题...',
-      emotion: 'calm',
-      riskLevel: 'low',
-      keywords: ['北大', '学生'],
-      reason: '自我介绍，明确表明本校学生身份'
-    },
-    {
-      start: 18,
-      end: 45,
-      text: '每学期选课的时候，系统都会崩溃，这个问题已经存在好几年了，学校一直没有解决...',
-      emotion: 'calm',
-      riskLevel: 'low',
-      keywords: ['选课', '系统崩溃'],
-      reason: '陈述事实，情绪平稳，但涉及对学校的批评'
-    },
-    {
-      start: 45,
-      end: 72,
-      text: '我觉得作为全国顶尖的大学，连一个选课系统都搞不好，真的太让人失望了，这是对学生的不负责任！',
-      emotion: 'angry',
-      riskLevel: 'high',
-      keywords: ['失望', '不负责任', '顶尖大学'],
-      reason: '情绪激动，对学校表达强烈不满，涉及学校声誉'
-    },
-    {
-      start: 72,
-      end: 98,
-      text: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
-      emotion: 'serious',
-      riskLevel: 'medium',
-      keywords: ['抢不到', '热门课'],
-      reason: '持续表达不满，可能引发其他学生共鸣'
-    },
-    {
-      start: 98,
-      end: 125,
-      text: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
-      emotion: 'calm',
-      riskLevel: 'low',
-      keywords: ['教务处', '诉求'],
-      reason: '提出诉求，语气缓和，有建设性'
-    },
-    {
-      start: 125,
-      end: Math.min(duration, 155),
-      text: '如果学校能改进选课系统，对学生来说是一件好事，希望这个视频能被更多人看到。',
-      emotion: 'calm',
-      riskLevel: 'low',
-      keywords: [],
-      reason: '总结性陈述，呼吁传播，有一定传播风险'
-    }
-  ].filter(seg => seg.end <= duration)
-})
+// 视频风险点（直接使用统一数据源）
+const mockVideoRisks = computed(() => mockVideoRisksData)
 
-// 模拟数据：视频风险点（增强版 - 包含详细原因）
-const mockVideoRisks = computed(() => {
-  if (!analysisData.value) return []
-  
-  // 高校舆情相关检测点
-  return [
-    {
-      time: 5,
-      type: '校园场景识别',
-      confidence: 0.95,
-      boundingBox: { x: 10, y: 10, width: 80, height: 60 },
-      reason: '检测到北京大学教学楼背景',
-      riskLevel: 'low'  // 场景识别本身不是风险，是身份判定依据
-    },
-    {
-      time: 48,
-      type: '负面情绪表达',
-      confidence: 0.88,
-      boundingBox: { x: 30, y: 40, width: 40, height: 35 },
-      reason: '说话者面部表情显示不满情绪',
-      riskLevel: 'medium'
-    },
-    {
-      time: 55,
-      type: '学校名称提及',
-      confidence: 0.96,
-      boundingBox: { x: 20, y: 75, width: 60, height: 15 },
-      reason: '语音中直接提及"北大"、"顶尖大学"等',
-      riskLevel: 'high'  // 涉及学校声誉时为高风险
-    },
-    {
-      time: 72,
-      type: '情绪激动峰值',
-      confidence: 0.92,
-      boundingBox: { x: 25, y: 35, width: 50, height: 40 },
-      reason: '音量升高，语速加快，表达强烈不满',
-      riskLevel: 'high'
-    }
-  ]
-})
 
-// ==================== CV视觉模态：检测框Mock数据（业界标准） ====================
-const mockDetections: Detection[] = [
-  // 人脸检测 - 3个时间段
-  {
-    id: 'face-1',
-    type: 'face',
-    boundingBox: { x: 35, y: 20, width: 25, height: 35 },
-    confidence: 0.96,
-    label: '平静表情',
-    timeStart: 5,
-    timeEnd: 15,
-    metadata: {
-      emotion: 'calm',
-      emotionIcon: '😐',
-      age: 22,
-      gender: '男性'
-    }
-  },
-  {
-    id: 'face-2',
-    type: 'face',
-    boundingBox: { x: 32, y: 18, width: 28, height: 38 },
-    confidence: 0.98,
-    label: '愤怒表情',
-    timeStart: 15,
-    timeEnd: 30,
-    metadata: {
-      emotion: 'angry',
-      emotionIcon: '😡',
-      age: 22,
-      gender: '男性'
-    }
-  },
-  {
-    id: 'face-3',
-    type: 'face',
-    boundingBox: { x: 30, y: 15, width: 30, height: 40 },
-    confidence: 0.94,
-    label: '严肃表情',
-    timeStart: 30,
-    timeEnd: 50,
-    metadata: {
-      emotion: 'serious',
-      emotionIcon: '😟',
-      age: 22,
-      gender: '男性'
-    }
-  },
-  
-  // OCR检测 - 2个敏感词
-  {
-    id: 'ocr-1',
-    type: 'ocr',
-    boundingBox: { x: 15, y: 55, width: 40, height: 12 },
-    confidence: 0.98,
-    label: 'OCR敏感词：[抵制]',
-    timeStart: 15,
-    timeEnd: 20,
-    metadata: {}
-  },
-  {
-    id: 'ocr-2',
-    type: 'ocr',
-    boundingBox: { x: 20, y: 60, width: 35, height: 10 },
-    confidence: 0.91,
-    label: 'OCR敏感词：[追究]',
-    timeStart: 35,
-    timeEnd: 40,
-    metadata: {}
-  },
-  
-  // 校徽检测 - 1个
-  {
-    id: 'logo-1',
-    type: 'logo',
-    boundingBox: { x: 70, y: 25, width: 15, height: 15 },
-    confidence: 0.95,
-    label: '检测到北大校徽',
-    timeStart: 10,
-    timeEnd: 30,
-    metadata: {}
-  },
-  
-  // 校服检测 - 1个
-  {
-    id: 'uniform-1',
-    type: 'uniform',
-    boundingBox: { x: 30, y: 45, width: 35, height: 50 },
-    confidence: 0.89,
-    label: '检测到北大校服',
-    timeStart: 5,
-    timeEnd: 35,
-    metadata: {}
-  },
-  
-  // 横幅检测 - 1个
-  {
-    id: 'banner-1',
-    type: 'banner',
-    boundingBox: { x: 10, y: 70, width: 80, height: 20 },
-    confidence: 0.93,
-    label: '检测到横幅标语',
-    timeStart: 20,
-    timeEnd: 28,
-    metadata: {}
-  }
-]
-
-// ==================== CV视觉模态：场景识别Mock数据 ====================
-const mockScenes: SceneInfo[] = [
-  {
-    id: 'scene-1',
-    name: '教室',
-    icon: '🏫',
-    confidence: 0.92,
-    timeStart: 0,
-    timeEnd: 20
-  },
-  {
-    id: 'scene-2',
-    name: '宿舍',
-    icon: '🛏️',
-    confidence: 0.88,
-    timeStart: 20,
-    timeEnd: 35
-  },
-  {
-    id: 'scene-3',
-    name: '户外场景',
-    icon: '🌳',
-    confidence: 0.85,
-    timeStart: 35,
-    timeEnd: 50
-  }
-]
-
-// 模拟数据：音频情绪波动（增强版 - 包含详细原因）
-const mockAudioEmotions = computed(() => {
-  if (!analysisData.value) return []
-  
-  return [
-    { start: 0, end: 15, emotion: 'calm', intensity: 0.3, reason: '语音平稳，无明显情绪波动' },
-    { start: 15, end: 42, emotion: 'calm', intensity: 0.4, reason: '语速正常，情绪稳定' },
-    { start: 42, end: 68, emotion: 'angry', intensity: 0.9, reason: '检测到愤怒咆哮，音量突然增大' },
-    { start: 68, end: 95, emotion: 'tense', intensity: 0.7, reason: '语气紧张激动，音调升高' },
-    { start: 95, end: 125, emotion: 'tense', intensity: 0.6, reason: '情绪持续紧张状态' },
-    { start: 125, end: 155, emotion: 'calm', intensity: 0.4, reason: '情绪逐渐平复' }
-  ]
-})
+// 音频情绪数据（直接使用统一数据源）
+const mockAudioEmotions = computed(() => mockAudioEmotionsData)
 
 // 统计数据（用于模板）
 const angryEmotionCount = computed(() => {
@@ -2433,6 +1689,180 @@ const multiModalRadarOption = computed(() => {
   }
 })
 
+// ==================== 报告视图专用雷达图配置 ====================
+// 1. 平均雷达图 - 所有时间段的平均值
+const averageRadarData = computed(() => {
+  const dimensions = 6
+  const averages = Array(dimensions).fill(0)
+  
+  mockRadarDataByTime.forEach(timeData => {
+    timeData.data.forEach((value, index) => {
+      averages[index] += value
+    })
+  })
+  
+  return averages.map(sum => Math.round(sum / mockRadarDataByTime.length))
+})
+
+// 2. 最高风险雷达图 - 找出综合风险最高的时间段
+const peakRiskData = computed(() => {
+  let maxRisk = 0
+  let peakData = mockRadarDataByTime[0] || { data: [0, 0, 0, 0, 0, 0], timeStart: 0, timeEnd: 0 }
+  
+  mockRadarDataByTime.forEach(timeData => {
+    const avgRisk = timeData.data.reduce((a, b) => a + b, 0) / timeData.data.length
+    if (avgRisk > maxRisk) {
+      maxRisk = avgRisk
+      peakData = timeData
+    }
+  })
+  
+  return {
+    data: peakData?.data || [0, 0, 0, 0, 0, 0],
+    timeStart: peakData?.timeStart || 0,
+    timeEnd: peakData?.timeEnd || 0,
+    avgRisk: Math.round(maxRisk)
+  }
+})
+
+// 平均雷达图配置
+const averageRadarOption = computed(() => {
+  const dimensionNames = ['身份置信度', '学校关联度', '负面情感度', '传播风险', '影响范围', '处置紧迫度']
+  
+  return {
+    tooltip: {
+      trigger: 'item'
+    },
+    radar: {
+      indicator: dimensionNames.map(name => ({
+        name,
+        max: 100
+      })),
+      radius: '65%',
+      splitNumber: 4,
+      name: {
+        textStyle: {
+          color: '#666',
+          fontSize: 12
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.4)'
+        }
+      },
+      splitArea: {
+        areaStyle: {
+          color: ['rgba(236, 240, 243, 0.3)', 'rgba(236, 240, 243, 0.5)']
+        }
+      },
+      axisLine: {
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.5)'
+        }
+      }
+    },
+    series: [
+      {
+        type: 'radar',
+        symbol: 'circle',
+        symbolSize: 6,
+        data: [
+          {
+            value: averageRadarData.value,
+            name: '平均风险画像',
+            areaStyle: {
+              color: 'rgba(75, 112, 226, 0.2)'
+            },
+            lineStyle: {
+              color: '#4b70e2',
+              width: 2
+            },
+            itemStyle: {
+              color: '#4b70e2'
+            }
+          }
+        ]
+      }
+    ]
+  }
+})
+
+// 最高风险雷达图配置
+const peakRiskRadarOption = computed(() => {
+  const dimensionNames = ['身份置信度', '学校关联度', '负面情感度', '传播风险', '影响范围', '处置紧迫度']
+  const peak = peakRiskData.value
+  
+  return {
+    title: {
+      text: `峰值时段：${formatTimeDisplay(peak.timeStart)} - ${formatTimeDisplay(peak.timeEnd)}`,
+      left: 'center',
+      top: 10,
+      textStyle: {
+        fontSize: 13,
+        color: '#f56c6c',
+        fontWeight: 600
+      }
+    },
+    tooltip: {
+      trigger: 'item'
+    },
+    radar: {
+      indicator: dimensionNames.map(name => ({
+        name,
+        max: 100
+      })),
+      radius: '60%',
+      center: ['50%', '55%'],
+      splitNumber: 4,
+      name: {
+        textStyle: {
+          color: '#666',
+          fontSize: 12
+        }
+      },
+      splitLine: {
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.4)'
+        }
+      },
+      splitArea: {
+        areaStyle: {
+          color: ['rgba(236, 240, 243, 0.3)', 'rgba(236, 240, 243, 0.5)']
+        }
+      },
+      axisLine: {
+        lineStyle: {
+          color: 'rgba(209, 217, 230, 0.5)'
+        }
+      }
+    },
+    series: [
+      {
+        type: 'radar',
+        symbol: 'circle',
+        symbolSize: 6,
+        data: [
+          {
+            value: peak.data,
+            name: `最高风险画像（${peak.avgRisk}分）`,
+            areaStyle: {
+              color: 'rgba(245, 108, 108, 0.25)'
+            },
+            lineStyle: {
+              color: '#f56c6c',
+              width: 2
+            },
+            itemStyle: {
+              color: '#f56c6c'
+            }
+          }
+        ]
+      }
+    ]
+  }
+})
+
 // 新拟态配色
 const neuColors = {
   purple: '#4b70e2',
@@ -2545,9 +1975,7 @@ const audienceChartOption = computed(() => {
 
 // 多模态时间轴配置（交互视图专用 - 增强版）
 const multiModalTimelineOption = computed(() => {
-  if (!analysisData.value) return {}
-  
-  // 使用视频真实时长，确保时间轴与视频进度精确对齐
+  // 使用视频真实时长，确保时间轴与视频进度精确对齐（不依赖analysisData，使用mock数据）
   const duration = videoDuration.value
   const timePoints: number[] = []
   for (let t = 0; t <= duration; t += 5) {
@@ -3971,10 +3399,8 @@ const getCurrentRiskLabel = (): string => {
 // PDF导出状态
 const exportingPdf = ref(false)
 
-// 报告内容区域引用
-const reportContentRef = ref<HTMLElement | null>(null)
-// 操作按钮区域引用（导出时需要隐藏）
-const actionButtonsRef = ref<HTMLElement | null>(null)
+// 报告视图组件引用
+const reportViewRef = ref<InstanceType<typeof ReportView> | null>(null)
 // 播放视频按钮引用（导出时需要隐藏）
 const playVideoBtnRef = ref<HTMLElement | null>(null)
 // 视频播放器引用
@@ -3992,7 +3418,11 @@ const exportReport = async () => {
     return
   }
   
-  if (!reportContentRef.value) {
+  // 获取报告视图组件的refs
+  const reportContent = reportViewRef.value?.reportContentRef
+  const actionButtons = reportViewRef.value?.actionButtonsRef
+  
+  if (!reportContent) {
     ElMessage.error('无法获取报告内容')
     return
   }
@@ -4004,9 +3434,6 @@ const exportReport = async () => {
   
   exportingPdf.value = true
   ElMessage.info('正在生成PDF报告，请稍候...')
-  
-  // 隐藏操作按钮区域和播放视频按钮，确保PDF中不包含这些元素
-  const actionButtons = actionButtonsRef.value
   const playVideoBtn = playVideoBtnRef.value
   const originalActionDisplay = actionButtons?.style.display
   const originalPlayBtnDisplay = playVideoBtn?.style.display
@@ -4029,7 +3456,7 @@ const exportReport = async () => {
       throw new Error('PDF导出依赖加载失败')
     }
     
-    const element = reportContentRef.value
+    const element = reportContent
     
     // 使用 html2canvas 将内容渲染为图片
     // scale: 2 提高清晰度，适合打印
@@ -4267,7 +3694,7 @@ onMounted(() => {
   }
   
   // V1.5: 初始化默认选中第一个高风险证据
-  const firstHighRisk = mockRiskEvidence.find(e => e.riskLevel === 'HIGH')
+  const firstHighRisk = mockRiskEvidence.find(e => e.riskLevel === 'high')
   if (firstHighRisk) {
     selectedEvidenceId.value = firstHighRisk.id
   } else if (mockRiskEvidence.length > 0) {
@@ -9087,6 +8514,477 @@ $purple: #4b70e2;
     vertical-align: middle;
     font-weight: 600;
   }
+
+  // ==================== 报告视图样式已迁移到ReportView.vue组件 ====================
+  // 以下样式已删除，现在由ReportView.vue组件管理
+  /*
+  .report-view {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 30px;
+    background: white;
+    
+    // PDF打印优化
+    @media print {
+      padding: 20px;
+      
+      .report-actions {
+        display: none !important;
+      }
+    }
+  }
+
+  .report-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 30px;
+    border-bottom: 3px solid $purple;
+  }
+
+  .report-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: $black;
+    margin: 0 0 20px 0;
+  }
+
+  .report-meta {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: $gray;
+    
+    .el-icon {
+      color: $purple;
+    }
+  }
+
+  .report-description {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.8;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: justify;
+  }
+
+  .report-section {
+    margin-bottom: 35px;
+    page-break-inside: avoid;
+  }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: $black;
+    margin: 0 0 20px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e8ecef;
+  }
+
+  // 核心卡片网格
+  .report-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .report-card {
+    background: $neu-1;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    page-break-inside: avoid;
+  }
+
+  .card-header-flex {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .card-icon-small {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .card-title-small {
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+  }
+
+  .card-value {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .card-meta {
+    font-size: 12px;
+    color: #999;
+  }
+
+  // 证据清单样式
+  .evidence-section {
+    margin-bottom: 30px;
+    page-break-inside: avoid;
+  }
+
+  .evidence-section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+  }
+
+  .evidence-badge-report {
+    font-size: 16px;
+    font-weight: 600;
+    color: $black;
+  }
+
+  .evidence-count-report {
+    font-size: 13px;
+    color: #999;
+  }
+
+  .evidence-list-report {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .evidence-item-report {
+    display: flex;
+    gap: 15px;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+
+  .evidence-timeline-mark {
+    width: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    
+    &.mark-video { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    &.mark-audio { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    &.mark-text { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+  }
+
+  .evidence-content-report {
+    flex: 1;
+  }
+
+  .evidence-header-report {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .evidence-type-badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    
+    &.type-video { background: rgba(102, 126, 234, 0.15); color: #667eea; }
+    &.type-audio { background: rgba(240, 147, 251, 0.15); color: #f093fb; }
+    &.type-text { background: rgba(79, 172, 254, 0.15); color: #4facfe; }
+  }
+
+  .evidence-time-report {
+    font-size: 12px;
+    color: $purple;
+    font-weight: 600;
+  }
+
+  .evidence-confidence-report {
+    font-size: 11px;
+    color: #999;
+  }
+
+  .evidence-desc-report {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.6;
+    margin-bottom: 5px;
+  }
+
+  .evidence-keyword-report {
+    font-size: 13px;
+    color: $purple;
+    font-weight: 600;
+    font-style: italic;
+  }
+
+  // 多模态融合分析样式
+  .fusion-section {
+    margin-bottom: 25px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    page-break-inside: avoid;
+  }
+
+  .fusion-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 15px 0;
+  }
+
+  .fusion-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+  }
+
+  .fusion-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  }
+
+  .fusion-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 10px;
+    
+    .el-icon {
+      font-size: 16px;
+    }
+  }
+
+  .video-fusion .fusion-header .el-icon { color: #667eea; }
+  .audio-fusion .fusion-header .el-icon { color: #f093fb; }
+  .text-fusion .fusion-header .el-icon { color: #4facfe; }
+  .result-fusion .fusion-header .el-icon { color: #52c41a; }
+
+  .fusion-score {
+    font-size: 28px;
+    font-weight: 700;
+    color: $black;
+    
+    span {
+      font-size: 14px;
+      color: #999;
+      margin-left: 3px;
+    }
+  }
+
+  .fusion-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+    color: #999;
+    margin-top: 8px;
+  }
+
+  .fusion-result {
+    font-size: 20px;
+    font-weight: 700;
+    color: $purple;
+    margin-bottom: 8px;
+  }
+
+  .fusion-formula {
+    font-size: 10px;
+    color: #999;
+    font-family: monospace;
+  }
+
+  // 高风险台词列表样式
+  .transcript-risk-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .transcript-item-report {
+    display: flex;
+    gap: 15px;
+    background: #fff8f0;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #faad14;
+    page-break-inside: avoid;
+  }
+
+  .transcript-timeline {
+    font-size: 13px;
+    font-weight: 600;
+    color: $purple;
+    white-space: nowrap;
+  }
+
+  .transcript-content-report {
+    flex: 1;
+  }
+
+  .transcript-text {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.8;
+    margin-bottom: 10px;
+  }
+
+  .transcript-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .risk-badge-report {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    
+    &.risk-high {
+      background: rgba(245, 108, 108, 0.15);
+      color: #f56c6c;
+    }
+    
+    &.risk-medium {
+      background: rgba(250, 173, 20, 0.15);
+      color: #faad14;
+    }
+  }
+
+  .risk-reason {
+    font-size: 12px;
+    color: #666;
+  }
+
+  // 图表容器样式
+  .chart-container-report {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    margin-bottom: 10px;
+  }
+
+  .timeline-chart-report {
+    width: 100%;
+    height: 300px;
+  }
+
+  .radar-chart-report {
+    width: 100%;
+    height: 400px;
+  }
+
+  // 两个雷达图并排显示
+  .radar-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+    margin-bottom: 15px;
+  }
+
+  .radar-chart-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .radar-subtitle {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 12px 0;
+    text-align: center;
+  }
+
+  .radar-note {
+    font-size: 11px;
+    color: #999;
+    margin: 8px 0 0 0;
+    text-align: center;
+  }
+
+  .chart-note {
+    font-size: 12px;
+    color: #999;
+    margin: 0;
+    text-align: center;
+  }
+
+  // 操作按钮样式
+  .report-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 2px solid #e8ecef;
+  }
+
+  .report-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: $neu-1;
+    color: $gray;
+    box-shadow: 
+      3px 3px 6px rgba(163, 177, 198, 0.4),
+      -3px -3px 6px rgba(255, 255, 255, 0.9);
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        4px 4px 8px rgba(163, 177, 198, 0.5),
+        -4px -4px 8px rgba(255, 255, 255, 1);
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+    
+    &.primary {
+      background: $purple;
+      color: white;
+      
+      &:hover {
+        background: darken($purple, 5%);
+      }
+    }
+  }
+  */
 </style>
 
 <!-- 自定义 Tooltip 样式（全局，非scoped） -->

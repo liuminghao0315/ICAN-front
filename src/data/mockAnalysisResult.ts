@@ -1,0 +1,1084 @@
+/**
+ * 统一的分析结果Mock数据
+ * 
+ * 这个文件模拟Python后端返回的完整视频分析结果数据
+ * 包含所有交互分析和报告视图需要的数据
+ * 
+ * 重要：这是整个分析页面的核心数据源！
+ * 修改时请务必保持数据一致性！
+ */
+
+// ==================== 类型定义 ====================
+
+/**
+ * 证据类型定义
+ */
+export interface Evidence {
+  timestamp: number         // 时间点（秒）
+  type: 'video' | 'audio' | 'text'  // 证据类型
+  description: string      // 描述
+  confidence: number       // 置信度 0-100
+  thumbnail?: string       // 视频证据的缩略图URL
+  keyword?: string         // 文本证据的关键词
+  sentiment?: 'positive' | 'neutral' | 'negative'  // 情感标签（态度分析专用）
+}
+
+/**
+ * 统计数据结构（用于态度分析）
+ */
+export interface StatisticsData {
+  positive: number    // 正面次数
+  neutral: number     // 中性次数
+  negative: number    // 负面次数
+  total: number       // 总次数
+}
+
+/**
+ * 多模态融合数据结构
+ */
+export interface ModalityFusion {
+  videoScore: number           // 视频模态得分 0-100
+  audioScore: number           // 音频模态得分 0-100
+  textScore: number            // 文本模态得分 0-100
+  videoWeight: number          // 视频权重 0-1
+  audioWeight: number          // 音频权重 0-1
+  textWeight: number           // 文本权重 0-1
+  fusionFormula: string        // 融合公式（展示用）
+  finalScore: number           // 最终得分 0-100
+  videoEvidenceCount: number   // 视频证据数量
+  audioEvidenceCount: number   // 音频证据数量
+  textEvidenceCount: number    // 文本证据数量
+  resultType: 'confidence' | 'intensity' | 'score' | 'statistics' | 'urgency'  // 结果类型
+  resultLabel: string          // 结果标签
+  resultValue: string          // 结果值显示
+  statistics?: StatisticsData  // 统计数据（仅statistics类型使用）
+}
+
+/**
+ * 台词转录片段
+ */
+export interface TranscriptSegment {
+  id: string
+  start: number         // 开始时间（秒）
+  end: number           // 结束时间（秒）
+  text: string          // 台词内容
+  content: string       // 内容（用于兼容）
+  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪
+  riskLevel: 'low' | 'medium' | 'high'  // 风险等级（小写，与代码一致）
+  keywords: string[]    // 关键词
+  reason: string        // 风险原因
+}
+
+/**
+ * 视频风险点
+ */
+export interface VideoRiskPoint {
+  time: number          // 时间点（秒）
+  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
+  reason: string        // 风险原因
+  sceneType?: string    // 场景类型
+}
+
+/**
+ * 音频情绪片段
+ */
+export interface AudioEmotion {
+  start: number         // 开始时间（秒）
+  end: number           // 结束时间（秒）
+  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪类型
+  intensity: number     // 强度 0-1
+  reason: string        // 检测原因
+}
+
+/**
+ * 雷达图时间段数据
+ */
+export interface RadarDataByTime {
+  timeStart: number     // 开始时间（秒）
+  timeEnd: number       // 结束时间（秒）
+  data: number[]        // 6个维度的数据 [身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
+  description?: string  // 时段描述
+}
+
+/**
+ * 风险证据（用于左侧证据列表展示）
+ */
+export interface RiskEvidence {
+  id: string
+  time: string
+  timeSeconds: number
+  timeEndSeconds?: number
+  content: string
+  riskLevel: 'high' | 'medium' | 'low'
+  imageUrl: string
+  boxStyle: { top: string; left: string; width: string; height: string }
+  label: string
+  confidence: number
+  keywords: string[]
+  emotion?: string
+}
+
+/**
+ * AI目标侧写结果
+ */
+export interface AIProfileResult {
+  identityStatus: 'confirmed' | 'suspected' | 'unknown'
+  identityLabel: string
+  confidence: number
+  matchSource: string
+  detectedKeywords: string[]
+  staticFeatures: {
+    gender: string
+    ageRange: string
+    voiceProfile: string
+    clothing: string
+  }
+  sceneType: string
+  sceneConfidence: number
+}
+
+/**
+ * CV检测框数据
+ */
+export interface Detection {
+  id: string
+  type: 'face' | 'ocr' | 'logo' | 'uniform' | 'banner' | 'object'
+  boundingBox: { x: number; y: number; width: number; height: number }
+  confidence: number
+  label: string
+  timeStart: number
+  timeEnd: number
+  metadata?: {
+    emotion?: string
+    emotionIcon?: string
+    age?: number
+    gender?: string
+  }
+}
+
+/**
+ * 场景识别数据
+ */
+export interface SceneInfo {
+  id: string
+  name: string
+  icon: string
+  confidence: number
+  timeStart: number
+  timeEnd: number
+}
+
+/**
+ * 视频基本信息
+ */
+export interface VideoInfo {
+  videoId: string           // 视频ID
+  fileName: string          // 文件名
+  fileSize: number          // 文件大小（字节）
+  duration: number          // 时长（秒）
+  resolution: string        // 分辨率
+  uploadTime: string        // 上传时间
+  uploadSource: string      // 来源
+  analysisStatus: string    // 分析状态
+  manualTag?: string        // 人工标签
+  description: string       // 视频描述/摘要
+}
+
+/**
+ * 身份判定分析结果
+ */
+export interface IdentityAnalysis {
+  identityType: 'student' | 'alumni' | 'staff' | 'unrelated' | 'unknown'
+  identityLabel: string     // 显示标签
+  confidence: number        // 置信度 0-1
+  evidenceCount: number     // 证据数量
+}
+
+/**
+ * 高校关联分析结果
+ */
+export interface UniversityAnalysis {
+  universityName: string    // 高校名称
+  universityId: string      // 高校ID
+  logoConfidence: number    // 校徽匹配置信度 0-1
+  sceneDatabase: string     // 场景库版本
+  evidenceCount: number     // 证据数量
+}
+
+/**
+ * 内容主题分析结果
+ */
+export interface TopicAnalysis {
+  topicCategory: string         // 主题大类
+  topicSubCategory: string      // 主题细分
+  keyTopics: string[]           // 关键话题
+  evidenceCount: number         // 证据数量
+}
+
+/**
+ * 对学校态度分析结果
+ */
+export interface AttitudeAnalysis {
+  sentimentTowardSchool: 'positive' | 'neutral' | 'negative'  // 情感倾向
+  sentimentLabel: string        // 显示标签
+  sentimentIntensity: number    // 情感强度 0-1
+  schoolMentionCount: number    // 学校提及次数
+  negativeMentionCount: number  // 负面提及次数
+  statistics: StatisticsData    // 情感统计
+  evidenceCount: number         // 证据数量
+}
+
+/**
+ * 潜在舆论风险分析结果
+ */
+export interface OpinionRiskAnalysis {
+  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
+  riskLabel: string             // 显示标签
+  riskScore: number             // 风险分数 0-100
+  riskReason: string            // 风险原因
+  spreadPotential: number       // 传播潜力 1-10
+  potentialImpacts: string[]    // 潜在影响
+  evidenceCount: number         // 证据数量
+}
+
+/**
+ * 处置建议分析结果
+ */
+export interface ActionSuggestion {
+  actionSuggestion: string      // 建议
+  actionDetail: string          // 详细说明
+  urgencyLevel: number          // 紧急程度 0-100
+  evidenceCount: number         // 证据数量
+}
+
+/**
+ * 完整的视频分析结果（模拟Python后端返回）
+ */
+export interface AnalysisResult {
+  // 视频基本信息
+  videoInfo: VideoInfo
+  
+  // 核心分析结果（6个维度）
+  identity: IdentityAnalysis
+  university: UniversityAnalysis
+  topic: TopicAnalysis
+  attitude: AttitudeAnalysis
+  opinionRisk: OpinionRiskAnalysis
+  action: ActionSuggestion
+  
+  // 详细证据数据（每个维度的证据列表）
+  evidences: {
+    identity: Evidence[]
+    university: Evidence[]
+    topic: Evidence[]
+    attitude: Evidence[]
+    opinionRisk: Evidence[]
+    action: Evidence[]
+  }
+  
+  // 多模态融合分析数据
+  modalityFusion: {
+    identity: ModalityFusion
+    university: ModalityFusion
+    topic: ModalityFusion
+    attitude: ModalityFusion
+    opinionRisk: ModalityFusion
+    action: ModalityFusion
+  }
+  
+  // 台词转录与风险定位
+  transcriptSegments: TranscriptSegment[]
+  
+  // 时间轴数据
+  timelineData: {
+    videoRisks: VideoRiskPoint[]      // 视频风险点
+    audioEmotions: AudioEmotion[]     // 音频情绪
+    radarByTime: RadarDataByTime[]    // 雷达图时间段数据
+  }
+  
+  // 辅助分析数据（用于交互分析的扩展功能）
+  riskEvidences: RiskEvidence[]       // 风险证据列表
+  aiProfile: AIProfileResult          // AI目标侧写
+  cvDetections: Detection[]           // CV视觉检测框
+  sceneRecognition: SceneInfo[]       // 场景识别
+}
+
+// ==================== Mock数据（模拟Python后端返回的完整分析结果） ====================
+
+export const mockAnalysisResult: AnalysisResult = {
+  // ========== 1. 视频基本信息 ==========
+  videoInfo: {
+    videoId: 'video_20240201_001',
+    fileName: '北大学生吐槽选课系统_20240201.mp4',
+    fileSize: 128 * 1024 * 1024, // 128MB
+    duration: 195, // 3分15秒
+    resolution: '1920×1080',
+    uploadTime: '2024-02-01 14:30:25',
+    uploadSource: '抖音平台',
+    analysisStatus: '分析完成',
+    manualTag: '校园舆情-选课系统',
+    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，可能引发其他学生共鸣转发。'
+  },
+
+  // ========== 2. 身份判定分析 ==========
+  identity: {
+    identityType: 'student',
+    identityLabel: '疑似在校学生',
+    confidence: 0.85,
+    evidenceCount: 6
+  },
+
+  // ========== 3. 涉及高校分析 ==========
+  university: {
+    universityName: '北京大学',
+    universityId: 'PKU_001',
+    logoConfidence: 0.92,
+    sceneDatabase: 'V2.3.1',
+    evidenceCount: 7
+  },
+
+  // ========== 4. 内容主题分析 ==========
+  topic: {
+    topicCategory: '校园政策',
+    topicSubCategory: '选课制度吐槽',
+    keyTopics: ['选课系统崩溃', '课程名额不足', '热门课抢不到'],
+    evidenceCount: 6
+  },
+
+  // ========== 5. 对学校态度分析 ==========
+  attitude: {
+    sentimentTowardSchool: 'negative',
+    sentimentLabel: '负面/不满',
+    sentimentIntensity: 0.72,
+    schoolMentionCount: 8,
+    negativeMentionCount: 4,
+    statistics: {
+      positive: 3,
+      neutral: 2,
+      negative: 4,
+      total: 9
+    },
+    evidenceCount: 9
+  },
+
+  // ========== 6. 潜在舆论风险分析 ==========
+  opinionRisk: {
+    riskLevel: 'medium',
+    riskLabel: '中等风险',
+    riskScore: 58,
+    riskReason: '可能引发跟风吐槽',
+    spreadPotential: 6.5,
+    potentialImpacts: [
+      '若上传可能引发其他学生共鸣转发',
+      '对学校选课系统形象有一定负面影响',
+      '建议先与教务处沟通后再决定'
+    ],
+    evidenceCount: 5
+  },
+
+  // ========== 7. 处置建议 ==========
+  action: {
+    actionSuggestion: '谨慎发布',
+    actionDetail: '建议人工复核后决定是否上传',
+    urgencyLevel: 75,
+    evidenceCount: 4
+  },
+
+  // ========== 8. 详细证据数据 ==========
+  evidences: {
+    // 8.1 身份判定证据
+    identity: [
+      {
+        timestamp: 5,
+        type: 'video',
+        description: '宿舍环境背景：检测到典型学生宿舍布局（床铺、书桌、台灯）',
+        confidence: 82,
+        thumbnail: undefined
+      },
+      {
+        timestamp: 12,
+        type: 'audio',
+        description: '语音识别：自称"我是北大计算机系学生"',
+        confidence: 95
+      },
+      {
+        timestamp: 18,
+        type: 'audio',
+        description: '年轻人语速和语气：快速口语、使用学生群体常用语',
+        confidence: 88
+      },
+      {
+        timestamp: 28,
+        type: 'video',
+        description: '穿着打扮：休闲装，符合在校学生特征',
+        confidence: 78
+      },
+      {
+        timestamp: 35,
+        type: 'text',
+        description: '提及学生身份相关词汇',
+        confidence: 91,
+        keyword: '我们学生'
+      },
+      {
+        timestamp: 42,
+        type: 'text',
+        description: '学生群体用语',
+        confidence: 85,
+        keyword: '同学们'
+      }
+    ],
+
+    // 8.2 涉及高校证据
+    university: [
+      {
+        timestamp: 5,
+        type: 'video',
+        description: '场景识别：检测到北京大学校园标识性建筑',
+        confidence: 90,
+        thumbnail: undefined
+      },
+      {
+        timestamp: 12,
+        type: 'audio',
+        description: '明确提及"北京大学"',
+        confidence: 98
+      },
+      {
+        timestamp: 18,
+        type: 'audio',
+        description: '提及"北大"（北京大学简称）',
+        confidence: 95
+      },
+      {
+        timestamp: 24,
+        type: 'text',
+        description: '高频关键词',
+        confidence: 92,
+        keyword: '北京大学'
+      },
+      {
+        timestamp: 30,
+        type: 'text',
+        description: '简称使用',
+        confidence: 90,
+        keyword: '北大'
+      },
+      {
+        timestamp: 38,
+        type: 'audio',
+        description: '提及学校部门"教务处"',
+        confidence: 87
+      },
+      {
+        timestamp: 45,
+        type: 'video',
+        description: 'OCR识别：屏幕上显示学校选课系统界面',
+        confidence: 85,
+        thumbnail: undefined
+      }
+    ],
+
+    // 8.3 内容主题证据
+    topic: [
+      {
+        timestamp: 8,
+        type: 'audio',
+        description: '讨论"选课系统"相关话题',
+        confidence: 95
+      },
+      {
+        timestamp: 15,
+        type: 'text',
+        description: '主题关键词',
+        confidence: 92,
+        keyword: '选课系统'
+      },
+      {
+        timestamp: 22,
+        type: 'audio',
+        description: '提及"系统崩溃"等技术问题',
+        confidence: 88
+      },
+      {
+        timestamp: 30,
+        type: 'text',
+        description: '政策相关词汇',
+        confidence: 85,
+        keyword: '选课制度'
+      },
+      {
+        timestamp: 38,
+        type: 'audio',
+        description: '讨论"热门课抢不到"等政策性问题',
+        confidence: 90
+      },
+      {
+        timestamp: 46,
+        type: 'text',
+        description: '学校管理部门',
+        confidence: 87,
+        keyword: '教务处'
+      }
+    ],
+
+    // 8.4 对学校态度证据
+    attitude: [
+      {
+        timestamp: 5,
+        type: 'video',
+        description: '表情分析：检测到微笑表情',
+        confidence: 88,
+        thumbnail: undefined,
+        sentiment: 'positive'
+      },
+      {
+        timestamp: 15,
+        type: 'audio',
+        description: '语调分析：语气轻松愉快',
+        confidence: 85,
+        sentiment: 'positive'
+      },
+      {
+        timestamp: 25,
+        type: 'text',
+        description: '正面情感词汇',
+        confidence: 90,
+        keyword: '喜欢',
+        sentiment: 'positive'
+      },
+      {
+        timestamp: 35,
+        type: 'video',
+        description: '表情分析：检测到愤怒、失望表情',
+        confidence: 85,
+        thumbnail: undefined,
+        sentiment: 'negative'
+      },
+      {
+        timestamp: 45,
+        type: 'audio',
+        description: '语调分析：声调提高，语速加快，情绪激动',
+        confidence: 92,
+        sentiment: 'negative'
+      },
+      {
+        timestamp: 50,
+        type: 'text',
+        description: '负面情感词汇',
+        confidence: 95,
+        keyword: '失望',
+        sentiment: 'negative'
+      },
+      {
+        timestamp: 32,
+        type: 'text',
+        description: '批评性用语',
+        confidence: 88,
+        keyword: '不负责任',
+        sentiment: 'negative'
+      },
+      {
+        timestamp: 38,
+        type: 'audio',
+        description: '持续的不满情绪表达（但语气相对平静）',
+        confidence: 90,
+        sentiment: 'neutral'
+      },
+      {
+        timestamp: 46,
+        type: 'text',
+        description: '客观描述问题',
+        confidence: 87,
+        keyword: '系统问题',
+        sentiment: 'neutral'
+      }
+    ],
+
+    // 8.5 潜在舆论风险证据
+    opinionRisk: [
+      {
+        timestamp: 20,
+        type: 'audio',
+        description: '情绪激动点：对学校的强烈批评',
+        confidence: 88
+      },
+      {
+        timestamp: 28,
+        type: 'text',
+        description: '可能引发共鸣的措辞',
+        confidence: 85,
+        keyword: '让人失望'
+      },
+      {
+        timestamp: 35,
+        type: 'audio',
+        description: '呼吁性语句：可能引发跟风吐槽',
+        confidence: 82
+      },
+      {
+        timestamp: 42,
+        type: 'text',
+        description: '普遍性问题描述',
+        confidence: 80,
+        keyword: '大家都抢不到'
+      },
+      {
+        timestamp: 48,
+        type: 'audio',
+        description: '希望传播：呼吁更多人看到此视频',
+        confidence: 78
+      }
+    ],
+
+    // 8.6 处置建议证据
+    action: [
+      {
+        timestamp: 20,
+        type: 'audio',
+        description: '高风险时段：情绪最激动的片段',
+        confidence: 92
+      },
+      {
+        timestamp: 28,
+        type: 'text',
+        description: '关键负面词汇出现',
+        confidence: 88,
+        keyword: '失望'
+      },
+      {
+        timestamp: 35,
+        type: 'video',
+        description: '可能需要人工复核的关键画面',
+        confidence: 85,
+        thumbnail: undefined
+      },
+      {
+        timestamp: 48,
+        type: 'audio',
+        description: '传播风险点：呼吁他人关注',
+        confidence: 90
+      }
+    ]
+  },
+
+  // ========== 9. 多模态融合分析数据 ==========
+  modalityFusion: {
+    // 9.1 身份判定融合
+    identity: {
+      videoScore: 82,
+      audioScore: 91,
+      textScore: 85,
+      videoWeight: 0.3,
+      audioWeight: 0.5,
+      textWeight: 0.2,
+      fusionFormula: '(82 × 0.3) + (91 × 0.5) + (85 × 0.2)',
+      finalScore: 85,
+      videoEvidenceCount: 2,
+      audioEvidenceCount: 2,
+      textEvidenceCount: 2,
+      resultType: 'confidence',
+      resultLabel: '识别置信度',
+      resultValue: '85%'
+    },
+
+    // 9.2 涉及高校融合
+    university: {
+      videoScore: 88,
+      audioScore: 95,
+      textScore: 92,
+      videoWeight: 0.2,
+      audioWeight: 0.4,
+      textWeight: 0.4,
+      fusionFormula: '(88 × 0.2) + (95 × 0.4) + (92 × 0.4)',
+      finalScore: 92,
+      videoEvidenceCount: 3,
+      audioEvidenceCount: 3,
+      textEvidenceCount: 4,
+      resultType: 'confidence',
+      resultLabel: '关联置信度',
+      resultValue: '92%'
+    },
+
+    // 9.3 内容主题融合
+    topic: {
+      videoScore: 85,
+      audioScore: 92,
+      textScore: 90,
+      videoWeight: 0.2,
+      audioWeight: 0.4,
+      textWeight: 0.4,
+      fusionFormula: '(85 × 0.2) + (92 × 0.4) + (90 × 0.4)',
+      finalScore: 89,
+      videoEvidenceCount: 1,
+      audioEvidenceCount: 3,
+      textEvidenceCount: 2,
+      resultType: 'confidence',
+      resultLabel: '主题置信度',
+      resultValue: '89%'
+    },
+
+    // 9.4 对学校态度融合（统计类型）
+    attitude: {
+      videoScore: 0,
+      audioScore: 0,
+      textScore: 0,
+      videoWeight: 0,
+      audioWeight: 0,
+      textWeight: 0,
+      fusionFormula: '统计情感倾向出现次数',
+      finalScore: 0,
+      videoEvidenceCount: 2,
+      audioEvidenceCount: 2,
+      textEvidenceCount: 3,
+      resultType: 'statistics',
+      resultLabel: '情感分布统计',
+      resultValue: '9处：3正 2中 4负',
+      statistics: {
+        positive: 3,
+        neutral: 2,
+        negative: 4,
+        total: 9
+      }
+    },
+
+    // 9.5 潜在舆论风险融合
+    opinionRisk: {
+      videoScore: 55,
+      audioScore: 62,
+      textScore: 58,
+      videoWeight: 0.2,
+      audioWeight: 0.4,
+      textWeight: 0.4,
+      fusionFormula: '(55 × 0.2) + (62 × 0.4) + (58 × 0.4)',
+      finalScore: 58,
+      videoEvidenceCount: 1,
+      audioEvidenceCount: 2,
+      textEvidenceCount: 2,
+      resultType: 'score',
+      resultLabel: '风险指数',
+      resultValue: '58分'
+    },
+
+    // 9.6 处置建议融合
+    action: {
+      videoScore: 70,
+      audioScore: 80,
+      textScore: 75,
+      videoWeight: 0.35,
+      audioWeight: 0.4,
+      textWeight: 0.25,
+      fusionFormula: '(70 × 0.35) + (80 × 0.4) + (75 × 0.25)',
+      finalScore: 75,
+      videoEvidenceCount: 1,
+      audioEvidenceCount: 2,
+      textEvidenceCount: 1,
+      resultType: 'urgency',
+      resultLabel: '紧急程度',
+      resultValue: '75%'
+    }
+  },
+
+  // ========== 10. 台词转录与风险定位 ==========
+  transcriptSegments: [
+    {
+      id: '1',
+      start: 0,
+      end: 18,
+      text: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
+      content: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
+      emotion: 'calm',
+      riskLevel: 'low',
+      keywords: ['学生', '选课系统'],
+      reason: '平静介绍，正常陈述'
+    },
+    {
+      id: '2',
+      start: 18,
+      end: 42,
+      text: '说实话，这个系统真的让人很失望。每次选课的时候都会崩溃，根本登不上去。',
+      content: '说实话，这个系统真的让人很失望。每次选课的时候都会崩溃，根本登不上去。',
+      emotion: 'serious',
+      riskLevel: 'medium',
+      keywords: ['失望', '崩溃'],
+      reason: '表达不满，涉及系统问题'
+    },
+    {
+      id: '3',
+      start: 42,
+      end: 68,
+      text: '学校的选课系统简直就是个笑话！每到选课季就崩溃，这是什么垃圾服务器？！',
+      content: '学校的选课系统简直就是个笑话！每到选课季就崩溃，这是什么垃圾服务器？！',
+      emotion: 'angry',
+      riskLevel: 'high',
+      keywords: ['笑话', '垃圾'],
+      reason: '情绪激烈，使用极端词汇批评学校'
+    },
+    {
+      id: '4',
+      start: 68,
+      end: 98,
+      text: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
+      content: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
+      emotion: 'serious',
+      riskLevel: 'medium',
+      keywords: ['抢不到', '热门课'],
+      reason: '持续表达不满，可能引发其他学生共鸣'
+    },
+    {
+      id: '5',
+      start: 98,
+      end: 125,
+      text: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
+      content: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
+      emotion: 'calm',
+      riskLevel: 'low',
+      keywords: ['教务处', '诉求'],
+      reason: '理性表达诉求，语气缓和'
+    },
+    {
+      id: '6',
+      start: 125,
+      end: 155,
+      text: '如果你也是北大的学生，如果你也有同样的经历，请点赞、转发，让更多人看到！',
+      content: '如果你也是北大的学生，如果你也有同样的经历，请点赞、转发，让更多人看到！',
+      emotion: 'tense',
+      riskLevel: 'medium',
+      keywords: ['点赞', '转发'],
+      reason: '呼吁传播，有一定传播风险'
+    },
+    {
+      id: '7',
+      start: 155,
+      end: 195,
+      text: '最后想说，希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+      content: '最后想说，希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+      emotion: 'calm',
+      riskLevel: 'low',
+      keywords: ['相关部门', '同学'],
+      reason: '结尾总结，语气平和'
+    }
+  ],
+
+  // ========== 11. 时间轴数据 ==========
+  timelineData: {
+    // 11.1 视频风险点
+    videoRisks: [
+      {
+        time: 5,
+        riskLevel: 'low',
+        reason: '检测到学生宿舍场景',
+        sceneType: 'dormitory'
+      },
+      {
+        time: 35,
+        riskLevel: 'high',
+        reason: '检测到愤怒表情和激烈手势',
+        sceneType: 'emotion_anger'
+      },
+      {
+        time: 45,
+        riskLevel: 'medium',
+        reason: 'OCR识别到学校选课系统界面截图',
+        sceneType: 'screen_capture'
+      }
+    ],
+
+    // 11.2 音频情绪
+    audioEmotions: [
+      {
+        start: 0,
+        end: 15,
+        emotion: 'calm',
+        intensity: 0.3,
+        reason: '语音平稳，无明显情绪波动'
+      },
+      {
+        start: 15,
+        end: 42,
+        emotion: 'calm',
+        intensity: 0.4,
+        reason: '语速正常，情绪稳定'
+      },
+      {
+        start: 42,
+        end: 68,
+        emotion: 'angry',
+        intensity: 0.9,
+        reason: '检测到愤怒咆哮，音量突然增大'
+      },
+      {
+        start: 68,
+        end: 95,
+        emotion: 'tense',
+        intensity: 0.7,
+        reason: '语气紧张激动，音调升高'
+      },
+      {
+        start: 95,
+        end: 125,
+        emotion: 'tense',
+        intensity: 0.6,
+        reason: '情绪持续紧张状态'
+      },
+      {
+        start: 125,
+        end: 155,
+        emotion: 'calm',
+        intensity: 0.4,
+        reason: '情绪逐渐平复'
+      }
+    ],
+
+    // 11.3 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
+    radarByTime: [
+      {
+        timeStart: 0,
+        timeEnd: 10,
+        data: [85, 65, 15, 20, 25, 15],
+        description: '自我介绍，明确学生身份'
+      },
+      {
+        timeStart: 10,
+        timeEnd: 20,
+        data: [85, 80, 40, 35, 45, 30],
+        description: '陈述问题，涉及学校系统'
+      },
+      {
+        timeStart: 20,
+        timeEnd: 30,
+        data: [85, 95, 88, 70, 85, 75],
+        description: '情绪激动，强烈批评学校'
+      },
+      {
+        timeStart: 30,
+        timeEnd: 40,
+        data: [85, 90, 65, 55, 70, 50],
+        description: '持续不满，可能引发共鸣'
+      },
+      {
+        timeStart: 40,
+        timeEnd: 50,
+        data: [85, 85, 35, 40, 50, 35],
+        description: '提出诉求，语气缓和'
+      },
+      {
+        timeStart: 50,
+        timeEnd: 999,
+        data: [85, 80, 25, 45, 40, 25],
+        description: '呼吁传播，有一定传播风险'
+      }
+    ]
+  },
+
+  // ========== 12. 辅助分析数据 ==========
+  // 12.1 风险证据列表（用于左侧证据展示，与台词转录不同）
+  riskEvidences: [
+    {
+      id: 'evidence-1',
+      time: '00:05-00:10',
+      timeSeconds: 5,
+      timeEndSeconds: 10,
+      content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
+      riskLevel: 'low',
+      imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop',
+      boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
+      label: '',
+      confidence: 0,
+      keywords: [],
+      emotion: 'calm'
+    },
+    {
+      id: 'evidence-2',
+      time: '00:15-00:22',
+      timeSeconds: 15,
+      timeEndSeconds: 22,
+      content: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
+      riskLevel: 'high',
+      imageUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&h=450&fit=crop',
+      boxStyle: { top: '25%', left: '15%', width: '45%', height: '35%' },
+      label: 'OCR敏感词：[抵制]',
+      confidence: 0.98,
+      keywords: ['欺骗', '抵制', '联合'],
+      emotion: 'angry'
+    },
+    {
+      id: 'evidence-3',
+      time: '00:25-00:32',
+      timeSeconds: 25,
+      timeEndSeconds: 32,
+      content: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
+      riskLevel: 'medium',
+      imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=450&fit=crop',
+      boxStyle: { top: '35%', left: '30%', width: '30%', height: '40%' },
+      label: '肢体动作：过激手势',
+      confidence: 0.85,
+      keywords: ['风险', '真相'],
+      emotion: 'serious'
+    },
+    {
+      id: 'evidence-4',
+      time: '00:35-00:42',
+      timeSeconds: 35,
+      timeEndSeconds: 42,
+      content: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
+      riskLevel: 'medium',
+      imageUrl: 'https://images.unsplash.com/photo-1577896851905-4dcc0c7f1f1c?w=800&h=450&fit=crop',
+      boxStyle: { top: '20%', left: '25%', width: '35%', height: '30%' },
+      label: '抗议性标语区域',
+      confidence: 0.91,
+      keywords: ['追究'],
+      emotion: 'tense'
+    },
+    {
+      id: 'evidence-5',
+      time: '00:45-00:50',
+      timeSeconds: 45,
+      timeEndSeconds: 50,
+      content: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+      riskLevel: 'low',
+      imageUrl: 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=800&h=450&fit=crop',
+      boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
+      label: '',
+      confidence: 0,
+      keywords: [],
+      emotion: 'calm'
+    }
+  ],
+
+  // 12.2 AI目标侧写
+  aiProfile: {
+    identityStatus: 'suspected',
+    identityLabel: '疑似在校学生',
+    confidence: 0.85,
+    matchSource: '语音中自称"北大计算机系学生"，检测到校园场景',
+    detectedKeywords: ['北大', '北京大学', '计算机系', '我们学校', '选课系统', '教务处', '失望', '不负责任', '热门课', '抢不到'],
+    staticFeatures: {
+      gender: '男性',
+      ageRange: '20-24岁',
+      voiceProfile: '年轻男性/情绪激动',
+      clothing: '休闲装'
+    },
+    sceneType: '校园宿舍',
+    sceneConfidence: 0.88
+  },
+
+  // 12.3 CV视觉检测框
+  cvDetections: [
+    { id: 'face-1', type: 'face', boundingBox: { x: 35, y: 20, width: 25, height: 35 }, confidence: 0.96, label: '平静表情', timeStart: 5, timeEnd: 15, metadata: { emotion: 'calm', emotionIcon: '😐', age: 22, gender: '男性' } },
+    { id: 'face-2', type: 'face', boundingBox: { x: 32, y: 18, width: 28, height: 38 }, confidence: 0.98, label: '愤怒表情', timeStart: 15, timeEnd: 30, metadata: { emotion: 'angry', emotionIcon: '😡', age: 22, gender: '男性' } },
+    { id: 'face-3', type: 'face', boundingBox: { x: 30, y: 15, width: 30, height: 40 }, confidence: 0.94, label: '严肃表情', timeStart: 30, timeEnd: 50, metadata: { emotion: 'serious', emotionIcon: '😟', age: 22, gender: '男性' } },
+    { id: 'ocr-1', type: 'ocr', boundingBox: { x: 15, y: 55, width: 40, height: 12 }, confidence: 0.98, label: 'OCR敏感词：[抵制]', timeStart: 15, timeEnd: 20, metadata: {} },
+    { id: 'ocr-2', type: 'ocr', boundingBox: { x: 20, y: 60, width: 35, height: 10 }, confidence: 0.91, label: 'OCR敏感词：[追究]', timeStart: 35, timeEnd: 40, metadata: {} },
+    { id: 'logo-1', type: 'logo', boundingBox: { x: 70, y: 25, width: 15, height: 15 }, confidence: 0.95, label: '检测到北大校徽', timeStart: 10, timeEnd: 30, metadata: {} },
+    { id: 'uniform-1', type: 'uniform', boundingBox: { x: 30, y: 45, width: 35, height: 50 }, confidence: 0.89, label: '检测到北大校服', timeStart: 5, timeEnd: 35, metadata: {} },
+    { id: 'banner-1', type: 'banner', boundingBox: { x: 10, y: 70, width: 80, height: 20 }, confidence: 0.93, label: '检测到横幅标语', timeStart: 20, timeEnd: 28, metadata: {} }
+  ],
+
+  // 12.4 场景识别
+  sceneRecognition: [
+    { id: 'scene-1', name: '教室', icon: '🏫', confidence: 0.92, timeStart: 0, timeEnd: 20 },
+    { id: 'scene-2', name: '宿舍', icon: '🛏️', confidence: 0.95, timeStart: 20, timeEnd: 50 },
+    { id: 'scene-3', name: '校园室外', icon: '🌳', confidence: 0.88, timeStart: 50, timeEnd: 999 }
+  ]
+}
