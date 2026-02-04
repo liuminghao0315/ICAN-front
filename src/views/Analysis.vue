@@ -177,7 +177,7 @@
                   <el-icon><User /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">身份判定 <span class="evidence-badge">({{ cardEvidencesMap.identity.length }})</span></div>
+                  <div class="pro-label">身份判定 <span class="evidence-badge">({{ cardEvidencesMap.identity?.length || 0 }})</span></div>
                   <div class="pro-value text-identity">
                     {{ mockIdentityAnalysis.identityLabel }}
                   </div>
@@ -191,7 +191,7 @@
                   <el-icon><School /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">涉及高校 <span class="evidence-badge">({{ cardEvidencesMap.university.length }})</span></div>
+                  <div class="pro-label">涉及高校 <span class="evidence-badge">({{ cardEvidencesMap.university?.length || 0 }})</span></div>
                   <div class="pro-value text-uni">
                     {{ mockUniversityBaseline.universityName }}
                   </div>
@@ -205,7 +205,7 @@
                   <el-icon><ChatDotRound /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">内容主题 <span class="evidence-badge">({{ cardEvidencesMap.topic.length }})</span></div>
+                  <div class="pro-label">内容主题 <span class="evidence-badge">({{ cardEvidencesMap.topic?.length || 0 }})</span></div>
                   <div class="pro-value text-topic">
                     {{ mockContentAnalysis.topicCategory }}
                   </div>
@@ -219,11 +219,11 @@
                   <el-icon><TrendCharts /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">对学校态度 <span class="evidence-badge">({{ cardEvidencesMap.attitude.length }})</span></div>
+                  <div class="pro-label">对学校态度 <span class="evidence-badge">({{ cardEvidencesMap.attitude?.length || 0 }})</span></div>
                   <div class="pro-value" :class="getSentimentTextClass(mockContentAnalysis.sentimentTowardSchool)">
                     {{ getSentimentLabel(mockContentAnalysis.sentimentTowardSchool) }}
                   </div>
-                  <div class="pro-subtitle">4处负面，占比 44%</div>
+                  <div class="pro-subtitle">{{ mockContentAnalysis.negativeMentionCount }}处负面，占比 {{ Math.round((mockContentAnalysis.negativeMentionCount / mockContentAnalysis.schoolMentionCount) * 100) }}%</div>
                 </div>
               </div>
               
@@ -234,7 +234,7 @@
                 </div>
                 <div class="pro-content">
                   <div class="pro-label">
-                    潜在舆论风险 <span class="evidence-badge">({{ cardEvidencesMap.opinionRisk.length }})</span>
+                    潜在舆论风险 <span class="evidence-badge">({{ cardEvidencesMap.opinionRisk?.length || 0 }})</span>
                     <span class="ai-predict-badge">AI预测</span>
                   </div>
                   <div class="pro-value" :class="getOpinionRiskTextClass(mockOpinionRisk.riskLevel)">
@@ -250,7 +250,7 @@
                   <el-icon><DocumentChecked /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">处置建议 <span class="evidence-badge">({{ cardEvidencesMap.action.length }})</span></div>
+                  <div class="pro-label">处置建议 <span class="evidence-badge">({{ cardEvidencesMap.action?.length || 0 }})</span></div>
                   <div class="pro-value text-action">
                     {{ mockOpinionRisk.actionSuggestion }}
                   </div>
@@ -1248,8 +1248,8 @@ const mainVideoPlayerRef = ref<HTMLVideoElement | null>(null)
 // 当前播放时间
 const currentPlayTime = ref(0)
 
-// 视频真实时长（秒）
-const videoDuration = ref(180)
+// 视频真实时长（秒）- 从 mock 数据初始化，视频加载成功后会更新为真实时长
+const videoDuration = ref(mockAnalysisResult.videoInfo.duration)
 
 // 当前激活的台词段落索引
 const currentSegmentIndex = ref(-1)
@@ -2011,6 +2011,15 @@ const multiModalTimelineOption = computed(() => {
   const audioData = multiModalData.map(d => [d.time, d.audioScore])
   const textData = multiModalData.map(d => [d.time, d.textScore])
   
+  // 计算当前播放位置与曲线的交点
+  const currentTime = currentPlayTime.value
+  const currentData = multiModalData.find(d => Math.abs(d.time - currentTime) < 2.5)
+  const intersectionPoints = currentData ? [
+    [currentTime, currentData.videoScore],
+    [currentTime, currentData.audioScore],
+    [currentTime, currentData.textScore]
+  ] : []
+  
   return {
     tooltip: {
       trigger: 'axis',
@@ -2255,8 +2264,8 @@ const multiModalTimelineOption = computed(() => {
         type: 'line',
         data: videoData,
         smooth: 0.35,
-        symbol: 'circle',
-        symbolSize: 6,
+        symbol: 'none',  // 移除密集圆点
+        showSymbol: false,  // 不显示标记点
         lineStyle: {
           width: 2,
           color: '#ff7875',
@@ -2277,8 +2286,6 @@ const multiModalTimelineOption = computed(() => {
             ]
           }
         },
-        showSymbol: true,
-        showAllSymbol: true,
         emphasis: {
           lineStyle: { width: 2.5 },
           itemStyle: { borderWidth: 3 }
@@ -2291,8 +2298,8 @@ const multiModalTimelineOption = computed(() => {
         type: 'line',
         data: audioData,
         smooth: 0.35,
-        symbol: 'circle',
-        symbolSize: 6,
+        symbol: 'none',  // 移除密集圆点
+        showSymbol: false,  // 不显示标记点
         lineStyle: {
           width: 2,
           color: '#ffa940',
@@ -2313,8 +2320,6 @@ const multiModalTimelineOption = computed(() => {
             ]
           }
         },
-        showSymbol: true,
-        showAllSymbol: true,
         emphasis: {
           lineStyle: { width: 2.5 },
           itemStyle: { borderWidth: 3 }
@@ -2327,8 +2332,8 @@ const multiModalTimelineOption = computed(() => {
         type: 'line',
         data: textData,
         smooth: 0.35,
-        symbol: 'circle',
-        symbolSize: 6,
+        symbol: 'none',  // 移除密集圆点
+        symbolSize: 0,
         lineStyle: {
           width: 2,
           color: '#597ef7',
@@ -2349,8 +2354,6 @@ const multiModalTimelineOption = computed(() => {
             ]
           }
         },
-        showSymbol: true,
-        showAllSymbol: true,
         emphasis: {
           lineStyle: { width: 2.5 },
           itemStyle: { borderWidth: 3 }
@@ -2400,6 +2403,31 @@ const multiModalTimelineOption = computed(() => {
             }
           ]
         }
+      },
+      // 添加：当前播放位置的交点标记（红色竖线与曲线的交点）
+      {
+        name: '当前位置',
+        type: 'scatter',
+        data: intersectionPoints,
+        symbolSize: 12,  // 增大尺寸
+        symbol: 'circle',
+        itemStyle: {
+          color: '#ffffff',
+          borderColor: '#ff4d4f',  // 鲜艳的红色边框
+          borderWidth: 3,
+          shadowBlur: 8,
+          shadowColor: 'rgba(255, 77, 79, 0.6)'
+        },
+        emphasis: {
+          symbolSize: 14,  // 鼠标悬停时更大
+          itemStyle: {
+            shadowBlur: 12
+          }
+        },
+        zlevel: 5,  // 更高的层级
+        z: 999,  // 确保显示在最上层
+        animation: false,  // 禁用动画，跟随视频流畅移动
+        silent: false  // 响应鼠标事件
       }
     ]
   }
@@ -2868,7 +2896,7 @@ const getRiskTimelineData = (): any => {
     // 如果没有数据，生成示例数据用于测试
     if (!riskTimeline || !riskTimeline.timeSeriesData || riskTimeline.timeSeriesData.length === 0) {
       console.warn('风险时间轴数据为空，生成示例数据')
-      const duration = (videoFeatures as any)?.duration || 300
+      const duration = mockAnalysisResult.videoInfo.duration
       return generateMockRiskTimeline(duration)
     }
     

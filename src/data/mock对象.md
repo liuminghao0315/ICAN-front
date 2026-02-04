@@ -1,366 +1,64 @@
-/**
- * 统一的分析结果Mock数据
- * 
- * 这个文件模拟Python后端返回的完整视频分析结果数据
- * 包含所有交互分析和报告视图需要的数据
- * 
- * 重要：这是整个分析页面的核心数据源！
- * 修改时请务必保持数据一致性！
- */
-
-// ==================== 类型定义 ====================
-
-/**
- * 证据类型定义
- */
-export interface Evidence {
-  timestamp: number         // 时间点（秒）
-  type: 'video' | 'audio' | 'text'  // 证据类型
-  description: string      // 描述
-  confidence: number       // 置信度 0-100
-  thumbnail?: string       // 视频证据的缩略图URL
-  keyword?: string         // 文本证据的关键词
-  sentiment?: 'positive' | 'neutral' | 'negative'  // 情感标签（态度分析专用）
-}
-
-/**
- * 统计数据结构（用于态度分析）
- */
-export interface StatisticsData {
-  positive: number    // 正面次数
-  neutral: number     // 中性次数
-  negative: number    // 负面次数
-  total: number       // 总次数
-}
-
-/**
- * 多模态融合数据结构
- */
-export interface ModalityFusion {
-  videoScore: number           // 视频模态得分 0-100
-  audioScore: number           // 音频模态得分 0-100
-  textScore: number            // 文本模态得分 0-100
-  videoWeight: number          // 视频权重 0-1
-  audioWeight: number          // 音频权重 0-1
-  textWeight: number           // 文本权重 0-1
-  fusionFormula: string        // 融合公式（展示用）
-  finalScore: number           // 最终得分 0-100
-  videoEvidenceCount: number   // 视频证据数量
-  audioEvidenceCount: number   // 音频证据数量
-  textEvidenceCount: number    // 文本证据数量
-  resultType: 'confidence' | 'intensity' | 'score' | 'statistics' | 'urgency'  // 结果类型
-  resultLabel: string          // 结果标签
-  resultValue: string          // 结果值显示
-  statistics?: StatisticsData  // 统计数据（仅statistics类型使用）
-}
-
-/**
- * 台词转录片段
- */
-export interface TranscriptSegment {
-  id: string
-  start: number         // 开始时间（秒）
-  end: number           // 结束时间（秒）
-  text: string          // 台词内容
-  content: string       // 内容（用于兼容）
-  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级（小写，与代码一致）
-  keywords: string[]    // 关键词
-  reason: string        // 风险原因
-}
-
-/**
- * 视频风险点
- */
-export interface VideoRiskPoint {
-  time: number          // 时间点（秒）
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  reason: string        // 风险原因
-  sceneType?: string    // 场景类型
-}
-
-/**
- * 音频情绪片段
- */
-export interface AudioEmotion {
-  start: number         // 开始时间（秒）
-  end: number           // 结束时间（秒）
-  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪类型
-  intensity: number     // 强度 0-1
-  reason: string        // 检测原因
-}
-
-/**
- * 雷达图时间段数据
- */
-export interface RadarDataByTime {
-  timeStart: number     // 开始时间（秒）
-  timeEnd: number       // 结束时间（秒）
-  data: number[]        // 6个维度的数据 [身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
-  description?: string  // 时段描述
-}
-
-/**
- * 风险证据（用于左侧证据列表展示）
- */
-export interface RiskEvidence {
-  id: string
-  time: string
-  timeSeconds: number
-  timeEndSeconds?: number
-  content: string
-  riskLevel: 'high' | 'medium' | 'low'
-  imageUrl: string
-  boxStyle: { top: string; left: string; width: string; height: string }
-  label: string
-  confidence: number
-  keywords: string[]
-  emotion?: string
-}
-
-/**
- * 检测到的关键词（带高亮标记）
- */
-export interface DetectedKeyword {
-  word: string                    // 关键词文本
-  isUniversityRelated: boolean   // 是否高校相关（由Python后端判断）
-}
-
-/**
- * AI目标侧写结果
- */
-export interface AIProfileResult {
-  identityStatus: 'confirmed' | 'suspected' | 'unknown'
-  identityLabel: string
-  confidence: number
-  matchSource: string
-  detectedKeywords: DetectedKeyword[]  // 修改为对象数组，包含高亮标记
-  staticFeatures: {
-    gender: string
-    ageRange: string
-    voiceProfile: string
-    clothing: string
-  }
-  sceneType: string
-  sceneConfidence: number
-}
-
-/**
- * CV检测框数据
- */
-export interface Detection {
-  id: string
-  type: 'face' | 'ocr' | 'logo' | 'uniform' | 'banner' | 'object'
-  boundingBox: { x: number; y: number; width: number; height: number }
-  confidence: number
-  label: string
-  timeStart: number
-  timeEnd: number
-  metadata?: {
-    emotion?: string
-    emotionIcon?: string
-    age?: number
-    gender?: string
-  }
-}
-
-/**
- * 场景识别数据
- */
-export interface SceneInfo {
-  id: string
-  name: string
-  icon: string
-  confidence: number
-  timeStart: number
-  timeEnd: number
-}
-
-/**
- * 视频基本信息
- */
-export interface VideoInfo {
-  videoId: string           // 视频ID
-  fileName: string          // 文件名
-  fileSize: number          // 文件大小（字节）
-  duration: number          // 时长（秒）
-  resolution: string        // 分辨率
-  uploadTime: string        // 上传时间
-  uploadSource: string      // 来源
-  analysisStatus: string    // 分析状态
-  description: string       // AI自动生成的视频内容摘要
-}
-
-/**
- * 身份判定分析结果
- */
-export interface IdentityAnalysis {
-  identityLabel: string     // 显示标签
-  confidence: number        // 置信度 0-1
-}
-
-/**
- * 高校关联分析结果
- */
-export interface UniversityAnalysis {
-  universityName: string    // 高校名称
-  logoConfidence: number    // 校徽匹配置信度 0-1
-}
-
-/**
- * 内容主题分析结果
- */
-export interface TopicAnalysis {
-  topicCategory: string         // 主题大类
-  topicSubCategory: string      // 主题细分
-  keyTopics: string[]           // 关键话题
-}
-
-/**
- * 对学校态度分析结果
- */
-export interface AttitudeAnalysis {
-  sentimentTowardSchool: 'positive' | 'neutral' | 'negative'  // 情感倾向
-  sentimentLabel: string        // 显示标签
-  sentimentIntensity: number    // 情感强度 0-1
-  schoolMentionCount: number    // 学校提及次数
-  negativeMentionCount: number  // 负面提及次数
-  statistics: StatisticsData    // 情感统计
-}
-
-/**
- * 潜在舆论风险分析结果
- */
-export interface OpinionRiskAnalysis {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  riskLabel: string             // 显示标签
-  riskScore: number             // 风险分数 0-100
-  riskReason: string            // 风险原因
-  spreadPotential: number       // 传播潜力分数 1-10
-  spreadPotentialLabel: string  // 传播潜力标签
-  potentialImpacts: string[]    // 潜在影响
-}
-
-/**
- * 处置建议分析结果
- */
-export interface ActionSuggestion {
-  actionSuggestion: string      // 建议
-  actionDetail: string          // 详细说明
-  urgencyLevel: number          // 紧急程度 0-100
-}
-
-/**
- * 完整的视频分析结果（模拟Python后端返回）
- */
-export interface AnalysisResult {
-  // 视频基本信息
-  videoInfo: VideoInfo
-  
-  // 核心分析结果（6个维度）
-  identity: IdentityAnalysis
-  university: UniversityAnalysis
-  topic: TopicAnalysis
-  attitude: AttitudeAnalysis
-  opinionRisk: OpinionRiskAnalysis
-  action: ActionSuggestion
-  
-  // 详细证据数据（每个维度的证据列表）
-  evidences: {
-    identity: Evidence[]
-    university: Evidence[]
-    topic: Evidence[]
-    attitude: Evidence[]
-    opinionRisk: Evidence[]
-    action: Evidence[]
-  }
-  
-  // 多模态融合分析数据
-  modalityFusion: {
-    identity: ModalityFusion
-    university: ModalityFusion
-    topic: ModalityFusion
-    attitude: ModalityFusion
-    opinionRisk: ModalityFusion
-    action: ModalityFusion
-  }
-  
-  // 台词转录与风险定位
-  transcriptSegments: TranscriptSegment[]
-  
-  // 时间轴数据
-  timelineData: {
-    videoRisks: VideoRiskPoint[]      // 视频风险点
-    audioEmotions: AudioEmotion[]     // 音频情绪
-    radarByTime: RadarDataByTime[]    // 雷达图时间段数据
-  }
-  
-  // 辅助分析数据（用于交互分析的扩展功能）
-  riskEvidences: RiskEvidence[]       // 风险证据列表
-  aiProfile: AIProfileResult          // AI目标侧写
-  cvDetections: Detection[]           // CV视觉检测框
-  sceneRecognition: SceneInfo[]       // 场景识别
-}
-
+```ts
 // ==================== Mock数据（模拟Python后端返回的完整分析结果） ====================
 
 export const mockAnalysisResult: AnalysisResult = {
   // ========== 1. 视频基本信息 ==========
   videoInfo: {
-    videoId: 'video_20240201_001',
-    fileName: '北大学生吐槽选课系统_20240201.mp4',
-    fileSize: 128 * 1024 * 1024, // 128MB
-    duration: 195, // 3分15秒
-    resolution: '1920×1080',
-    uploadTime: '2024-02-01 14:30:25',
-    uploadSource: '本地上传',
-    analysisStatus: '分析完成',
-    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，若上传到公开平台可能引发其他学生共鸣转发。'
+1    videoId: 'video_20240201_001',⬛之后做反馈给管理员的功能的时候，需要把这个放到 API 里面。
+1    fileName: '北大学生吐槽选课系统_20240201.mp4',
+x    fileSize: 128 * 1024 * 1024, // 128MB⬛技术性参数不需要。 
+1    duration: 50, // 3分15秒⬛假如视频无法播放，如果没有这个，就会卡死页面，真没办法。 
+x    resolution: '1920×1080',⬛技术性参数不需要。 
+x    uploadTime: '2024-02-01 14:30:25',⬛就算是以后做自动爬虫，也不能叫这个字段名，或也不一定需要
+1    uploadSource: '本地上传',⬛这个还是要留着，以后做自动爬虫肯定是要用于区分的。 
+x    analysisStatus: '分析完成',⬛既然能看到这个分析结果，当然是分析完成了。 
+1    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，若上传到公开平台可能引发其他学生共鸣转发。'⬛可选
   },
 
   // ========== 2. 身份判定分析 ==========
-  identity: {
+1  identity: {
     identityLabel: '疑似在校学生',
     confidence: 0.85
   },
 
   // ========== 3. 涉及高校分析 ==========
-  university: {
+1  university: {
     universityName: '北京大学',
     logoConfidence: 0.92
   },
 
   // ========== 4. 内容主题分析 ==========
   topic: {
-    topicCategory: '校园政策',
-    topicSubCategory: '选课制度吐槽',
-    keyTopics: ['选课系统崩溃', '课程名额不足', '热门课抢不到']
+1    topicCategory: '校园政策',
+1    topicSubCategory: '选课制度吐槽',
+0    keyTopics: ['选课系统崩溃', '课程名额不足', '热门课抢不到']⬛根本就没用到。
+？⬛是否需要再添加一个置信度呢？因为在证据图中使用到了置信度。这样的话，能保证执行度在证据图和卡片中共用同一个数值。 但如此又会造成偶合过于紧密，难以拆分传递数值。反之，可能会造成数据溶于，容易填错不一致的情况。 
   },
 
   // ========== 5. 对学校态度分析 ==========
   attitude: {
-    sentimentTowardSchool: 'negative',
-    sentimentLabel: '负面/不满',
-    sentimentIntensity: 0.72,
-    schoolMentionCount: 8,
-    negativeMentionCount: 4,
-    statistics: {
+x    sentimentTowardSchool: 'negative',
+1    sentimentLabel: '负面/不满',
+1    sentimentIntensity: 0.72,⬛使用这个“情感分数”来判断颜色的类型，而不是用上面的那个 negative 值。 
+1    schoolMentionCount: 8,⬛提学校总次数。
+1    negativeMentionCount: 4,⬛负面的 提学校次数。结合上面那个能计算百分比。 
+？x    statistics: {⬛这为什么又在卡片中显示呢？不是应该在证据图中才会显示到用这个吗？ 但cursor建议我不要删。待会问问他到底在哪儿使用，是在证据图还是在卡片。 
       positive: 3,
       neutral: 2,
-      negative: 4,
-      total: 9
+      negative: 4,⬛这个应该negativeMentionCount一样。 
+      total: 9⬛这个和提学教总次数应该一样才对啊。 
     }
   },
 
   // ========== 6. 潜在舆论风险分析 ==========
   opinionRisk: {
-    riskLevel: 'medium',
-    riskLabel: '中等风险',
-    riskScore: 58,
-    riskReason: '可能引发跟风吐槽',
-    spreadPotential: 6.5,
-    spreadPotentialLabel: '较易传播',
-    potentialImpacts: [
+x    riskLevel: 'medium',
+1    riskLabel: '中等风险',
+1    riskScore: 58,⬛应该通过这个数字风险值来判断字体颜色，而不是medium值
+1    riskReason: '可能引发跟风吐槽',
+x    spreadPotential: 6.5,
+x    spreadPotentialLabel: '较易传播',
+x    potentialImpacts: [⬛这三个都是传播潜力，并不是舆论风险。我传播潜力之前都删了，因为实在是挤不下，而且也没有必要。它和舆论风险是类似的。 
       '若上传可能引发其他学生共鸣转发',
       '对学校选课系统形象有一定负面影响',
       '建议先与教务处沟通后再决定'
@@ -371,19 +69,19 @@ export const mockAnalysisResult: AnalysisResult = {
   action: {
     actionSuggestion: '谨慎发布',
     actionDetail: '建议人工复核后决定是否上传',
-    urgencyLevel: 75
+    urgencyLevel: 75⬛这个地方为什么又出现了置信度呢？卡片中也没有指出置信度啊。之前的校园政策也就是那种主题，也没有执行度。和这个是类似的。而这处置建议又有了。待会把这两张卡片一起决定。 
   },
 
   // ========== 8. 详细证据数据 ==========
   evidences: {
     // 8.1 身份判定证据
-    identity: [
+    identity: [⬛这些列举的都是详细证据中的每一条信息的内容。 那它的这个多模态融合分析中的三模态数值是怎么得出来的？ 融合结果呢？是算出来的，还是直接引用之前卡片中的？ 而且，三模态数值是否计算有点问题？ 
       {
         timestamp: 5,
         type: 'video',
         description: '宿舍环境背景：检测到典型学生宿舍布局（床铺、书桌、台灯）',
         confidence: 82,
-        thumbnail: undefined
+        thumbnail: undefined ⬛这他妈是什么鬼啊？ 
       },
       {
         timestamp: 12,
@@ -406,7 +104,7 @@ export const mockAnalysisResult: AnalysisResult = {
       {
         timestamp: 35,
         type: 'text',
-        description: '提及学生身份相关词汇',
+        description: '提及学生身份相关词汇',⬛文本描述在交互分析中尚未显示出。这个要保留。我待会使用悬浮窗口显示这些字。 
         confidence: 91,
         keyword: '我们学生'
       },
@@ -656,20 +354,20 @@ export const mockAnalysisResult: AnalysisResult = {
   modalityFusion: {
     // 9.1 身份判定融合
     identity: {
-      videoScore: 82,
-      audioScore: 91,
-      textScore: 85,
+      videoScore: 82,⬛
+      audioScore: 91,⬛
+      textScore: 85,⬛这玩意真的是让python端就直接给出来了吗？ 
       videoWeight: 0.3,
       audioWeight: 0.5,
       textWeight: 0.2,
-      fusionFormula: '(82 × 0.3) + (91 × 0.5) + (85 × 0.2)',
-      finalScore: 85,
-      videoEvidenceCount: 2,
-      audioEvidenceCount: 2,
-      textEvidenceCount: 2,
-      resultType: 'confidence',
-      resultLabel: '识别置信度',
-      resultValue: '85%'
+      fusionFormula: '(82 × 0.3) + (91 × 0.5) + (85 × 0.2)',⬛这个可以自己写表达式组合，为什么要在这直接写个字符串？  
+      finalScore: 85,⬛这个也可以自己就算出来了啊。前面不是有公式吗？需要给 Mock 吗？ 
+      videoEvidenceCount: 2,⬛
+      audioEvidenceCount: 2,⬛
+      textEvidenceCount: 2,⬛这不是可以直接统计出来吗？有必要在这里写吗？ 
+      resultType: 'confidence',⬛这TM又是什么鬼啊？ 
+      resultLabel: '识别置信度',⬛这又是什么鬼啊？这难道不是应该硬编码才对吗？你觉得这玩意能变化的吗？ 
+      resultValue: '85%'⬛这不是也能自己算出来吗？这需要给mock吗？而且和finalScore重复了吧？ 
     },
 
     // 9.2 涉及高校融合
@@ -710,21 +408,21 @@ export const mockAnalysisResult: AnalysisResult = {
 
     // 9.4 对学校态度融合（统计类型）
     attitude: {
-      videoScore: 0,
-      audioScore: 0,
-      textScore: 0,
-      videoWeight: 0,
-      audioWeight: 0,
-      textWeight: 0,
-      fusionFormula: '统计情感倾向出现次数',
-      finalScore: 0,
-      videoEvidenceCount: 2,
-      audioEvidenceCount: 2,
-      textEvidenceCount: 3,
-      resultType: 'statistics',
-      resultLabel: '情感分布统计',
-      resultValue: '9处：3正 2中 4负',
-      statistics: {
+      videoScore: 0,⬛
+      audioScore: 0,⬛
+      textScore: 0,⬛
+      videoWeight: 0,⬛
+      audioWeight: 0,⬛
+      textWeight: 0,⬛
+      fusionFormula: '统计情感倾向出现次数',⬛
+      finalScore: 0,⬛这根本都用不上吧？为什么还要在这儿？ 
+      videoEvidenceCount: 2,⬛
+      audioEvidenceCount: 2,⬛
+      textEvidenceCount: 3,⬛这是不是也是虚假的啊？一点用都没有，而且也用不上啊，关键是。 
+      resultType: 'statistics',⬛那你渲染的时候直接拿这一个作为判断条件就行了。 之前那些多余的字段不使用不就行了，为什么要给值0，冗余字段。 
+      resultLabel: '情感分布统计',⬛这个也是。这玩意儿就应该用硬编码啊。这个又不是什么标记词。上层对象attitude不就代表了这个卡片的结果是清单分布统计吗？所以这个地方没有必要标记resultLabel，直接硬编码有问题吗。  
+      resultValue: '9处：3正 2中 4负',⬛这又是什么“有病”的设计？我搞不懂。 不是可以自己统计出来吗？还需要python端给出改mock字段干嘛？ 
+      statistics: {⬛之前在证据对象中，不是已经写得很准确、详细了吗？这里还需要给出mock吗，能不能直接复用证据对象中给出的东西？还是说这两种方式各有优劣应该用哪个？？？ 
         positive: 3,
         neutral: 2,
         negative: 4,
@@ -770,14 +468,15 @@ export const mockAnalysisResult: AnalysisResult = {
   },
 
   // ========== 10. 台词转录与风险定位 ==========
-  transcriptSegments: [
+  transcriptSegments: [⬛奇怪哦。为什么后面还有个riskEvidences？而且，目前浏览器中字幕滚动图（语音转文字与风险定位）显示的就是riskEvidences的内容啊，反而这个transcriptSegments倒是没见到，怎么回事？？
+⬛我刚才看了一下，你这个有严重的问题啊。你这里面的reason都是用在了二维线形图的鼠标悬浮窗口的文本内容了，你这数据引用的驴头不对马嘴了。  
     {
-      id: '1',
+      id: '1',⬛为什么要给出ID值啊？是不是为了“v-for”循环用:key？？ 
       start: 0,
       end: 18,
       text: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
-      content: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
-      emotion: 'calm',
+      content: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',⬛这俩字端都一样的，为什么还要再给一次mock字段？纯粹冗余吧。 
+      emotion: 'calm',⬛这个我也是无举了。显示“平静”才对？你这怎么是calm？都说了，不要让前端做这种枚举判断，毫无意义啊！以后扩展广度呢，你还得自己对应，这不是自己给自己找麻烦嘛！就直接让 Python 给你平净二字，让你直接渲染不就好了？  
       riskLevel: 'low',
       keywords: ['学生', '选课系统'],
       reason: '平静介绍，正常陈述'
@@ -855,10 +554,11 @@ export const mockAnalysisResult: AnalysisResult = {
     // 11.1 视频风险点
     videoRisks: [
       {
-        time: 5,
+        time: 5,⬛这个视频的时间没有分清是起始还是结束。最好分一下吧。 你看下面那个音频情绪人家都能分。 你这视频也要分。这样才能清楚啊。 你本身就是一个线性的图。它是连续的。你肯定要给出时间段（首末时间点）而不是单个时间点。  
         riskLevel: 'low',
         reason: '检测到学生宿舍场景',
-        sceneType: 'dormitory'
+        sceneType: 'dormitory'⬛这又是什么鬼啊？为什么要加这个字段？ 
+⬛还有，为什么没有数值字段（intensity）？那为什么现在的这个浏览器二维图中会有这个百分比字段？ 你是不是又引用错地方了？你引用了哪个变量了？  
       },
       {
         time: 35,
@@ -919,6 +619,9 @@ export const mockAnalysisResult: AnalysisResult = {
         reason: '情绪逐渐平复'
       }
     ],
+    ⬛你的文本信息呢？你文本的文字和开头时间节点错误地引用了之前的transcriptSegments，那你数值百分比又是引用了哪个变量？估计你又乱引用。 
+
+⬛还有就是，你的当前时间戳的总风险指数是不是动态的，根据视频、音频、文本数据计算出来的？如果是动态计算的，那就没问题。  但我害怕你是直接用了 Mock 数字。  因为你之前那些对象数据都是这么干的。我不是很相信你了。 
 
     // 11.3 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
     radarByTime: [
@@ -926,7 +629,7 @@ export const mockAnalysisResult: AnalysisResult = {
         timeStart: 0,
         timeEnd: 10,
         data: [85, 65, 15, 20, 25, 15],
-        description: '自我介绍，明确学生身份'
+        description: '自我介绍，明确学生身份'⬛没必要吧？我图中也没看到你显示它啊。 
       },
       {
         timeStart: 10,
@@ -958,25 +661,29 @@ export const mockAnalysisResult: AnalysisResult = {
         data: [85, 80, 25, 45, 40, 25],
         description: '呼吁传播，有一定传播风险'
       }
+还有就是，你这个当前风险分又是怎么算出来的？你最好是动态地根据公式算出来的而不是mock。
+还有一个问题就是，你雷达图的当前风险分和你二维线性图悬浮上去的悬浮窗口的当前风险指数两个数值应该一样才对。 
+这个问题详细解决一下，待会儿。
     ]
   },
 
   // ========== 12. 辅助分析数据 ==========
   // 12.1 风险证据列表（用于左侧证据展示，与台词转录不同）
+      ⬛我浏览器中显示的这个riskEvidences，就是语音转文字与风险定位中显示的东西，而不是transcriptSegments，就很离谱啊。 
   riskEvidences: [
     {
-      id: 'evidence-1',
-      time: '00:05-00:10',
+      id: 'evidence-1',⬛这是让 v-for 使用 :Key 吗？ 
+      time: '00:05-00:10',⬛这又有必要吗？下面不是有两个时间戳吗？那这个可以动态生成，还需要 mock 吗？ 
       timeSeconds: 5,
       timeEndSeconds: 10,
       content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
       riskLevel: 'low',
-      imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop',
-      boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
+      imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop',⬛这个用不上吧？本来就是字幕对应的。左边不就有视频了吗？还看imageUrl看什么？ 
+      boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },⬛这是什么东西啊？不懂。 
       label: '',
-      confidence: 0,
+      confidence: 0,⬛这个地方你帮我思考一下，最好要不要label 和 confidence 放到同一个对象里面，这样能防止了忘记要同时填入 **libre** 和 **confidence** 了。 。 
       keywords: [],
-      emotion: 'calm'
+      emotion: 'calm'⬛这是老问题了。你不要用这种预设词，这种枚举之类的预设词全部让后端给你。你不要自己去下定义，不然后面如果要增加广度，你还得自己匹配，纯给自己找麻烦，真是无聊之举。 然后我还发现了，你视频框左上角的标记也是用这个值的。我建议就是像这种由于文字不同，会导致文字的颜色和文字底部的颜色要变化的话，那你还是用加几个字段吧。 比如加两个字段，一个是“底”的颜色，一个是“字”的颜色。通过字段读取给你，而不是你自己在前端去自己定义枚举匹配之类的。你再检查一下，还有哪些地方需要改成这种模式？ 
     },
     {
       id: 'evidence-2',
@@ -1038,11 +745,11 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // 12.2 AI目标侧写
   aiProfile: {
-    identityStatus: 'suspected',
-    identityLabel: '疑似在校学生',
-    confidence: 0.85,
-    matchSource: '语音中自称"北大计算机系学生"，检测到校园场景',
-    detectedKeywords: [
+    identityStatus: 'suspected',⬛这个数据没用到啊。 
+    identityLabel: '疑似在校学生',⬛这也没用到啊。 
+    confidence: 0.85,⬛这也没用到吧。 
+    matchSource: '语音中自称"北大计算机系学生"，检测到校园场景',⬛这个也没用到啊。 
+    detectedKeywords: [⬛这个是内容关键词上面的，也就是视频栏中的。 如果里面所有的元素都不存在，其数组为空，那么，“内容关键词”这五个字及图标就不能显示出来。 
       { word: '北大', isUniversityRelated: true },
       { word: '北京大学', isUniversityRelated: true },
       { word: '计算机系', isUniversityRelated: true },
@@ -1054,19 +761,19 @@ export const mockAnalysisResult: AnalysisResult = {
       { word: '热门课', isUniversityRelated: true },
       { word: '抢不到', isUniversityRelated: false }
     ],
-    staticFeatures: {
-      gender: '男性',
+    staticFeatures: {⬛这个是视频主要人物。也是视频栏中的。 这里面的四个字段都要做成可选的。 如果没有填入或填入的为空串，那么图标就不能显示。看起来就像是没有这数据的（给其他数据让位置）。如果这四个字段都没有“直”或都为空，那么这一行整个的视频主要人物这六个字以及图标都不能显示出来。   
+      gender: '男性',⬛这个要做一下对应。就如果值为“女性”，你这个浏览器中显示的图标也要是女性的图标
       ageRange: '20-24岁',
       voiceProfile: '年轻男性/情绪激动',
       clothing: '休闲装'
     },
-    sceneType: '校园宿舍',
-    sceneConfidence: 0.88
+    sceneType: '校园宿舍',⬛这个没用上吧？我都没看到啊。 
+    sceneConfidence: 0.88⬛这个也没用上。 
   },
 
   // 12.3 CV视觉检测框
   cvDetections: [
-    { id: 'face-1', type: 'face', boundingBox: { x: 35, y: 20, width: 25, height: 35 }, confidence: 0.96, label: '平静表情', timeStart: 5, timeEnd: 15, metadata: { emotion: 'calm', emotionIcon: '😐', age: 22, gender: '男性' } },
+    { id: 'face-1'⬛这个是让v-for使用:key的吗？, type: 'face'⬛这种预设值就没问题。因为这个前端已经写好了检测类型，就那几种。这倒是没问题的。但，你现在这个直接填字符串，我害怕将来可能对应出错。   , boundingBox: { x: 35, y: 20, width: 25, height: 35 }, confidence: 0.96, label: '平静表情', timeStart: 5, timeEnd: 15, metadata: ⬛这个…没有必要。你还是…删了吧？ { emotion: 'calm', emotionIcon: '😐', age: 22, gender: '男性' } },
     { id: 'face-2', type: 'face', boundingBox: { x: 32, y: 18, width: 28, height: 38 }, confidence: 0.98, label: '愤怒表情', timeStart: 15, timeEnd: 30, metadata: { emotion: 'angry', emotionIcon: '😡', age: 22, gender: '男性' } },
     { id: 'face-3', type: 'face', boundingBox: { x: 30, y: 15, width: 30, height: 40 }, confidence: 0.94, label: '严肃表情', timeStart: 30, timeEnd: 50, metadata: { emotion: 'serious', emotionIcon: '😟', age: 22, gender: '男性' } },
     { id: 'ocr-1', type: 'ocr', boundingBox: { x: 15, y: 55, width: 40, height: 12 }, confidence: 0.98, label: 'OCR敏感词：[抵制]', timeStart: 15, timeEnd: 20, metadata: {} },
@@ -1078,8 +785,10 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // 12.4 场景识别
   sceneRecognition: [
-    { id: 'scene-1', name: '教室', icon: '🏫', confidence: 0.92, timeStart: 0, timeEnd: 20 },
+    { id: 'scene-1'⬛这是让v-for使用:key的吗？, name: '教室', icon: '🏫'⬛这个要做成可选的，如果没有，就不能显示图标。 , confidence: 0.92, timeStart: 0, timeEnd: 20 },
     { id: 'scene-2', name: '宿舍', icon: '🛏️', confidence: 0.95, timeStart: 20, timeEnd: 50 },
     { id: 'scene-3', name: '校园室外', icon: '🌳', confidence: 0.88, timeStart: 50, timeEnd: 999 }
   ]
 }
+
+```
