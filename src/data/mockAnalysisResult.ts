@@ -105,13 +105,10 @@ export interface AudioEmotion {
 }
 
 /**
- * 雷达图时间段数据
+ * 雷达图时间段数据（索引对应时间段，类似 videoRisks）
  */
 export interface RadarDataByTime {
-  timeStart: number     // 开始时间（秒）
-  timeEnd: number       // 结束时间（秒）
   data: number[]        // 6个维度的数据 [身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
-  description?: string  // 时段描述
 }
 
 /**
@@ -956,38 +953,13 @@ export const mockAnalysisResult: AnalysisResult = {
       { riskLevel: 'medium', intensity: 0.55 }
     ],
 
-    // 11.5 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
+    // 11.5 雷达图时间段数据（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
     radarByTime: [
-      {
-        timeStart: 0,
-        timeEnd: 10,
-        data: [85, 65, 15, 20, 25, 15],
-        description: '自我介绍，明确学生身份'
-      },
-      {
-        timeStart: 10,
-        timeEnd: 20,
-        data: [85, 80, 40, 35, 45, 30],
-        description: '陈述问题，涉及学校系统'
-      },
-      {
-        timeStart: 20,
-        timeEnd: 30,
-        data: [85, 95, 88, 70, 85, 75],
-        description: '情绪激动，强烈批评学校'
-      },
-      {
-        timeStart: 30,
-        timeEnd: 40,
-        data: [85, 90, 65, 55, 70, 50],
-        description: '持续不满，可能引发共鸣'
-      },
-      {
-        timeStart: 40,
-        timeEnd: 50,
-        data: [85, 85, 35, 40, 50, 35],
-        description: '提出诉求并呼吁传播'
-      }
+      { data: [85, 65, 15, 20, 25, 15] },
+      { data: [85, 80, 40, 35, 45, 30] },
+      { data: [85, 95, 88, 70, 85, 75] },
+      { data: [85, 90, 65, 55, 70, 50] },
+      { data: [85, 85, 35, 40, 50, 35] }
     ]
   },
 

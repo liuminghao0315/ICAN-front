@@ -893,9 +893,6 @@
                     <div class="score-label-side">当前风险分</div>
                   </div>
                 </div>
-                <div class="fusion-formula-compact">
-                  风险分 = 身份置信×0.15 + 学校关联×0.20 + 负面情感×0.30 + 传播×0.15 + 影响×0.10 + 紧迫度×0.10
-                </div>
               </div>
             </div>
           </div>
@@ -1345,13 +1342,11 @@ const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/202
 // ==================== 动态雷达图数据（根据视频时间变化） ====================
 // 雷达图时间段数据已从mockAnalysisResult导入（第1307行）
 
-// 当前时间点的雷达图数据（动态计算）
+// 当前时间点的雷达图数据（基于索引计算）
 const currentRadarData = computed(() => {
   const currentTime = currentPlayTime.value
-  const dataPoint = mockRadarDataByTime.find(
-    item => currentTime >= item.timeStart && currentTime < item.timeEnd
-  )
-  return dataPoint ? dataPoint.data : mockRadarDataByTime[0].data
+  const index = Math.min(Math.floor(currentTime / timeGranularity), mockRadarDataByTime.length - 1)
+  return mockRadarDataByTime[index].data
 })
 
 // 当前选中的证据对象
@@ -1555,7 +1550,7 @@ const multiModalRadarOption = computed(() => {
         
         let html = `
           <div style="min-width: 260px;">
-            <div style="font-size: 14px; font-weight: 600; color: #f56c6c; margin-bottom: 8px; border-bottom: 2px solid #f56c6c; padding-bottom: 6px;">
+            <div style="font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 8px; border-bottom: 1.5px solid #111827; padding-bottom: 6px;">
               <i class="fas fa-chart-area" style="margin-right: 4px;"></i>
               ${params.name}
             </div>
@@ -1565,20 +1560,18 @@ const multiModalRadarOption = computed(() => {
         dimensions.forEach((dim, index) => {
           const value = values[index] || 0
           let levelText = '正常'
-          let levelColor = '#52c41a'
+          let levelColor = '#10b981'  // 默认绿色
           
-          if (value >= 80) {
-            levelText = '极高'
-            levelColor = '#f56c6c'
-          } else if (value >= 60) {
+          // 根据风险值动态设置颜色
+          if (value > 66.7) {
             levelText = '高'
-            levelColor = '#ff7875'
-          } else if (value >= 40) {
+            levelColor = '#ef4444'  // 红色
+          } else if (value >= 33.3) {
             levelText = '中'
-            levelColor = '#faad14'
-          } else if (value >= 20) {
+            levelColor = '#f59e0b'  // 橙色
+          } else {
             levelText = '低'
-            levelColor = '#95de64'
+            levelColor = '#10b981'  // 绿色
           }
           
           html += `
@@ -1597,20 +1590,21 @@ const multiModalRadarOption = computed(() => {
           `
         })
         
-        // 计算综合风险
-        const avgRisk = values.reduce((a: number, b: number) => a + b, 0) / values.length
-        let overallLevel = '正常'
-        let overallColor = '#52c41a'
+        // 获取当前时间对应的综合风险分（直接引用 comprehensiveRisks）
+        const currentTime = currentPlayTime.value
+        const index = Math.min(Math.floor(currentTime / timeGranularity), mockComprehensiveRisksData.length - 1)
+        const comprehensiveRisk = mockComprehensiveRisksData[index]
+        const avgRisk = comprehensiveRisk.intensity * 100  // 转为百分比
         
-        if (avgRisk >= 70) {
+        let overallLevel = '低风险'
+        let overallColor = '#10b981'  // 默认绿色
+        
+        if (avgRisk > 66.7) {
           overallLevel = '高风险'
-          overallColor = '#f56c6c'
-        } else if (avgRisk >= 50) {
+          overallColor = '#ef4444'  // 红色
+        } else if (avgRisk >= 33.3) {
           overallLevel = '中等风险'
-          overallColor = '#faad14'
-        } else if (avgRisk >= 30) {
-          overallLevel = '低风险'
-          overallColor = '#95de64'
+          overallColor = '#f59e0b'  // 橙色
         }
         
         html += `
@@ -3433,15 +3427,15 @@ const formatTotalDuration = (): string => {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-// ==================== 绿圈实时分析栏：计算当前帧风险 ====================
+// ==================== 绿圈实时分析栏：获取当前风险分 ====================
 /**
- * 获取当前帧的综合风险分数（动态计算，与雷达图同步）
+ * 获取当前帧的综合风险分数（直接引用 comprehensiveRisks）
  */
 const getCurrentRiskScore = (): number => {
-  // 使用当前时间点的雷达图数据计算综合风险
-  const radarData = currentRadarData.value
-  const avgRisk = radarData.reduce((a, b) => a + b, 0) / radarData.length
-  return Math.round(avgRisk) // 四舍五入到整数
+  const currentTime = currentPlayTime.value
+  const index = Math.min(Math.floor(currentTime / timeGranularity), mockComprehensiveRisksData.length - 1)
+  const riskPoint = mockComprehensiveRisksData[index]
+  return Math.round(riskPoint.intensity * 100) // 转为百分比
 }
 
 /**
@@ -3449,8 +3443,8 @@ const getCurrentRiskScore = (): number => {
  */
 const getCurrentRiskClass = (): string => {
   const score = getCurrentRiskScore()
-  if (score >= 70) return 'high'
-  if (score >= 40) return 'medium'
+  if (score > 66.7) return 'high'
+  if (score >= 33.3) return 'medium'
   return 'low'
 }
 
@@ -7585,9 +7579,9 @@ $purple: #4b70e2;
             margin-bottom: 4px;
             transition: color 0.3s ease;
             
-            &.low { color: #67c23a; }
-            &.medium { color: #e6a23c; }
-            &.high { color: #f56c6c; }
+            &.low { color: #10b981; }      // 绿色
+            &.medium { color: #f59e0b; }   // 橙色
+            &.high { color: #ef4444; }     // 红色
           }
           
           .score-label-side {
