@@ -75,7 +75,6 @@ export interface TranscriptSegment {
 export interface VideoRiskPoint {
   riskLevel: 'low' | 'medium' | 'high'  // 风险等级
   reason: string        // 风险原因
-  sceneType?: string    // 场景类型
   intensity: number     // 风险强度 0-1
 }
 
@@ -85,7 +84,6 @@ export interface VideoRiskPoint {
 export interface TextRiskPoint {
   riskLevel: 'low' | 'medium' | 'high'  // 风险等级
   reason: string        // 风险原因
-  keywords: string[]    // 关键词
   intensity: number     // 风险强度 0-1
 }
 
@@ -858,31 +856,26 @@ export const mockAnalysisResult: AnalysisResult = {
       {
         riskLevel: 'low',
         reason: '检测到学生宿舍场景',
-        sceneType: 'dormitory',
         intensity: 0.25
       },
       {
         riskLevel: 'low',
         reason: '正常陈述，无明显风险',
-        sceneType: 'normal',
         intensity: 0.30
       },
       {
         riskLevel: 'high',
         reason: '检测到愤怒表情和激烈手势',
-        sceneType: 'emotion_anger',
         intensity: 0.92
       },
       {
         riskLevel: 'medium',
         reason: '持续的不满情绪表达',
-        sceneType: 'emotion_serious',
         intensity: 0.68
       },
       {
         riskLevel: 'medium',
         reason: 'OCR识别到学校选课系统界面截图',
-        sceneType: 'screen_capture',
         intensity: 0.55
       }
     ],
@@ -921,31 +914,26 @@ export const mockAnalysisResult: AnalysisResult = {
       {
         riskLevel: 'low',
         reason: '平静介绍，正常陈述',
-        keywords: ['学生', '选课系统'],
         intensity: 0.20
       },
       {
         riskLevel: 'medium',
         reason: '表达不满，涉及系统问题',
-        keywords: ['失望', '崩溃'],
         intensity: 0.58
       },
       {
         riskLevel: 'high',
         reason: '情绪激烈，使用极端词汇批评学校',
-        keywords: ['笑话', '垃圾'],
         intensity: 1.0
       },
       {
         riskLevel: 'medium',
         reason: '持续表达不满，可能引发其他学生共鸣',
-        keywords: ['抢不到', '热门课'],
         intensity: 0.65
       },
       {
         riskLevel: 'medium',
         reason: '呼吁传播，有一定传播风险',
-        keywords: ['点赞', '转发', '教务处'],
         intensity: 0.50
       }
     ],
