@@ -92,7 +92,6 @@ export interface TextRiskPoint {
  */
 export interface ComprehensiveRiskPoint {
   riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  reason: string        // 综合风险原因
   intensity: number     // 风险强度 0-1（三个模态的最大值）
 }
 
@@ -950,31 +949,11 @@ export const mockAnalysisResult: AnalysisResult = {
 
     // 11.4 综合风险点（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
     comprehensiveRisks: [
-      {
-        riskLevel: 'low',
-        reason: '开场介绍，整体风险较低',
-        intensity: 0.30
-      },
-      {
-        riskLevel: 'medium',
-        reason: '开始表达不满，情绪有所波动',
-        intensity: 0.58
-      },
-      {
-        riskLevel: 'high',
-        reason: '情绪激动，使用极端词汇，多模态高风险',
-        intensity: 1.0
-      },
-      {
-        riskLevel: 'medium',
-        reason: '持续批评，可能引发共鸣',
-        intensity: 0.70
-      },
-      {
-        riskLevel: 'medium',
-        reason: '呼吁传播，有传播风险',
-        intensity: 0.55
-      }
+      { riskLevel: 'low', intensity: 0.30 },
+      { riskLevel: 'medium', intensity: 0.58 },
+      { riskLevel: 'high', intensity: 1.0 },
+      { riskLevel: 'medium', intensity: 0.70 },
+      { riskLevel: 'medium', intensity: 0.55 }
     ],
 
     // 11.5 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）

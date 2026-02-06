@@ -2068,12 +2068,31 @@ const multiModalTimelineOption = computed(() => {
           color: 'rgba(75, 112, 226, 0.4)', 
           width: 1,
           type: 'dashed'
+        },
+        label: {
+          show: true,
+          backgroundColor: '#4b70e2',
+          borderColor: '#4b70e2',
+          borderWidth: 1,
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 'bold',
+          padding: [4, 8],
+          borderRadius: 4,
+          shadowBlur: 4,
+          shadowColor: 'rgba(75, 112, 226, 0.3)',
+          formatter: (params: any) => {
+            const value = params.value
+            const m = Math.floor(value / 60)
+            const s = Math.floor(value % 60)
+            return `${m}:${s.toString().padStart(2, '0')}`
+          }
         }
       },
       backgroundColor: 'rgba(255, 255, 255, 0.98)',
       borderColor: 'rgba(209, 217, 230, 0.4)',
       borderWidth: 1,
-      padding: 14,
+      padding: [8, 15],
       textStyle: { color: '#181818', fontSize: 12 },
       extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 10px;',
       formatter: (params: any) => {
@@ -2083,106 +2102,81 @@ const multiModalTimelineOption = computed(() => {
         const data = multiModalData[dataIndex]
         if (!data) return ''
         
-        const time = data.time
-        const m = Math.floor(time / 60)
-        const s = Math.floor(time % 60)
-        const timeStr = `${m}:${s.toString().padStart(2, '0')}`
-        
-        // 计算综合风险
-        const maxRisk = Math.max(data.videoScore, data.audioScore, data.textScore)
-        let riskLevel = '低风险'
-        let riskColor = '#52c41a'
-        if (maxRisk >= 70) {
-          riskLevel = '高风险'
-          riskColor = '#f56c6c'
-        } else if (maxRisk >= 40) {
-          riskLevel = '中风险'
-          riskColor = '#faad14'
+        // 使用comprehensiveScore作为综合风险
+        const comprehensiveScore = data.comprehensiveScore
+        let riskColor = '#10b981'
+        let riskBg = 'rgba(16, 185, 129, 0.1)'
+        if (comprehensiveScore >= 70) {
+          riskColor = '#ef4444'
+          riskBg = 'rgba(239, 68, 68, 0.1)'
+        } else if (comprehensiveScore >= 40) {
+          riskColor = '#f59e0b'
+          riskBg = 'rgba(245, 158, 11, 0.1)'
         }
         
         let html = `
-          <div style="min-width: 260px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
-              <i class="fas fa-clock" style="color: #4b70e2;"></i>
-              <strong style="font-size: 14px;">时间: ${timeStr}</strong>
+          <div style="min-width: 200px; max-width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+            <!-- 综合风险标题 -->
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <span style="color: #111827; font-weight: 600; font-size: 15px; flex-shrink: 0; margin-right: 10px;">综合风险</span>
+              <div style="display: inline-flex; align-items: center; gap: 6px; background: ${riskBg}; padding: 5px 12px; border-radius: 6px;">
+                <div style="width: 6px; height: 6px; border-radius: 50%; background: ${riskColor};"></div>
+                <span style="color: ${riskColor}; font-weight: 700; font-size: 16px;">${comprehensiveScore.toFixed(0)}%</span>
+              </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-              <i class="fas fa-chart-bar" style="color: ${riskColor};"></i>
-              <span style="font-size: 15px; font-weight: 600; color: ${riskColor};">
-                风险指数: ${maxRisk.toFixed(1)}% (${riskLevel})
-              </span>
-            </div>
-            <div style="border-top: 1px solid #e8e8e8; padding-top: 10px; margin-top: 10px;">
+            
+            <div style="width: 100%; height: 1px; background: #e5e7eb; margin-bottom: 14px;"></div>
         `
         
-        // 始终显示三个模态的数据（即使是0%也要显示）
-        
-        // 1. 视频模态
-        const videoColor = data.videoScore >= 70 ? '#f56c6c' : data.videoScore >= 40 ? '#faad14' : data.videoScore > 0 ? '#52c41a' : '#999'
+        // 1. 视频风险
+        const videoColor = data.videoScore < 33.3 ? '#10b981' : data.videoScore > 66.7 ? '#ef4444' : '#f59e0b'
         html += `
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="color: #f56c6c; font-weight: 600; font-size: 12px;">📹 视频风险</span>
-              <span style="color: ${videoColor}; font-weight: 700; font-size: 13px;">${data.videoScore.toFixed(1)}%</span>
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="color: #374151; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">视频风险</span>
+              <span style="color: ${videoColor}; font-weight: 700; font-size: 15px;">${data.videoScore.toFixed(0)}%</span>
             </div>
             ${data.videoRisk 
-              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.videoRisk.reason}</div>` 
-              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段视频画面正常</div>`
+              ? `<div style="color: #6b7280; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${videoColor};">${data.videoRisk.reason}</div>` 
+              : `<div style="color: #9ca3af; font-size: 12px; padding-left: 8px;">该时段画面正常</div>`
             }
           </div>
         `
         
-        // 2. 音频模态
-        const audioColor = data.audioScore >= 70 ? '#f56c6c' : data.audioScore >= 40 ? '#faad14' : data.audioScore > 0 ? '#52c41a' : '#999'
+        // 2. 音频情绪
+        const audioColor = data.audioScore < 33.3 ? '#10b981' : data.audioScore > 66.7 ? '#ef4444' : '#f59e0b'
         html += `
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="color: #faad14; font-weight: 600; font-size: 12px;">🎵 音频情绪</span>
-              <span style="color: ${audioColor}; font-weight: 700; font-size: 13px;">${data.audioScore.toFixed(1)}%</span>
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="color: #374151; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">音频情绪</span>
+              <span style="color: ${audioColor}; font-weight: 700; font-size: 15px;">${data.audioScore.toFixed(0)}%</span>
             </div>
             ${data.audioEmotion 
-              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.audioEmotion.reason}</div>` 
-              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段音频情绪稳定</div>`
+              ? `<div style="color: #6b7280; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${audioColor};">${data.audioEmotion.reason}</div>` 
+              : `<div style="color: #9ca3af; font-size: 12px; padding-left: 8px;">该时段情绪稳定</div>`
             }
           </div>
         `
         
-        // 3. 文本模态
-        const textColor = data.textScore >= 70 ? '#f56c6c' : data.textScore >= 40 ? '#faad14' : data.textScore > 0 ? '#52c41a' : '#999'
+        // 3. 文本内容
+        const textColor = data.textScore < 33.3 ? '#10b981' : data.textScore > 66.7 ? '#ef4444' : '#f59e0b'
         html += `
-          <div style="margin-bottom: 6px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="color: #4b70e2; font-weight: 600; font-size: 12px;">📝 文本内容</span>
-              <span style="color: ${textColor}; font-weight: 700; font-size: 13px;">${data.textScore.toFixed(1)}%</span>
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="color: #374151; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">文本内容</span>
+              <span style="color: ${textColor}; font-weight: 700; font-size: 15px;">${data.textScore.toFixed(0)}%</span>
             </div>
             ${data.textSegment 
-              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.textSegment.reason}</div>` 
-              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段文本内容正常</div>`
-            }
-          </div>
-        `
-        
-        // 4. 综合风险模态
-        const comprehensiveColor = data.comprehensiveScore >= 70 ? '#f56c6c' : data.comprehensiveScore >= 40 ? '#faad14' : data.comprehensiveScore > 0 ? '#52c41a' : '#999'
-        html += `
-          <div style="margin-bottom: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8e8e8;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="color: #722ed1; font-weight: 600; font-size: 12px;">⚡ 综合风险</span>
-              <span style="color: ${comprehensiveColor}; font-weight: 700; font-size: 13px;">${data.comprehensiveScore.toFixed(1)}%</span>
-            </div>
-            ${data.comprehensiveRisk 
-              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.comprehensiveRisk.reason}</div>` 
-              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段综合风险正常</div>`
+              ? `<div style="color: #6b7280; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${textColor};">${data.textSegment.reason}</div>` 
+              : `<div style="color: #9ca3af; font-size: 12px; padding-left: 8px;">该时段内容正常</div>`
             }
           </div>
         `
         
         html += `
-            </div>
-            <div style="text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e8e8e8;">
-              <div style="color: #4b70e2; font-size: 11px; font-weight: 600;">
-                💡 点击图表跳转播放此时段
-              </div>
+            <!-- 底部操作提示 -->
+            <div style="margin-top: 14px; padding-top: 8px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <span style="color: #6588ed; font-size: 14px; font-weight: 500;">点 击 跳 转</span>
             </div>
           </div>
         `
@@ -2244,7 +2238,26 @@ const multiModalTimelineOption = computed(() => {
         margin: 8
       },
       axisPointer: {
-        snap: false  // 关键！让axisPointer不吸附到数据点，精确跟随鼠标
+        snap: false,  // 关键！让axisPointer不吸附到数据点，精确跟随鼠标
+        label: {
+          show: true,
+          backgroundColor: '#4b70e2',
+          borderColor: '#4b70e2',
+          borderWidth: 1,
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 'bold',
+          padding: [4, 8],
+          borderRadius: 4,
+          shadowBlur: 4,
+          shadowColor: 'rgba(75, 112, 226, 0.3)',
+          formatter: (params: any) => {
+            const value = params.value
+            const m = Math.floor(value / 60)
+            const s = Math.floor(value % 60)
+            return `${m}:${s.toString().padStart(2, '0')}`
+          }
+        }
       }
     },
     yAxis: {
