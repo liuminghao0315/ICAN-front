@@ -262,9 +262,14 @@
         </div>
         
         <!-- 视频 + 证据/台词（左右布局，保持宽敞） -->
-        <div class="multi-modal-container" :class="{ 'evidence-mode': currentCardId }">
+        <div class="multi-modal-container">
           <!-- 左侧：证据截图区域 -->
-          <div class="video-section" :class="{ 'half-width': currentCardId }">
+          <div 
+            class="video-section" 
+            :style="{ 
+              flex: currentCardId ? '1.2' : '1.5'
+            }"
+          >
             <div class="video-player-wrapper">
               <!-- 真实视频播放器 -->
               <video
@@ -438,7 +443,11 @@
           </div>
           
           <!-- 右侧：字幕 + 雷达图容器 / 证据详情 -->
-          <div class="right-panel-container" :class="{ 'evidence-detail-mode': currentCardId }">
+          <div 
+            class="right-panel-container" 
+            :class="{ 'evidence-detail-mode': currentCardId }"
+            :style="{ flex: '1' }"
+          >
             
             <!-- 证据详情面板（点击卡片后显示） -->
             <div v-show="currentCardId" class="evidence-detail-panel">
@@ -1008,7 +1017,7 @@ import type { CardData } from '@/components/EvidenceDrawer.vue'
 import ReportView from '@/components/ReportView.vue'
 // 导入统一的分析结果mock数据（核心数据源 - 唯一数据源）
 import { mockAnalysisResult } from '@/data/mockAnalysisResult'
-import type { ModalityFusion, StatisticsData, Evidence, Detection, RiskEvidence, AIProfileResult, SceneInfo } from '@/data/mockAnalysisResult'
+import type { ModalityFusion, Evidence, Detection, RiskEvidence, AIProfileResult, SceneInfo } from '@/data/mockAnalysisResult'
 // 导入Element Plus图标
 import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked } from '@element-plus/icons-vue'
 
@@ -1249,30 +1258,24 @@ const openEvidenceDrawer = (cardId: string) => {
   
   // 否则打开或切换到新卡片
   currentCardId.value = cardId
-  // 设置证据面板高度
+  
+  // 等待DOM更新后resize图表
   nextTick(() => {
-    const videoSection = document.querySelector('.video-section') as HTMLElement
-    const rightPanel = document.querySelector('.right-panel-container') as HTMLElement
-    
-    if (videoSection && rightPanel) {
-      // 设置右侧面板的最大高度等于左侧视频区域的高度
-      setTimeout(() => {
-        const videoSectionHeight = videoSection.offsetHeight
-        rightPanel.style.maxHeight = `${videoSectionHeight}px`
-      }, 100)
-    }
+    setTimeout(() => {
+      handleChartResize()
+    }, 350) // 等待flex动画完成（300ms + 50ms buffer）
   })
 }
 
 // 关闭证据详情面板
 const closeEvidencePanel = () => {
   currentCardId.value = ''
-  // 清除高度限制
+  
+  // 等待DOM更新后resize图表
   nextTick(() => {
-    const rightPanel = document.querySelector('.right-panel-container') as HTMLElement
-    if (rightPanel) {
-      rightPanel.style.maxHeight = ''
-    }
+    setTimeout(() => {
+      handleChartResize()
+    }, 350)
   })
 }
 
@@ -5641,24 +5644,13 @@ $purple: #4b70e2;
   }
   
   .multi-modal-container {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr;
+    display: flex; // 改用flex布局
     gap: 20px;
     margin-bottom: 20px;
-    transition: all 0.3s ease;
     align-items: start; // 关键：顶部对齐，防止拉伸
     
-    // 证据模式：左右等宽
-    &.evidence-mode {
-      grid-template-columns: 1.2fr 1fr;
-    }
-    
-    @media (max-width: 1400px) {
-      grid-template-columns: 1.2fr 1fr;
-    }
-    
     @media (max-width: 1200px) {
-      grid-template-columns: 1fr;
+      flex-direction: column;
     }
   }
   
@@ -5667,7 +5659,12 @@ $purple: #4b70e2;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    transition: all 0.3s ease;
+    min-width: 0; // 防止flex子元素溢出
+    transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                gap 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     // 移除 align-self: stretch，让它自然高度
     
     &.evidence-detail-mode {
@@ -5677,8 +5674,6 @@ $purple: #4b70e2;
       box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
       gap: 0; // 移除间距，让证据面板占满
       overflow: visible; // 完全允许内容可见，防止被裁剪
-      // 关键：确保高度不会无限增长
-      max-height: 100vh; // 临时设置，后面会用 JS 动态计算
     }
   }
   
@@ -5697,6 +5692,7 @@ $purple: #4b70e2;
   .modality-cards-row {
     display: flex;
     align-items: stretch;
+    justify-content: space-between; // 均匀分布卡片
     gap: 10px;
     margin-top: 12px;
     overflow: visible; // 纵向允许可见（用于悬停效果）
@@ -6505,6 +6501,8 @@ $purple: #4b70e2;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 0; // 防止flex子元素溢出
     
     // 视频下方的实时分析栏（单列，雷达图为主）
     .realtime-analysis-bar-inner {
@@ -8570,23 +8568,6 @@ $purple: #4b70e2;
       
       &:hover {
         transform: translateY(1px) scale(0.98); // 激活时保持按下状态
-      }
-      
-      // 确保图标颜色在active状态下保持原有颜色
-      .pro-icon {
-        // 保持原有的icon-bg-*类的颜色，不覆盖
-        &.icon-bg-identity,
-        &.icon-bg-uni,
-        &.icon-bg-topic,
-        &.icon-bg-positive,
-        &.icon-bg-neutral,
-        &.icon-bg-negative,
-        &.icon-bg-risk-low,
-        &.icon-bg-risk-medium,
-        &.icon-bg-risk-high,
-        &.icon-bg-action {
-          // 保持各自的颜色，不做改变
-        }
       }
     }
   }

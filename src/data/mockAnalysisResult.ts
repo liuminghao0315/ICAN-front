@@ -23,16 +23,6 @@ export interface Evidence {
 }
 
 /**
- * 统计数据结构（用于态度分析）
- */
-export interface StatisticsData {
-  positive: number    // 正面次数
-  neutral: number     // 中性次数
-  negative: number    // 负面次数
-  total: number       // 总次数
-}
-
-/**
  * 多模态融合数据结构
  * 注：仅用于加权融合分类（identity, university, topic, opinionRisk, action）
  * 统计分类（attitude）不使用此结构
