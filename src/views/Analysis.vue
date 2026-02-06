@@ -2037,40 +2037,6 @@ const multiModalTimelineOption = computed(() => {
   const comprehensiveData = multiModalData.map(d => [d.time, d.comprehensiveScore])
   
   return {
-    graphic: [
-      {
-        type: 'line',
-        id: 'progressLine',
-        z: 100,
-        silent: true,
-        invisible: true,
-        shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
-        style: {
-          stroke: '#ff4d4f',
-          lineWidth: 3,
-          shadowBlur: 6,
-          shadowColor: 'rgba(255, 77, 79, 0.3)'
-        }
-      },
-      {
-        type: 'text',
-        id: 'progressLabel',
-        z: 101,
-        silent: true,
-        invisible: true,
-        style: {
-          text: '00:00',
-          fill: '#fff',
-          fontSize: 11,
-          fontWeight: 'bold',
-          backgroundColor: '#ff4d4f',
-          padding: [4, 8],
-          borderRadius: 4
-        },
-        left: 0,
-        top: 0
-      }
-    ],
     tooltip: {
       trigger: 'axis',
       appendToBody: true,  // 允许自由移动
@@ -3134,6 +3100,8 @@ const onVideoTimeUpdate = () => {
   
   const newTime = mainVideoPlayerRef.value.currentTime
   currentPlayTime.value = newTime
+  
+  // 更新进度线（不影响tooltip）
   updateProgressLine(newTime)
   
   const currentTime = newTime
@@ -3156,10 +3124,10 @@ const onVideoTimeUpdate = () => {
   currentDetection.value = detection || null
 }
 
-// 更新进度线(使用ZRender底层API,不触发图表重绘)
+// 独立更新进度线（使用setOption局部更新，避免tooltip闪烁）
 let progressLineUpdatePending = false
 const updateProgressLine = (time: number) => {
-  if (!timelineChartRef.value || progressLineUpdatePending) return
+  if (!timelineChartRef.value || progressLineUpdatePending || time <= 0) return
   
   progressLineUpdatePending = true
   
@@ -3169,53 +3137,54 @@ const updateProgressLine = (time: number) => {
       return
     }
     
-    const chartInstance = timelineChartRef.value
+    const m = Math.floor(time / 60)
+    const s = Math.floor(time % 60)
+    const timeLabel = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
     
-    try {
-      const pointTop = chartInstance.convertToPixel('grid', [time, 100])
-      const pointBottom = chartInstance.convertToPixel('grid', [time, 0])
-      
-      if (!pointTop || !pointBottom) {
-        progressLineUpdatePending = false
-        return
-      }
-      
-      const m = Math.floor(time / 60)
-      const s = Math.floor(time % 60)
-      const timeLabel = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-      
-      const zr = chartInstance.getZr()
-      if (zr) {
-        const lineElement = zr.storage.getDisplayList().find((el: any) => el.id === 'progressLine')
-        const labelElement = zr.storage.getDisplayList().find((el: any) => el.id === 'progressLabel')
-        
-        if (lineElement) {
-          lineElement.attr({
-            invisible: false,
-            shape: {
-              x1: pointBottom[0],
-              y1: pointBottom[1],
-              x2: pointTop[0],
-              y2: pointTop[1]
-            }
-          })
+    // 使用notMerge: false 保持其他配置，只更新markLine
+    timelineChartRef.value.setOption({
+      series: [
+        { seriesIndex: 0 },
+        { seriesIndex: 1 },
+        { seriesIndex: 2 },
+        {
+          seriesIndex: 3,
+          markLine: {
+            symbol: 'none',
+            animation: false,
+            silent: true,  // 关键：不触发事件
+            data: [
+              [
+                { coord: [time, 0], symbol: 'none' },
+                {
+                  coord: [time, 100],
+                  symbol: 'none',
+                  lineStyle: {
+                    color: '#ff4d4f',
+                    width: 3,
+                    type: 'solid',
+                    opacity: 0.9,
+                    shadowBlur: 6,
+                    shadowColor: 'rgba(255, 77, 79, 0.3)'
+                  },
+                  label: {
+                    show: true,
+                    position: 'insideStartTop',
+                    formatter: timeLabel,
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 'bold',
+                    backgroundColor: '#ff4d4f',
+                    padding: [4, 8],
+                    borderRadius: 4
+                  }
+                }
+              ]
+            ]
+          }
         }
-        
-        if (labelElement) {
-          labelElement.attr({
-            invisible: false,
-            style: { text: timeLabel },
-            x: pointTop[0] - 25,
-            y: pointTop[1] - 30
-          })
-        }
-        
-        zr.refreshImmediately()
-      }
-      
-    } catch (error) {
-      console.warn('[进度线更新失败]', error)
-    }
+      ]
+    }, { notMerge: false, lazyUpdate: false, silent: true })
     
     progressLineUpdatePending = false
   })
