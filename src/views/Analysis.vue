@@ -1082,8 +1082,10 @@ const mockOpinionRisk = {
 // 提取台词转录数据
 const mockTranscriptSegmentsData = mockAnalysisResult.transcriptSegments
 // 提取时间轴数据
+const timeGranularity = mockAnalysisResult.timelineData.timeGranularity  // 时间粒度
 const mockVideoRisksData = mockAnalysisResult.timelineData.videoRisks
-const mockAudioEmotionsData = mockAnalysisResult.timelineData.audioEmotions  
+const mockAudioEmotionsData = mockAnalysisResult.timelineData.audioEmotions
+const mockTextRisksData = mockAnalysisResult.timelineData.textRisks
 const mockRadarDataByTime = mockAnalysisResult.timelineData.radarByTime
 // 提取辅助分析数据
 const mockRiskEvidence = mockAnalysisResult.riskEvidences
@@ -1492,6 +1494,9 @@ const mockVideoRisks = computed(() => mockVideoRisksData)
 
 // 音频情绪数据（直接使用统一数据源）
 const mockAudioEmotions = computed(() => mockAudioEmotionsData)
+
+// 文本风险数据（直接使用统一数据源）
+const mockTextRisks = computed(() => mockTextRisksData)
 
 // 统计数据（用于模板）
 const angryEmotionCount = computed(() => {
@@ -1988,17 +1993,21 @@ const multiModalTimelineOption = computed(() => {
   
   // 多模态数据（三条独立曲线）
   const multiModalData = timePoints.map(t => {
-    // 视频风险
-    const videoRisk = mockVideoRisks.value.find(r => Math.abs(r.time - t) < 3)
-    const videoScore = videoRisk ? (videoRisk.riskLevel === 'high' ? 90 : 60) : 0
+    // 根据时间计算索引（使用时间粒度），限制不越界
+    const rawIndex = Math.floor(t / timeGranularity)
+    const index = Math.min(rawIndex, mockVideoRisks.value.length - 1)
     
-    // 音频情绪风险
-    const audioEmotion = mockAudioEmotions.value.find(e => t >= e.start && t < e.end)
+    // 视频风险（使用索引查询，O(1)复杂度）
+    const videoRisk = mockVideoRisks.value[index]
+    const videoScore = videoRisk ? videoRisk.intensity * 100 : 0
+    
+    // 音频情绪风险（使用索引查询，O(1)复杂度）
+    const audioEmotion = mockAudioEmotions.value[index]
     const audioScore = audioEmotion ? audioEmotion.intensity * 100 : 0
     
-    // 文本风险
-    const textSegment = mockTranscriptSegments.value.find(s => t >= s.start && t < s.end)
-    const textScore = textSegment ? (textSegment.riskLevel === 'high' ? 100 : textSegment.riskLevel === 'medium' ? 60 : 20) : 0
+    // 文本风险（使用索引查询，O(1)复杂度）
+    const textRisk = mockTextRisks.value[index]
+    const textScore = textRisk ? textRisk.intensity * 100 : 0
     
     return {
       time: t,
@@ -2007,7 +2016,7 @@ const multiModalTimelineOption = computed(() => {
       textScore,
       videoRisk,
       audioEmotion,
-      textSegment
+      textSegment: textRisk
     }
   })
   

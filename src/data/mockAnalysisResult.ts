@@ -70,21 +70,29 @@ export interface TranscriptSegment {
 }
 
 /**
- * 视频风险点
+ * 视频风险点（基于索引的时间序列数据）
  */
 export interface VideoRiskPoint {
-  time: number          // 时间点（秒）
   riskLevel: 'low' | 'medium' | 'high'  // 风险等级
   reason: string        // 风险原因
   sceneType?: string    // 场景类型
+  intensity: number     // 风险强度 0-1
 }
 
 /**
- * 音频情绪片段
+ * 文本风险点（基于索引的时间序列数据）
+ */
+export interface TextRiskPoint {
+  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
+  reason: string        // 风险原因
+  keywords: string[]    // 关键词
+  intensity: number     // 风险强度 0-1
+}
+
+/**
+ * 音频情绪片段（基于索引的时间序列数据）
  */
 export interface AudioEmotion {
-  start: number         // 开始时间（秒）
-  end: number           // 结束时间（秒）
   emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪类型
   intensity: number     // 强度 0-1
   reason: string        // 检测原因
@@ -290,8 +298,10 @@ export interface AnalysisResult {
   
   // 时间轴数据
   timelineData: {
-    videoRisks: VideoRiskPoint[]      // 视频风险点
-    audioEmotions: AudioEmotion[]     // 音频情绪
+    timeGranularity: number           // 时间粒度（秒），表示数组元素之间的时间间隔
+    videoRisks: VideoRiskPoint[]      // 视频风险点（索引即时间段）
+    audioEmotions: AudioEmotion[]     // 音频情绪（索引即时间段）
+    textRisks: TextRiskPoint[]        // 文本风险点（索引即时间段）
     radarByTime: RadarDataByTime[]    // 雷达图时间段数据
   }
   
@@ -310,7 +320,7 @@ export const mockAnalysisResult: AnalysisResult = {
     videoId: 'video_20240201_001',
     fileName: '北大学生吐槽选课系统_20240201.mp4',
     fileSize: 128 * 1024 * 1024, // 128MB
-    duration: 195, // 3分15秒
+    duration: 50, // 50秒
     resolution: '1920×1080',
     uploadTime: '2024-02-01 14:30:25',
     uploadSource: '本地上传',
@@ -774,7 +784,7 @@ export const mockAnalysisResult: AnalysisResult = {
     {
       id: '1',
       start: 0,
-      end: 18,
+      end: 10,
       text: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
       content: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
       emotion: 'calm',
@@ -784,8 +794,8 @@ export const mockAnalysisResult: AnalysisResult = {
     },
     {
       id: '2',
-      start: 18,
-      end: 42,
+      start: 10,
+      end: 22,
       text: '说实话，这个系统真的让人很失望。每次选课的时候都会崩溃，根本登不上去。',
       content: '说实话，这个系统真的让人很失望。每次选课的时候都会崩溃，根本登不上去。',
       emotion: 'serious',
@@ -795,8 +805,8 @@ export const mockAnalysisResult: AnalysisResult = {
     },
     {
       id: '3',
-      start: 42,
-      end: 68,
+      start: 22,
+      end: 32,
       text: '学校的选课系统简直就是个笑话！每到选课季就崩溃，这是什么垃圾服务器？！',
       content: '学校的选课系统简直就是个笑话！每到选课季就崩溃，这是什么垃圾服务器？！',
       emotion: 'angry',
@@ -806,8 +816,8 @@ export const mockAnalysisResult: AnalysisResult = {
     },
     {
       id: '4',
-      start: 68,
-      end: 98,
+      start: 32,
+      end: 42,
       text: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
       content: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
       emotion: 'serious',
@@ -817,8 +827,8 @@ export const mockAnalysisResult: AnalysisResult = {
     },
     {
       id: '5',
-      start: 98,
-      end: 125,
+      start: 42,
+      end: 48,
       text: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
       content: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
       emotion: 'calm',
@@ -828,99 +838,119 @@ export const mockAnalysisResult: AnalysisResult = {
     },
     {
       id: '6',
-      start: 125,
-      end: 155,
+      start: 48,
+      end: 50,
       text: '如果你也是北大的学生，如果你也有同样的经历，请点赞、转发，让更多人看到！',
       content: '如果你也是北大的学生，如果你也有同样的经历，请点赞、转发，让更多人看到！',
       emotion: 'tense',
       riskLevel: 'medium',
       keywords: ['点赞', '转发'],
       reason: '呼吁传播，有一定传播风险'
-    },
-    {
-      id: '7',
-      start: 155,
-      end: 195,
-      text: '最后想说，希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
-      content: '最后想说，希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
-      emotion: 'calm',
-      riskLevel: 'low',
-      keywords: ['相关部门', '同学'],
-      reason: '结尾总结，语气平和'
     }
   ],
 
   // ========== 11. 时间轴数据 ==========
   timelineData: {
-    // 11.1 视频风险点
+    timeGranularity: 10,  // 时间粒度：10秒
+
+    // 11.1 视频风险点（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
     videoRisks: [
       {
-        time: 5,
         riskLevel: 'low',
         reason: '检测到学生宿舍场景',
-        sceneType: 'dormitory'
+        sceneType: 'dormitory',
+        intensity: 0.25
       },
       {
-        time: 35,
+        riskLevel: 'low',
+        reason: '正常陈述，无明显风险',
+        sceneType: 'normal',
+        intensity: 0.30
+      },
+      {
         riskLevel: 'high',
         reason: '检测到愤怒表情和激烈手势',
-        sceneType: 'emotion_anger'
+        sceneType: 'emotion_anger',
+        intensity: 0.92
       },
       {
-        time: 45,
+        riskLevel: 'medium',
+        reason: '持续的不满情绪表达',
+        sceneType: 'emotion_serious',
+        intensity: 0.68
+      },
+      {
         riskLevel: 'medium',
         reason: 'OCR识别到学校选课系统界面截图',
-        sceneType: 'screen_capture'
+        sceneType: 'screen_capture',
+        intensity: 0.55
       }
     ],
 
-    // 11.2 音频情绪
+    // 11.2 音频情绪（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
     audioEmotions: [
       {
-        start: 0,
-        end: 15,
         emotion: 'calm',
-        intensity: 0.3,
+        intensity: 0.30,
         reason: '语音平稳，无明显情绪波动'
       },
       {
-        start: 15,
-        end: 42,
         emotion: 'calm',
-        intensity: 0.4,
-        reason: '语速正常，情绪稳定'
+        intensity: 0.42,
+        reason: '语速正常，开始表达不满'
       },
       {
-        start: 42,
-        end: 68,
         emotion: 'angry',
-        intensity: 0.9,
+        intensity: 0.95,
         reason: '检测到愤怒咆哮，音量突然增大'
       },
       {
-        start: 68,
-        end: 95,
         emotion: 'tense',
-        intensity: 0.7,
+        intensity: 0.70,
         reason: '语气紧张激动，音调升高'
       },
       {
-        start: 95,
-        end: 125,
         emotion: 'tense',
-        intensity: 0.6,
-        reason: '情绪持续紧张状态'
-      },
-      {
-        start: 125,
-        end: 155,
-        emotion: 'calm',
-        intensity: 0.4,
-        reason: '情绪逐渐平复'
+        intensity: 0.52,
+        reason: '情绪逐渐平复，但仍有紧张感'
       }
     ],
 
-    // 11.3 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
+    // 11.3 文本风险点（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
+    textRisks: [
+      {
+        riskLevel: 'low',
+        reason: '平静介绍，正常陈述',
+        keywords: ['学生', '选课系统'],
+        intensity: 0.20
+      },
+      {
+        riskLevel: 'medium',
+        reason: '表达不满，涉及系统问题',
+        keywords: ['失望', '崩溃'],
+        intensity: 0.58
+      },
+      {
+        riskLevel: 'high',
+        reason: '情绪激烈，使用极端词汇批评学校',
+        keywords: ['笑话', '垃圾'],
+        intensity: 1.0
+      },
+      {
+        riskLevel: 'medium',
+        reason: '持续表达不满，可能引发其他学生共鸣',
+        keywords: ['抢不到', '热门课'],
+        intensity: 0.65
+      },
+      {
+        riskLevel: 'medium',
+        reason: '呼吁传播，有一定传播风险',
+        keywords: ['点赞', '转发', '教务处'],
+        intensity: 0.50
+      }
+    ],
+
+    // 11.4 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
     radarByTime: [
       {
         timeStart: 0,
@@ -950,13 +980,7 @@ export const mockAnalysisResult: AnalysisResult = {
         timeStart: 40,
         timeEnd: 50,
         data: [85, 85, 35, 40, 50, 35],
-        description: '提出诉求，语气缓和'
-      },
-      {
-        timeStart: 50,
-        timeEnd: 999,
-        data: [85, 80, 25, 45, 40, 25],
-        description: '呼吁传播，有一定传播风险'
+        description: '提出诉求并呼吁传播'
       }
     ]
   },
@@ -1078,8 +1102,8 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // 12.4 场景识别
   sceneRecognition: [
-    { id: 'scene-1', name: '教室', icon: '🏫', confidence: 0.92, timeStart: 0, timeEnd: 20 },
-    { id: 'scene-2', name: '宿舍', icon: '🛏️', confidence: 0.95, timeStart: 20, timeEnd: 50 },
-    { id: 'scene-3', name: '校园室外', icon: '🌳', confidence: 0.88, timeStart: 50, timeEnd: 999 }
+    { id: 'scene-1', name: '教室', icon: '🏫', confidence: 0.92, timeStart: 0, timeEnd: 15 },
+    { id: 'scene-2', name: '宿舍', icon: '🛏️', confidence: 0.95, timeStart: 15, timeEnd: 35 },
+    { id: 'scene-3', name: '校园室外', icon: '🌳', confidence: 0.88, timeStart: 35, timeEnd: 50 }
   ]
 }
