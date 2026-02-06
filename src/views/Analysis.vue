@@ -177,7 +177,7 @@
                   <el-icon><User /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">身份判定 <span class="evidence-badge">({{ cardEvidencesMap.identity?.length || 0 }})</span></div>
+                  <div class="pro-label">身份判定 <span class="evidence-badge">({{ mockAnalysisResult.identity.evidences?.length || 0 }})</span></div>
                   <div class="pro-value text-identity">
                     {{ mockIdentityAnalysis.identityLabel }}
                   </div>
@@ -191,7 +191,7 @@
                   <el-icon><School /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">涉及高校 <span class="evidence-badge">({{ cardEvidencesMap.university?.length || 0 }})</span></div>
+                  <div class="pro-label">涉及高校 <span class="evidence-badge">({{ mockAnalysisResult.university.evidences?.length || 0 }})</span></div>
                   <div class="pro-value text-uni">
                     {{ mockUniversityBaseline.universityName }}
                   </div>
@@ -205,7 +205,7 @@
                   <el-icon><ChatDotRound /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">内容主题 <span class="evidence-badge">({{ cardEvidencesMap.topic?.length || 0 }})</span></div>
+                  <div class="pro-label">内容主题 <span class="evidence-badge">({{ mockAnalysisResult.topic.evidences?.length || 0 }})</span></div>
                   <div class="pro-value text-topic">
                     {{ mockContentAnalysis.topicCategory }}
                   </div>
@@ -219,7 +219,7 @@
                   <el-icon><TrendCharts /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">对学校态度 <span class="evidence-badge">({{ cardEvidencesMap.attitude?.length || 0 }})</span></div>
+                  <div class="pro-label">对学校态度 <span class="evidence-badge">({{ mockAnalysisResult.attitude.evidences?.length || 0 }})</span></div>
                   <div class="pro-value" :class="getSentimentTextClass(mockContentAnalysis.sentimentTowardSchool)">
                     {{ getSentimentLabel(mockContentAnalysis.sentimentTowardSchool) }}
                   </div>
@@ -234,7 +234,7 @@
                 </div>
                 <div class="pro-content">
                   <div class="pro-label">
-                    潜在舆论风险 <span class="evidence-badge">({{ cardEvidencesMap.opinionRisk?.length || 0 }})</span>
+                    潜在舆论风险 <span class="evidence-badge">({{ mockAnalysisResult.opinionRisk.evidences?.length || 0 }})</span>
                     <span class="ai-predict-badge">AI预测</span>
                   </div>
                   <div class="pro-value" :class="getOpinionRiskTextClass(mockOpinionRisk.riskLevel)">
@@ -250,7 +250,7 @@
                   <el-icon><DocumentChecked /></el-icon>
                 </div>
                 <div class="pro-content">
-                  <div class="pro-label">处置建议 <span class="evidence-badge">({{ cardEvidencesMap.action?.length || 0 }})</span></div>
+                  <div class="pro-label">处置建议 <span class="evidence-badge">({{ mockAnalysisResult.action.evidences?.length || 0 }})</span></div>
                   <div class="pro-value text-action">
                     {{ mockOpinionRisk.actionSuggestion }}
                   </div>
@@ -495,14 +495,13 @@
                       <div class="modality-details">
                         <span class="detail-item">
                           <el-icon :size="12"><DataLine /></el-icon>
-                          权重 {{ Math.round(currentFusion.videoWeight * 100) }}%
+                          贡献度 {{ currentFusion.videoContribution?.toFixed(1) || '0.0' }}
                         </span>
                         <span class="detail-item">
                           <el-icon :size="12"><Memo /></el-icon>
                           {{ currentFusion.videoEvidenceCount }}处证据
                         </span>
                       </div>
-                      <div class="contribution-text">贡献: {{ (currentFusion.videoScore * currentFusion.videoWeight).toFixed(1) }}</div>
                     </template>
                     
                     <!-- 统计类型 -->
@@ -540,14 +539,13 @@
                       <div class="modality-details">
                         <span class="detail-item">
                           <el-icon :size="12"><DataLine /></el-icon>
-                          权重 {{ Math.round(currentFusion.audioWeight * 100) }}%
+                          贡献度 {{ currentFusion.audioContribution?.toFixed(1) || '0.0' }}
                         </span>
                         <span class="detail-item">
                           <el-icon :size="12"><Memo /></el-icon>
                           {{ currentFusion.audioEvidenceCount }}处证据
                         </span>
                       </div>
-                      <div class="contribution-text">贡献: {{ (currentFusion.audioScore * currentFusion.audioWeight).toFixed(1) }}</div>
                     </template>
                     
                     <!-- 统计类型 -->
@@ -585,14 +583,13 @@
                       <div class="modality-details">
                         <span class="detail-item">
                           <el-icon :size="12"><DataLine /></el-icon>
-                          权重 {{ Math.round(currentFusion.textWeight * 100) }}%
+                          贡献度 {{ currentFusion.textContribution?.toFixed(1) || '0.0' }}
                         </span>
                         <span class="detail-item">
                           <el-icon :size="12"><Memo /></el-icon>
                           {{ currentFusion.textEvidenceCount }}处证据
                         </span>
                       </div>
-                      <div class="contribution-text">贡献: {{ (currentFusion.textScore * currentFusion.textWeight).toFixed(1) }}</div>
                     </template>
                     
                     <!-- 统计类型 -->
@@ -1049,10 +1046,6 @@ const showVideoDrawer = ref(false)
 const viewMode = ref<'interactive' | 'report'>('interactive')
 
 // ==================== 从统一数据源提取数据（替代散落的mock定义） ====================
-// 提取证据映射（使用Record类型以支持字符串索引）
-const cardEvidencesMap: Record<string, Evidence[]> = mockAnalysisResult.evidences as any
-// 提取多模态融合映射（使用Record类型以支持字符串索引）
-const cardFusionMap: Record<string, ModalityFusion> = mockAnalysisResult.modalityFusion as any
 // 提取各个分析结果（便捷引用）
 const mockVideoArchive = mockAnalysisResult.videoInfo
 const mockIdentityAnalysis = mockAnalysisResult.identity
@@ -1116,7 +1109,7 @@ const cardsData = computed<CardData[]>(() => [
     id: 'topic',
     label: '内容主题',
     value: mockAnalysisResult.topic.topicCategory,
-    confidence: mockAnalysisResult.modalityFusion.topic.finalScore,
+    confidence: mockAnalysisResult.topic.modalityFusion.finalScore,
     confidenceLabel: '主题置信度',
     icon: ChatDotRound,
     iconClass: 'icon-bg-topic'
@@ -1156,13 +1149,29 @@ const currentCardData = computed<CardData>(() => {
   const card = cardsData.value.find(c => c.id === currentCardId.value)
   return card || cardsData.value[0]
 })
+
+// 当前卡片的证据和融合数据（从对应的分析对象中获取）
 const currentEvidences = computed(() => {
-  return cardEvidencesMap[currentCardId.value] || []
+  const cardId = currentCardId.value
+  if (cardId === 'identity') return mockAnalysisResult.identity.evidences
+  if (cardId === 'university') return mockAnalysisResult.university.evidences
+  if (cardId === 'topic') return mockAnalysisResult.topic.evidences
+  if (cardId === 'attitude') return mockAnalysisResult.attitude.evidences
+  if (cardId === 'opinionRisk') return mockAnalysisResult.opinionRisk.evidences
+  if (cardId === 'action') return mockAnalysisResult.action.evidences
+  return []
 })
 
 // 当前卡片的多模态融合数据
 const currentFusion = computed<ModalityFusion>(() => {
-  return cardFusionMap[currentCardId.value] || cardFusionMap['identity']
+  const cardId = currentCardId.value
+  if (cardId === 'identity') return mockAnalysisResult.identity.modalityFusion
+  if (cardId === 'university') return mockAnalysisResult.university.modalityFusion
+  if (cardId === 'topic') return mockAnalysisResult.topic.modalityFusion
+  if (cardId === 'attitude') return mockAnalysisResult.attitude.modalityFusion
+  if (cardId === 'opinionRisk') return mockAnalysisResult.opinionRisk.modalityFusion
+  if (cardId === 'action') return mockAnalysisResult.action.modalityFusion
+  return mockAnalysisResult.identity.modalityFusion
 })
 
 // 分类证据
@@ -2703,7 +2712,7 @@ const loadAnalysisById = async (resultId: string) => {
     if (import.meta.env.VITE_MOCK_MODE === 'true') {
       await new Promise(resolve => setTimeout(resolve, 300))
       analysisData.value = mockAnalysisResult as any
-      selectedVideoId.value = mockAnalysisResult.videoId || ''
+      selectedVideoId.value = mockAnalysisResult.videoInfo.videoId || ''
       loading.value = false
       return
     }

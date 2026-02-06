@@ -37,17 +37,20 @@ export interface StatisticsData {
  * 多模态融合数据结构
  */
 export interface ModalityFusion {
-  videoScore: number           // 视频模态得分 0-100
-  audioScore: number           // 音频模态得分 0-100
-  textScore: number            // 文本模态得分 0-100
-  videoWeight: number          // 视频权重 0-1
-  audioWeight: number          // 音频权重 0-1
-  textWeight: number           // 文本权重 0-1
+  videoScore: number           // 视频模态得分 0-100（Python直接给出）
+  audioScore: number           // 音频模态得分 0-100（Python直接给出）
+  textScore: number            // 文本模态得分 0-100（Python直接给出）
+  videoWeight: number          // 视频权重 0-1（已弃用，保留向后兼容）
+  audioWeight: number          // 音频权重 0-1（已弃用，保留向后兼容）
+  textWeight: number           // 文本权重 0-1（已弃用，保留向后兼容）
+  videoContribution: number    // 视频模态贡献度 0-100（Python给出，三个贡献度之和=融合分数）
+  audioContribution: number    // 音频模态贡献度 0-100（Python给出，三个贡献度之和=融合分数）
+  textContribution: number     // 文本模态贡献度 0-100（Python给出，三个贡献度之和=融合分数）
   fusionFormula: string        // 融合公式（展示用）
-  finalScore: number           // 最终得分 0-100
-  videoEvidenceCount: number   // 视频证据数量
-  audioEvidenceCount: number   // 音频证据数量
-  textEvidenceCount: number    // 文本证据数量
+  finalScore: number           // 最终得分 0-100（Python给出）
+  videoEvidenceCount: number   // 视频证据数量（前端从详细证据统计）
+  audioEvidenceCount: number   // 音频证据数量（前端从详细证据统计）
+  textEvidenceCount: number    // 文本证据数量（前端从详细证据统计）
   resultType: 'confidence' | 'intensity' | 'score' | 'statistics' | 'urgency'  // 结果类型
   resultLabel: string          // 结果标签
   resultValue: string          // 结果值显示
@@ -208,6 +211,8 @@ export interface VideoInfo {
 export interface IdentityAnalysis {
   identityLabel: string     // 显示标签
   confidence: number        // 置信度 0-1
+  evidences: Evidence[]     // 详细证据列表
+  modalityFusion: ModalityFusion  // 多模态融合分析
 }
 
 /**
@@ -216,6 +221,8 @@ export interface IdentityAnalysis {
 export interface UniversityAnalysis {
   universityName: string    // 高校名称
   logoConfidence: number    // 校徽匹配置信度 0-1
+  evidences: Evidence[]     // 详细证据列表
+  modalityFusion: ModalityFusion  // 多模态融合分析
 }
 
 /**
@@ -225,6 +232,8 @@ export interface TopicAnalysis {
   topicCategory: string         // 主题大类
   topicSubCategory: string      // 主题细分
   keyTopics: string[]           // 关键话题
+  evidences: Evidence[]         // 详细证据列表
+  modalityFusion: ModalityFusion  // 多模态融合分析
 }
 
 /**
@@ -237,6 +246,8 @@ export interface AttitudeAnalysis {
   schoolMentionCount: number    // 学校提及次数
   negativeMentionCount: number  // 负面提及次数
   statistics: StatisticsData    // 情感统计
+  evidences: Evidence[]         // 详细证据列表
+  modalityFusion: ModalityFusion  // 多模态融合分析
 }
 
 /**
@@ -250,6 +261,8 @@ export interface OpinionRiskAnalysis {
   spreadPotential: number       // 传播潜力分数 1-10
   spreadPotentialLabel: string  // 传播潜力标签
   potentialImpacts: string[]    // 潜在影响
+  evidences: Evidence[]         // 详细证据列表
+  modalityFusion: ModalityFusion  // 多模态融合分析
 }
 
 /**
@@ -259,6 +272,8 @@ export interface ActionSuggestion {
   actionSuggestion: string      // 建议
   actionDetail: string          // 详细说明
   urgencyLevel: number          // 紧急程度 0-100
+  evidences: Evidence[]         // 详细证据列表
+  modalityFusion: ModalityFusion  // 多模态融合分析
 }
 
 /**
@@ -268,33 +283,13 @@ export interface AnalysisResult {
   // 视频基本信息
   videoInfo: VideoInfo
   
-  // 核心分析结果（6个维度）
+  // 核心分析结果（6个维度，每个维度包含自己的证据和融合数据）
   identity: IdentityAnalysis
   university: UniversityAnalysis
   topic: TopicAnalysis
   attitude: AttitudeAnalysis
   opinionRisk: OpinionRiskAnalysis
   action: ActionSuggestion
-  
-  // 详细证据数据（每个维度的证据列表）
-  evidences: {
-    identity: Evidence[]
-    university: Evidence[]
-    topic: Evidence[]
-    attitude: Evidence[]
-    opinionRisk: Evidence[]
-    action: Evidence[]
-  }
-  
-  // 多模态融合分析数据
-  modalityFusion: {
-    identity: ModalityFusion
-    university: ModalityFusion
-    topic: ModalityFusion
-    attitude: ModalityFusion
-    opinionRisk: ModalityFusion
-    action: ModalityFusion
-  }
   
   // 台词转录与风险定位
   transcriptSegments: TranscriptSegment[]
@@ -336,63 +331,10 @@ export const mockAnalysisResult: AnalysisResult = {
   // ========== 2. 身份判定分析 ==========
   identity: {
     identityLabel: '疑似在校学生',
-    confidence: 0.85
-  },
-
-  // ========== 3. 涉及高校分析 ==========
-  university: {
-    universityName: '北京大学',
-    logoConfidence: 0.92
-  },
-
-  // ========== 4. 内容主题分析 ==========
-  topic: {
-    topicCategory: '校园政策',
-    topicSubCategory: '选课制度吐槽',
-    keyTopics: ['选课系统崩溃', '课程名额不足', '热门课抢不到']
-  },
-
-  // ========== 5. 对学校态度分析 ==========
-  attitude: {
-    sentimentTowardSchool: 'negative',
-    sentimentLabel: '负面/不满',
-    sentimentIntensity: 0.72,
-    schoolMentionCount: 8,
-    negativeMentionCount: 4,
-    statistics: {
-      positive: 3,
-      neutral: 2,
-      negative: 4,
-      total: 9
-    }
-  },
-
-  // ========== 6. 潜在舆论风险分析 ==========
-  opinionRisk: {
-    riskLevel: 'medium',
-    riskLabel: '中等风险',
-    riskScore: 58,
-    riskReason: '可能引发跟风吐槽',
-    spreadPotential: 6.5,
-    spreadPotentialLabel: '较易传播',
-    potentialImpacts: [
-      '若上传可能引发其他学生共鸣转发',
-      '对学校选课系统形象有一定负面影响',
-      '建议先与教务处沟通后再决定'
-    ]
-  },
-
-  // ========== 7. 处置建议 ==========
-  action: {
-    actionSuggestion: '谨慎发布',
-    actionDetail: '建议人工复核后决定是否上传',
-    urgencyLevel: 75
-  },
-
-  // ========== 8. 详细证据数据 ==========
-  evidences: {
-    // 8.1 身份判定证据
-    identity: [
+    confidence: 0.85,
+    
+    // 详细证据
+    evidences: [
       {
         timestamp: 5,
         type: 'video',
@@ -433,9 +375,36 @@ export const mockAnalysisResult: AnalysisResult = {
         keyword: '同学们'
       }
     ],
+    
+    // 多模态融合分析（加权融合分类 - 展示数值分类）
+    modalityFusion: {
+      videoScore: 82,              // Python给出
+      audioScore: 91,              // Python给出
+      textScore: 85,               // Python给出
+      videoWeight: 0.3,            // 已弃用（保留兼容）
+      audioWeight: 0.5,            // 已弃用（保留兼容）
+      textWeight: 0.2,             // 已弃用（保留兼容）
+      videoContribution: 25.5,     // Python给出（贡献度）
+      audioContribution: 45.5,     // Python给出（贡献度）
+      textContribution: 17.0,      // Python给出（贡献度）
+      fusionFormula: '视频25.5 + 音频45.5 + 文本17.0',
+      finalScore: 88,              // Python给出（三个贡献度之和≈88）
+      videoEvidenceCount: 2,       // 前端统计
+      audioEvidenceCount: 2,       // 前端统计
+      textEvidenceCount: 2,        // 前端统计
+      resultType: 'confidence',
+      resultLabel: '识别置信度',
+      resultValue: '88%'           // 卡片显示时引用融合结果的值
+    }
+  },
 
-    // 8.2 涉及高校证据
-    university: [
+  // ========== 3. 涉及高校分析 ==========
+  university: {
+    universityName: '北京大学',
+    logoConfidence: 0.92,
+    
+    // 详细证据
+    evidences: [
       {
         timestamp: 5,
         type: 'video',
@@ -483,9 +452,37 @@ export const mockAnalysisResult: AnalysisResult = {
         thumbnail: undefined
       }
     ],
+    
+    // 多模态融合分析（加权融合分类 - 展示数值分类）
+    modalityFusion: {
+      videoScore: 88,              // Python给出
+      audioScore: 95,              // Python给出
+      textScore: 92,               // Python给出
+      videoWeight: 0.2,            // 已弃用（保留兼容）
+      audioWeight: 0.4,            // 已弃用（保留兼容）
+      textWeight: 0.4,             // 已弃用（保留兼容）
+      videoContribution: 18.4,     // Python给出（贡献度）
+      audioContribution: 38.0,     // Python给出（贡献度）
+      textContribution: 36.8,      // Python给出（贡献度）
+      fusionFormula: '视频18.4 + 音频38.0 + 文本36.8',
+      finalScore: 93,              // Python给出（三个贡献度之和≈93）
+      videoEvidenceCount: 3,       // 前端统计
+      audioEvidenceCount: 3,       // 前端统计
+      textEvidenceCount: 4,        // 前端统计
+      resultType: 'confidence',
+      resultLabel: '关联置信度',
+      resultValue: '93%'           // 卡片显示时引用融合结果的值
+    }
+  },
 
-    // 8.3 内容主题证据
-    topic: [
+  // ========== 4. 内容主题分析 ==========
+  topic: {
+    topicCategory: '校园政策',
+    topicSubCategory: '选课制度吐槽',
+    keyTopics: ['选课系统崩溃', '课程名额不足', '热门课抢不到'],
+    
+    // 详细证据
+    evidences: [
       {
         timestamp: 8,
         type: 'audio',
@@ -526,9 +523,45 @@ export const mockAnalysisResult: AnalysisResult = {
         keyword: '教务处'
       }
     ],
+    
+    // 多模态融合分析（加权融合分类 - 展示次级标题分类）
+    modalityFusion: {
+      videoScore: 85,              // Python给出
+      audioScore: 92,              // Python给出
+      textScore: 90,               // Python给出
+      videoWeight: 0.2,            // 已弃用（保留兼容）
+      audioWeight: 0.4,            // 已弃用（保留兼容）
+      textWeight: 0.4,             // 已弃用（保留兼容）
+      videoContribution: 17.8,     // Python给出（贡献度）
+      audioContribution: 40.5,     // Python给出（贡献度）
+      textContribution: 36.0,      // Python给出（贡献度）
+      fusionFormula: '视频17.8 + 音频40.5 + 文本36.0',
+      finalScore: 94,              // Python给出（三个贡献度之和≈94）
+      videoEvidenceCount: 1,       // 前端统计
+      audioEvidenceCount: 3,       // 前端统计
+      textEvidenceCount: 2,        // 前端统计
+      resultType: 'confidence',
+      resultLabel: '主题置信度',
+      resultValue: '94%'           // 注意：展示次级标题分类的卡片会额外显示topicSubCategory
+    }
+  },
 
-    // 8.4 对学校态度证据
-    attitude: [
+  // ========== 5. 对学校态度分析 ==========
+  attitude: {
+    sentimentTowardSchool: 'negative',
+    sentimentLabel: '负面/不满',
+    sentimentIntensity: 0.72,
+    schoolMentionCount: 8,
+    negativeMentionCount: 4,
+    statistics: {
+      positive: 3,
+      neutral: 2,
+      negative: 4,
+      total: 9
+    },
+    
+    // 详细证据
+    evidences: [
       {
         timestamp: 5,
         type: 'video',
@@ -599,9 +632,51 @@ export const mockAnalysisResult: AnalysisResult = {
         sentiment: 'neutral'
       }
     ],
+    
+    // 多模态融合分析（统计分类 - 前端完全统计）
+    modalityFusion: {
+      videoScore: 0,               // 不使用（统计类型）
+      audioScore: 0,               // 不使用（统计类型）
+      textScore: 0,                // 不使用（统计类型）
+      videoWeight: 0,              // 不使用（统计类型）
+      audioWeight: 0,              // 不使用（统计类型）
+      textWeight: 0,               // 不使用（统计类型）
+      videoContribution: 0,        // 不使用（统计类型）
+      audioContribution: 0,        // 不使用（统计类型）
+      textContribution: 0,         // 不使用（统计类型）
+      fusionFormula: '统计情感倾向出现次数',
+      finalScore: 0,               // 不使用（统计类型）
+      videoEvidenceCount: 2,       // 前端统计
+      audioEvidenceCount: 2,       // 前端统计
+      textEvidenceCount: 3,        // 前端统计
+      resultType: 'statistics',
+      resultLabel: '情感分布统计',
+      resultValue: '9处：3正 2中 4负',
+      statistics: {                // 前端从详细证据统计出来
+        positive: 3,
+        neutral: 2,
+        negative: 4,
+        total: 9
+      }
+    }
+  },
 
-    // 8.5 潜在舆论风险证据
-    opinionRisk: [
+  // ========== 6. 潜在舆论风险分析 ==========
+  opinionRisk: {
+    riskLevel: 'medium',
+    riskLabel: '中等风险',
+    riskScore: 58,
+    riskReason: '可能引发跟风吐槽',
+    spreadPotential: 6.5,
+    spreadPotentialLabel: '较易传播',
+    potentialImpacts: [
+      '若上传可能引发其他学生共鸣转发',
+      '对学校选课系统形象有一定负面影响',
+      '建议先与教务处沟通后再决定'
+    ],
+    
+    // 详细证据
+    evidences: [
       {
         timestamp: 20,
         type: 'audio',
@@ -635,9 +710,37 @@ export const mockAnalysisResult: AnalysisResult = {
         confidence: 78
       }
     ],
+    
+    // 多模态融合分析（加权融合分类 - 展示次级标题分类）
+    modalityFusion: {
+      videoScore: 55,              // Python给出
+      audioScore: 62,              // Python给出
+      textScore: 58,               // Python给出
+      videoWeight: 0.2,            // 已弃用（保留兼容）
+      audioWeight: 0.4,            // 已弃用（保留兼容）
+      textWeight: 0.4,             // 已弃用（保留兼容）
+      videoContribution: 11.6,     // Python给出（贡献度）
+      audioContribution: 26.0,     // Python给出（贡献度）
+      textContribution: 24.3,      // Python给出（贡献度）
+      fusionFormula: '视频11.6 + 音频26.0 + 文本24.3',
+      finalScore: 62,              // Python给出（三个贡献度之和≈62）
+      videoEvidenceCount: 1,       // 前端统计
+      audioEvidenceCount: 2,       // 前端统计
+      textEvidenceCount: 2,        // 前端统计
+      resultType: 'score',
+      resultLabel: '风险指数',
+      resultValue: '62分'          // 注意：展示次级标题分类的卡片会额外显示riskLabel
+    }
+  },
 
-    // 8.6 处置建议证据
-    action: [
+  // ========== 7. 处置建议 ==========
+  action: {
+    actionSuggestion: '谨慎发布',
+    actionDetail: '建议人工复核后决定是否上传',
+    urgencyLevel: 75,
+    
+    // 详细证据
+    evidences: [
       {
         timestamp: 20,
         type: 'audio',
@@ -664,127 +767,31 @@ export const mockAnalysisResult: AnalysisResult = {
         description: '传播风险点：呼吁他人关注',
         confidence: 90
       }
-    ]
-  },
-
-  // ========== 9. 多模态融合分析数据 ==========
-  modalityFusion: {
-    // 9.1 身份判定融合
-    identity: {
-      videoScore: 82,
-      audioScore: 91,
-      textScore: 85,
-      videoWeight: 0.3,
-      audioWeight: 0.5,
-      textWeight: 0.2,
-      fusionFormula: '(82 × 0.3) + (91 × 0.5) + (85 × 0.2)',
-      finalScore: 85,
-      videoEvidenceCount: 2,
-      audioEvidenceCount: 2,
-      textEvidenceCount: 2,
-      resultType: 'confidence',
-      resultLabel: '识别置信度',
-      resultValue: '85%'
-    },
-
-    // 9.2 涉及高校融合
-    university: {
-      videoScore: 88,
-      audioScore: 95,
-      textScore: 92,
-      videoWeight: 0.2,
-      audioWeight: 0.4,
-      textWeight: 0.4,
-      fusionFormula: '(88 × 0.2) + (95 × 0.4) + (92 × 0.4)',
-      finalScore: 92,
-      videoEvidenceCount: 3,
-      audioEvidenceCount: 3,
-      textEvidenceCount: 4,
-      resultType: 'confidence',
-      resultLabel: '关联置信度',
-      resultValue: '92%'
-    },
-
-    // 9.3 内容主题融合
-    topic: {
-      videoScore: 85,
-      audioScore: 92,
-      textScore: 90,
-      videoWeight: 0.2,
-      audioWeight: 0.4,
-      textWeight: 0.4,
-      fusionFormula: '(85 × 0.2) + (92 × 0.4) + (90 × 0.4)',
-      finalScore: 89,
-      videoEvidenceCount: 1,
-      audioEvidenceCount: 3,
-      textEvidenceCount: 2,
-      resultType: 'confidence',
-      resultLabel: '主题置信度',
-      resultValue: '89%'
-    },
-
-    // 9.4 对学校态度融合（统计类型）
-    attitude: {
-      videoScore: 0,
-      audioScore: 0,
-      textScore: 0,
-      videoWeight: 0,
-      audioWeight: 0,
-      textWeight: 0,
-      fusionFormula: '统计情感倾向出现次数',
-      finalScore: 0,
-      videoEvidenceCount: 2,
-      audioEvidenceCount: 2,
-      textEvidenceCount: 3,
-      resultType: 'statistics',
-      resultLabel: '情感分布统计',
-      resultValue: '9处：3正 2中 4负',
-      statistics: {
-        positive: 3,
-        neutral: 2,
-        negative: 4,
-        total: 9
-      }
-    },
-
-    // 9.5 潜在舆论风险融合
-    opinionRisk: {
-      videoScore: 55,
-      audioScore: 62,
-      textScore: 58,
-      videoWeight: 0.2,
-      audioWeight: 0.4,
-      textWeight: 0.4,
-      fusionFormula: '(55 × 0.2) + (62 × 0.4) + (58 × 0.4)',
-      finalScore: 58,
-      videoEvidenceCount: 1,
-      audioEvidenceCount: 2,
-      textEvidenceCount: 2,
-      resultType: 'score',
-      resultLabel: '风险指数',
-      resultValue: '58分'
-    },
-
-    // 9.6 处置建议融合
-    action: {
-      videoScore: 70,
-      audioScore: 80,
-      textScore: 75,
-      videoWeight: 0.35,
-      audioWeight: 0.4,
-      textWeight: 0.25,
-      fusionFormula: '(70 × 0.35) + (80 × 0.4) + (75 × 0.25)',
-      finalScore: 75,
-      videoEvidenceCount: 1,
-      audioEvidenceCount: 2,
-      textEvidenceCount: 1,
+    ],
+    
+    // 多模态融合分析（加权融合分类 - 展示次级标题分类）
+    modalityFusion: {
+      videoScore: 70,              // Python给出
+      audioScore: 80,              // Python给出
+      textScore: 75,               // Python给出
+      videoWeight: 0.35,           // 已弃用（保留兼容）
+      audioWeight: 0.4,            // 已弃用（保留兼容）
+      textWeight: 0.25,            // 已弃用（保留兼容）
+      videoContribution: 24.5,     // Python给出（贡献度）
+      audioContribution: 32.0,     // Python给出（贡献度）
+      textContribution: 18.8,      // Python给出（贡献度）
+      fusionFormula: '视频24.5 + 音频32.0 + 文本18.8',
+      finalScore: 75,              // Python给出（三个贡献度之和≈75）
+      videoEvidenceCount: 1,       // 前端统计
+      audioEvidenceCount: 2,       // 前端统计
+      textEvidenceCount: 1,        // 前端统计
       resultType: 'urgency',
       resultLabel: '紧急程度',
-      resultValue: '75%'
+      resultValue: '75%'           // 注意：展示次级标题分类的卡片会额外显示actionSuggestion
     }
   },
 
-  // ========== 10. 台词转录与风险定位 ==========
+  // ========== 8. 台词转录与风险定位 ==========
   transcriptSegments: [
     {
       id: '1',

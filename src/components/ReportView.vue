@@ -118,11 +118,11 @@
       <div v-for="(card, cardKey) in evidenceCards" :key="cardKey" class="evidence-section">
         <h3 class="evidence-section-title">
           <span class="evidence-badge-report">{{ card.label }}</span>
-          <span class="evidence-count-report">{{ analysisData.evidences[cardKey]?.length || 0 }}处证据</span>
+          <span class="evidence-count-report">{{ analysisData[cardKey]?.evidences?.length || 0 }}处证据</span>
         </h3>
         
-        <div v-if="analysisData.evidences[cardKey] && analysisData.evidences[cardKey].length > 0" class="evidence-list-report">
-          <div v-for="(evidence, index) in analysisData.evidences[cardKey]" :key="index" class="evidence-item-report">
+        <div v-if="analysisData[cardKey]?.evidences && analysisData[cardKey].evidences.length > 0" class="evidence-list-report">
+          <div v-for="(evidence, index) in analysisData[cardKey].evidences" :key="index" class="evidence-item-report">
             <div class="evidence-timeline-mark" :class="'mark-' + evidence.type"></div>
             <div class="evidence-content-report">
               <div class="evidence-header-report">
@@ -151,29 +151,29 @@
       <div v-for="(card, cardKey) in evidenceCards" :key="cardKey + '-fusion'" class="fusion-section">
         <div class="fusion-header-bar">
           <h3 class="fusion-title">{{ card.label }}</h3>
-          <span class="fusion-result-badge">{{ analysisData.modalityFusion[cardKey]?.resultLabel }}：{{ analysisData.modalityFusion[cardKey]?.resultValue }}</span>
+          <span class="fusion-result-badge">{{ analysisData[cardKey]?.modalityFusion?.resultLabel }}：{{ analysisData[cardKey]?.modalityFusion?.resultValue }}</span>
         </div>
         
         <!-- 统计类型卡片特殊处理 -->
-        <div v-if="analysisData.modalityFusion[cardKey]?.resultType === 'statistics'" class="fusion-statistics">
+        <div v-if="analysisData[cardKey]?.modalityFusion?.resultType === 'statistics'" class="fusion-statistics">
           <div class="stats-summary">
             <div class="stats-item positive">
               <span class="stats-icon">✅</span>
               <span class="stats-label">正面</span>
-              <span class="stats-count">{{ analysisData.modalityFusion[cardKey]?.statistics?.positive || 0 }}次</span>
+              <span class="stats-count">{{ analysisData[cardKey]?.modalityFusion?.statistics?.positive || 0 }}次</span>
             </div>
             <div class="stats-item neutral">
               <span class="stats-icon">➖</span>
               <span class="stats-label">中性</span>
-              <span class="stats-count">{{ analysisData.modalityFusion[cardKey]?.statistics?.neutral || 0 }}次</span>
+              <span class="stats-count">{{ analysisData[cardKey]?.modalityFusion?.statistics?.neutral || 0 }}次</span>
             </div>
             <div class="stats-item negative">
               <span class="stats-icon">❌</span>
               <span class="stats-label">负面</span>
-              <span class="stats-count">{{ analysisData.modalityFusion[cardKey]?.statistics?.negative || 0 }}次</span>
+              <span class="stats-count">{{ analysisData[cardKey]?.modalityFusion?.statistics?.negative || 0 }}次</span>
             </div>
           </div>
-          <p class="stats-note">共分析{{ analysisData.modalityFusion[cardKey]?.statistics?.total || 0 }}处情感表达，采用统计方法而非加权计算</p>
+          <p class="stats-note">共分析{{ analysisData[cardKey]?.modalityFusion?.statistics?.total || 0 }}处情感表达，采用统计方法而非加权计算</p>
         </div>
         
         <!-- 加权计算类型 -->
@@ -183,10 +183,10 @@
               <el-icon><VideoCamera /></el-icon>
               <span>视频模态</span>
             </div>
-            <div class="fusion-score">{{ analysisData.modalityFusion[cardKey]?.videoScore || 0 }}<span>分</span></div>
+            <div class="fusion-score">{{ analysisData[cardKey]?.modalityFusion?.videoScore || 0 }}<span>分</span></div>
             <div class="fusion-meta">
-              <span>权重 {{ Math.round((analysisData.modalityFusion[cardKey]?.videoWeight || 0) * 100) }}%</span>
-              <span>{{ analysisData.modalityFusion[cardKey]?.videoEvidenceCount || 0 }}处证据</span>
+              <span>贡献度 {{ (analysisData[cardKey]?.modalityFusion?.videoContribution || 0).toFixed(1) }}</span>
+              <span>{{ analysisData[cardKey]?.modalityFusion?.videoEvidenceCount || 0 }}处证据</span>
             </div>
           </div>
           
@@ -195,10 +195,10 @@
               <el-icon><Microphone /></el-icon>
               <span>音频模态</span>
             </div>
-            <div class="fusion-score">{{ analysisData.modalityFusion[cardKey]?.audioScore || 0 }}<span>分</span></div>
+            <div class="fusion-score">{{ analysisData[cardKey]?.modalityFusion?.audioScore || 0 }}<span>分</span></div>
             <div class="fusion-meta">
-              <span>权重 {{ Math.round((analysisData.modalityFusion[cardKey]?.audioWeight || 0) * 100) }}%</span>
-              <span>{{ analysisData.modalityFusion[cardKey]?.audioEvidenceCount || 0 }}处证据</span>
+              <span>贡献度 {{ (analysisData[cardKey]?.modalityFusion?.audioContribution || 0).toFixed(1) }}</span>
+              <span>{{ analysisData[cardKey]?.modalityFusion?.audioEvidenceCount || 0 }}处证据</span>
             </div>
           </div>
           
@@ -207,10 +207,10 @@
               <el-icon><ChatLineRound /></el-icon>
               <span>文本模态</span>
             </div>
-            <div class="fusion-score">{{ analysisData.modalityFusion[cardKey]?.textScore || 0 }}<span>分</span></div>
+            <div class="fusion-score">{{ analysisData[cardKey]?.modalityFusion?.textScore || 0 }}<span>分</span></div>
             <div class="fusion-meta">
-              <span>权重 {{ Math.round((analysisData.modalityFusion[cardKey]?.textWeight || 0) * 100) }}%</span>
-              <span>{{ analysisData.modalityFusion[cardKey]?.textEvidenceCount || 0 }}处证据</span>
+              <span>贡献度 {{ (analysisData[cardKey]?.modalityFusion?.textContribution || 0).toFixed(1) }}</span>
+              <span>{{ analysisData[cardKey]?.modalityFusion?.textEvidenceCount || 0 }}处证据</span>
             </div>
           </div>
           
@@ -219,8 +219,8 @@
               <el-icon><Check /></el-icon>
               <span>融合结果</span>
             </div>
-            <div class="fusion-result">{{ analysisData.modalityFusion[cardKey]?.resultValue || '-' }}</div>
-            <div class="fusion-formula">{{ analysisData.modalityFusion[cardKey]?.fusionFormula || '' }}</div>
+            <div class="fusion-result">{{ analysisData[cardKey]?.modalityFusion?.resultValue || '-' }}</div>
+            <div class="fusion-formula">{{ analysisData[cardKey]?.modalityFusion?.fusionFormula || '' }}</div>
           </div>
         </div>
       </div>
