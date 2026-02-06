@@ -88,6 +88,15 @@ export interface TextRiskPoint {
 }
 
 /**
+ * 综合风险点（基于索引的时间序列数据）
+ */
+export interface ComprehensiveRiskPoint {
+  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
+  reason: string        // 综合风险原因
+  intensity: number     // 风险强度 0-1（三个模态的最大值）
+}
+
+/**
  * 音频情绪片段（基于索引的时间序列数据）
  */
 export interface AudioEmotion {
@@ -296,11 +305,12 @@ export interface AnalysisResult {
   
   // 时间轴数据
   timelineData: {
-    timeGranularity: number           // 时间粒度（秒），表示数组元素之间的时间间隔
-    videoRisks: VideoRiskPoint[]      // 视频风险点（索引即时间段）
-    audioEmotions: AudioEmotion[]     // 音频情绪（索引即时间段）
-    textRisks: TextRiskPoint[]        // 文本风险点（索引即时间段）
-    radarByTime: RadarDataByTime[]    // 雷达图时间段数据
+    timeGranularity: number               // 时间粒度（秒），表示数组元素之间的时间间隔
+    videoRisks: VideoRiskPoint[]          // 视频风险点（索引即时间段）
+    audioEmotions: AudioEmotion[]         // 音频情绪（索引即时间段）
+    textRisks: TextRiskPoint[]            // 文本风险点（索引即时间段）
+    comprehensiveRisks: ComprehensiveRiskPoint[]  // 综合风险点（索引即时间段）
+    radarByTime: RadarDataByTime[]        // 雷达图时间段数据
   }
   
   // 辅助分析数据（用于交互分析的扩展功能）
@@ -938,7 +948,36 @@ export const mockAnalysisResult: AnalysisResult = {
       }
     ],
 
-    // 11.4 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
+    // 11.4 综合风险点（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
+    comprehensiveRisks: [
+      {
+        riskLevel: 'low',
+        reason: '开场介绍，整体风险较低',
+        intensity: 0.30
+      },
+      {
+        riskLevel: 'medium',
+        reason: '开始表达不满，情绪有所波动',
+        intensity: 0.58
+      },
+      {
+        riskLevel: 'high',
+        reason: '情绪激动，使用极端词汇，多模态高风险',
+        intensity: 1.0
+      },
+      {
+        riskLevel: 'medium',
+        reason: '持续批评，可能引发共鸣',
+        intensity: 0.70
+      },
+      {
+        riskLevel: 'medium',
+        reason: '呼吁传播，有传播风险',
+        intensity: 0.55
+      }
+    ],
+
+    // 11.5 雷达图时间段数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
     radarByTime: [
       {
         timeStart: 0,

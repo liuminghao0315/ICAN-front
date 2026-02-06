@@ -1086,6 +1086,7 @@ const timeGranularity = mockAnalysisResult.timelineData.timeGranularity  // 时�
 const mockVideoRisksData = mockAnalysisResult.timelineData.videoRisks
 const mockAudioEmotionsData = mockAnalysisResult.timelineData.audioEmotions
 const mockTextRisksData = mockAnalysisResult.timelineData.textRisks
+const mockComprehensiveRisksData = mockAnalysisResult.timelineData.comprehensiveRisks
 const mockRadarDataByTime = mockAnalysisResult.timelineData.radarByTime
 // 提取辅助分析数据
 const mockRiskEvidence = mockAnalysisResult.riskEvidences
@@ -1497,6 +1498,9 @@ const mockAudioEmotions = computed(() => mockAudioEmotionsData)
 
 // 文本风险数据（直接使用统一数据源）
 const mockTextRisks = computed(() => mockTextRisksData)
+
+// 综合风险数据（直接使用统一数据源）
+const mockComprehensiveRisks = computed(() => mockComprehensiveRisksData)
 
 // 统计数据（用于模板）
 const angryEmotionCount = computed(() => {
@@ -2009,21 +2013,28 @@ const multiModalTimelineOption = computed(() => {
     const textRisk = mockTextRisks.value[index]
     const textScore = textRisk ? textRisk.intensity * 100 : 0
     
+    // 综合风险（使用索引查询，O(1)复杂度）
+    const comprehensiveRisk = mockComprehensiveRisks.value[index]
+    const comprehensiveScore = comprehensiveRisk ? comprehensiveRisk.intensity * 100 : 0
+    
     return {
       time: t,
       videoScore,
       audioScore,
       textScore,
+      comprehensiveScore,
       videoRisk,
       audioEmotion,
-      textSegment: textRisk
+      textSegment: textRisk,
+      comprehensiveRisk
     }
   })
   
-  // 提取三个模态的独立数据数组（改为二维数组格式 [x, y]）
+  // 提取四个模态的独立数据数组（改为二维数组格式 [x, y]）
   const videoData = multiModalData.map(d => [d.time, d.videoScore])
   const audioData = multiModalData.map(d => [d.time, d.audioScore])
   const textData = multiModalData.map(d => [d.time, d.textScore])
+  const comprehensiveData = multiModalData.map(d => [d.time, d.comprehensiveScore])
   
   return {
     graphic: [
@@ -2185,6 +2196,21 @@ const multiModalTimelineOption = computed(() => {
           </div>
         `
         
+        // 4. 综合风险模态
+        const comprehensiveColor = data.comprehensiveScore >= 70 ? '#f56c6c' : data.comprehensiveScore >= 40 ? '#faad14' : data.comprehensiveScore > 0 ? '#52c41a' : '#999'
+        html += `
+          <div style="margin-bottom: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8e8e8;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+              <span style="color: #722ed1; font-weight: 600; font-size: 12px;">⚡ 综合风险</span>
+              <span style="color: ${comprehensiveColor}; font-weight: 700; font-size: 13px;">${data.comprehensiveScore.toFixed(1)}%</span>
+            </div>
+            ${data.comprehensiveRisk 
+              ? `<div style="color: #666; font-size: 11px; line-height: 1.4;">${data.comprehensiveRisk.reason}</div>` 
+              : `<div style="color: #999; font-size: 11px; line-height: 1.4;">该时段综合风险正常</div>`
+            }
+          </div>
+        `
+        
         html += `
             </div>
             <div style="text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e8e8e8;">
@@ -2199,14 +2225,14 @@ const multiModalTimelineOption = computed(() => {
       }
     },
     legend: {
-      data: ['视频风险', '音频情绪', '文本风险'],
-      bottom: 5, // 减小图例距离底部的距离
+      data: ['视频风险', '音频情绪', '文本风险', '综合风险'],
+      bottom: 5,
       textStyle: { 
         color: '#666', 
         fontSize: 11,
         fontWeight: 'normal'
       },
-      itemGap: 24,
+      itemGap: 20,
       itemWidth: 30,
       itemHeight: 12,
       icon: 'rect',
@@ -2441,6 +2467,41 @@ const multiModalTimelineOption = computed(() => {
             }
           ]
         }
+      },
+      
+      // 4. 综合风险曲线（加粗显示，突出重要性）
+      {
+        name: '综合风险',
+        type: 'line',
+        data: comprehensiveData,
+        smooth: 0.35,
+        symbol: 'none',
+        showSymbol: false,
+        lineStyle: {
+          width: 3,  // 比其他曲线粗一点
+          color: '#722ed1',  // 紫色
+          opacity: 0.9
+        },
+        itemStyle: {
+          color: '#722ed1',
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(114, 46, 209, 0.15)' },
+              { offset: 1, color: 'rgba(114, 46, 209, 0.03)' }
+            ]
+          }
+        },
+        emphasis: {
+          lineStyle: { width: 3.5 },
+          itemStyle: { borderWidth: 3 }
+        },
+        zlevel: 1  // 显示在其他曲线上方
       }
     ]
   }
