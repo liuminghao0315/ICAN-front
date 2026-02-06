@@ -428,7 +428,12 @@
             
             <!-- 多轨道时间轴（去背景，融合风格） -->
             <div class="multi-track-timeline-inline" @click="onChartContainerClick">
-              <v-chart ref="timelineChartRef" :option="multiModalTimelineOption" class="timeline-chart-inline" @click="onTimelineClick" />
+              <v-chart 
+                ref="timelineChartRef" 
+                :option="multiModalTimelineOption" 
+                class="timeline-chart-inline" 
+                @click="onTimelineClick"
+              />
             </div>
           </div>
           
@@ -2011,16 +2016,41 @@ const multiModalTimelineOption = computed(() => {
   const audioData = multiModalData.map(d => [d.time, d.audioScore])
   const textData = multiModalData.map(d => [d.time, d.textScore])
   
-  // 计算当前播放位置与曲线的交点
-  const currentTime = currentPlayTime.value
-  const currentData = multiModalData.find(d => Math.abs(d.time - currentTime) < 2.5)
-  const intersectionPoints = currentData ? [
-    [currentTime, currentData.videoScore],
-    [currentTime, currentData.audioScore],
-    [currentTime, currentData.textScore]
-  ] : []
-  
   return {
+    graphic: [
+      {
+        type: 'line',
+        id: 'progressLine',
+        z: 100,
+        silent: true,
+        invisible: true,
+        shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
+        style: {
+          stroke: '#ff4d4f',
+          lineWidth: 3,
+          shadowBlur: 6,
+          shadowColor: 'rgba(255, 77, 79, 0.3)'
+        }
+      },
+      {
+        type: 'text',
+        id: 'progressLabel',
+        z: 101,
+        silent: true,
+        invisible: true,
+        style: {
+          text: '00:00',
+          fill: '#fff',
+          fontSize: 11,
+          fontWeight: 'bold',
+          backgroundColor: '#ff4d4f',
+          padding: [4, 8],
+          borderRadius: 4
+        },
+        left: 0,
+        top: 0
+      }
+    ],
     tooltip: {
       trigger: 'axis',
       appendToBody: true,  // 允许自由移动
@@ -2358,7 +2388,6 @@ const multiModalTimelineOption = computed(() => {
           lineStyle: { width: 2.5 },
           itemStyle: { borderWidth: 3 }
         },
-        // 参考1.0版本的参考线样式
         markLine: {
           silent: true,
           symbol: 'none',
@@ -2403,31 +2432,6 @@ const multiModalTimelineOption = computed(() => {
             }
           ]
         }
-      },
-      // 添加：当前播放位置的交点标记（红色竖线与曲线的交点）
-      {
-        name: '当前位置',
-        type: 'scatter',
-        data: intersectionPoints,
-        symbolSize: 12,  // 增大尺寸
-        symbol: 'circle',
-        itemStyle: {
-          color: '#ffffff',
-          borderColor: '#ff4d4f',  // 鲜艳的红色边框
-          borderWidth: 3,
-          shadowBlur: 8,
-          shadowColor: 'rgba(255, 77, 79, 0.6)'
-        },
-        emphasis: {
-          symbolSize: 14,  // 鼠标悬停时更大
-          itemStyle: {
-            shadowBlur: 12
-          }
-        },
-        zlevel: 5,  // 更高的层级
-        z: 999,  // 确保显示在最上层
-        animation: false,  // 禁用动画，跟随视频流畅移动
-        silent: false  // 响应鼠标事件
       }
     ]
   }
@@ -3023,46 +3027,35 @@ const onTimelineClick = (params: any) => {
   // 报告视图跳转，无需提示消息
 }
 
-// 视频时间更新事件（优化版：分离竖线更新和状态更新）
+// 视频时间更新事件
 const onVideoTimeUpdate = () => {
   if (!mainVideoPlayerRef.value) return
   
   const newTime = mainVideoPlayerRef.value.currentTime
-  
-  // 实时更新currentPlayTime，用于其他组件的响应式
   currentPlayTime.value = newTime
-  
-  // 直接更新图表的markLine，不触发computed重新计算
   updateProgressLine(newTime)
   
-  // 实时更新当前证据（根据播放时间自动切换）
   const currentTime = newTime
-  // 修正：根据时间段判断，只有当前时间在字幕的时间范围内才高亮
   const currentEvidenceByTime = mockRiskEvidence.find(
     e => currentTime >= e.timeSeconds && currentTime < (e.timeEndSeconds || e.timeSeconds + 10)
   )
   
   if (currentEvidenceByTime && currentEvidenceByTime.id !== selectedEvidenceId.value) {
     selectedEvidenceId.value = currentEvidenceByTime.id
-  } else if (!currentEvidenceByTime && selectedEvidenceId.value) {
-    // 如果当前时间不在任何字幕时间段内，保持之前的选中状态（不取消高亮）
-    // selectedEvidenceId.value = '' // 可选：取消高亮
   }
   
-  // 更新当前台词段落高亮
   const index = mockTranscriptSegments.value.findIndex(
     seg => currentTime >= seg.start && currentTime < seg.end
   )
   currentSegmentIndex.value = index
   
-  // 更新当前检测框
   const detection = mockVideoRisks.value.find(
     risk => Math.abs(currentTime - risk.time) < 3
   )
   currentDetection.value = detection || null
 }
 
-// 直接更新进度竖线，不触发图表完全重绘
+// 更新进度线(使用ZRender底层API,不触发图表重绘)
 let progressLineUpdatePending = false
 const updateProgressLine = (time: number) => {
   if (!timelineChartRef.value || progressLineUpdatePending) return
@@ -3075,47 +3068,53 @@ const updateProgressLine = (time: number) => {
       return
     }
     
-    const m = Math.floor(time / 60)
-    const s = Math.floor(time % 60)
-    const timeLabel = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    const chartInstance = timelineChartRef.value
     
-    // 使用setOption局部更新markLine，notMerge: false保持其他配置不变
-    timelineChartRef.value.setOption({
-      series: [{
-        markLine: {
-          symbol: 'none',
-          animation: false,
-          data: [
-            [
-              { coord: [time, 0], symbol: 'none' },
-              {
-                coord: [time, 100],
-                symbol: 'none',
-                lineStyle: {
-                  color: '#ff4d4f',
-                  width: 3,
-                  type: 'solid',
-                  opacity: 0.9,
-                  shadowBlur: 6,
-                  shadowColor: 'rgba(255, 77, 79, 0.3)'
-                },
-                label: {
-                  show: true,
-                  position: 'insideStartTop',
-                  formatter: timeLabel,
-                  color: '#fff',
-                  fontSize: 11,
-                  fontWeight: 'bold',
-                  backgroundColor: '#ff4d4f',
-                  padding: [4, 8],
-                  borderRadius: 4
-                }
-              }
-            ]
-          ]
+    try {
+      const pointTop = chartInstance.convertToPixel('grid', [time, 100])
+      const pointBottom = chartInstance.convertToPixel('grid', [time, 0])
+      
+      if (!pointTop || !pointBottom) {
+        progressLineUpdatePending = false
+        return
+      }
+      
+      const m = Math.floor(time / 60)
+      const s = Math.floor(time % 60)
+      const timeLabel = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+      
+      const zr = chartInstance.getZr()
+      if (zr) {
+        const lineElement = zr.storage.getDisplayList().find((el: any) => el.id === 'progressLine')
+        const labelElement = zr.storage.getDisplayList().find((el: any) => el.id === 'progressLabel')
+        
+        if (lineElement) {
+          lineElement.attr({
+            invisible: false,
+            shape: {
+              x1: pointBottom[0],
+              y1: pointBottom[1],
+              x2: pointTop[0],
+              y2: pointTop[1]
+            }
+          })
         }
-      }]
-    }, false, false) // notMerge: false, lazyUpdate: false
+        
+        if (labelElement) {
+          labelElement.attr({
+            invisible: false,
+            style: { text: timeLabel },
+            x: pointTop[0] - 25,
+            y: pointTop[1] - 30
+          })
+        }
+        
+        zr.refreshImmediately()
+      }
+      
+    } catch (error) {
+      console.warn('[进度线更新失败]', error)
+    }
     
     progressLineUpdatePending = false
   })
