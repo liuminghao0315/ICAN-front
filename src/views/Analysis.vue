@@ -2606,7 +2606,21 @@ const loadAnalysisByVideo = async () => {
   }
   
   loading.value = true
+  
   try {
+    // Mock模式：直接使用本地mock数据，不发起网络请求
+    if (import.meta.env.VITE_MOCK_MODE === 'true') {
+      // 模拟网络延迟，让加载动画更真实
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // 直接使用mockAnalysisResult作为分析数据
+      analysisData.value = mockAnalysisResult as any
+      emptyMessage.value = ''
+      loading.value = false
+      return
+    }
+    
+    // 正常模式：调用真实API
     const response = await getResultByVideoId(selectedVideoId.value)
     if (response.code === 200 && response.data) {
       analysisData.value = response.data
@@ -2615,8 +2629,12 @@ const loadAnalysisByVideo = async () => {
       emptyMessage.value = '该视频尚未分析或分析未完成'
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '加载分析结果失败')
+    // Mock模式下不显示错误（已经在上面处理）
+    if (import.meta.env.VITE_MOCK_MODE !== 'true') {
+      ElMessage.error(error?.message || '加载分析结果失败')
+    }
     analysisData.value = null
+    emptyMessage.value = '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -2624,7 +2642,18 @@ const loadAnalysisByVideo = async () => {
 
 const loadAnalysisById = async (resultId: string) => {
   loading.value = true
+  
   try {
+    // Mock模式：直接使用本地mock数据
+    if (import.meta.env.VITE_MOCK_MODE === 'true') {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      analysisData.value = mockAnalysisResult as any
+      selectedVideoId.value = mockAnalysisResult.videoId || ''
+      loading.value = false
+      return
+    }
+    
+    // 正常模式：调用真实API
     const response = await getResultById(resultId)
     if (response.code === 200 && response.data) {
       analysisData.value = response.data
@@ -2634,7 +2663,9 @@ const loadAnalysisById = async (resultId: string) => {
       emptyMessage.value = '分析结果不存在'
     }
   } catch (error: any) {
-    ElMessage.error(error?.message || '加载分析结果失败')
+    if (import.meta.env.VITE_MOCK_MODE !== 'true') {
+      ElMessage.error(error?.message || '加载分析结果失败')
+    }
     analysisData.value = null
   } finally {
     loading.value = false

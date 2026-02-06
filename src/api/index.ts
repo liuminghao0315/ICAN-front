@@ -16,6 +16,7 @@ import type {
   TaskStatus,
   RiskLevel
 } from '@/types'
+import { mockAnalysisResult } from '@/data/mockAnalysisResult'
 
 // ==================== 基础配置 ====================
 
@@ -87,6 +88,11 @@ function processQueue(error: any, token: string | null = null) {
 // 请求拦截器 - 自动添加Token
 api.interceptors.request.use(
   (config) => {
+    // Mock模式：跳过token添加
+    if (import.meta.env.VITE_MOCK_MODE === 'true') {
+      return config
+    }
+    
     const token = getStoredToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -101,9 +107,55 @@ api.interceptors.request.use(
 // 响应拦截器 - 统一处理错误和token刷新
 api.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
+    // Mock模式：拦截特定API返回mock数据
+    if (import.meta.env.VITE_MOCK_MODE === 'true') {
+      const url = response.config.url || ''
+      
+      // 拦截视频列表请求
+      if (url.includes('/api/video/list')) {
+        return {
+          ...response,
+          data: {
+            code: 200,
+            message: null,
+            data: {
+              records: [],
+              total: 0,
+              size: 10,
+              current: 1,
+              pages: 0
+            }
+          }
+        } as any
+      }
+      
+      // 拦截分析结果请求 - 返回mockAnalysisResult
+      if (url.includes('/api/analysis/result/')) {
+        return {
+          ...response,
+          data: {
+            code: 200,
+            message: null,
+            data: mockAnalysisResult
+          }
+        } as any
+      }
+    }
+    
     return response
   },
   async (error) => {
+    // Mock模式：跳过所有错误处理，返回成功响应
+    if (import.meta.env.VITE_MOCK_MODE === 'true') {
+      return Promise.resolve({
+        data: {
+          code: 200,
+          message: null,
+          data: null
+        }
+      } as any)
+    }
+    
     const originalRequest = error.config
 
     if (error.response) {

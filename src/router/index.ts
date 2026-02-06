@@ -92,6 +92,12 @@ function getStoredToken(): string | null {
 
 // 路由守卫
 router.beforeEach((to, _from, next) => {
+  // Mock模式：跳过所有认证，直接放行
+  if (import.meta.env.VITE_MOCK_MODE === 'true') {
+    next()
+    return
+  }
+  
   const token = getStoredToken()
   
   if (to.meta.requiresAuth !== false && !token) {
