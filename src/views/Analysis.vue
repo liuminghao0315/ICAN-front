@@ -1338,7 +1338,9 @@ const selectedEvidenceId = ref<string>('')
 const riskFilter = ref<'all' | 'medium-high' | 'high'>('all')
 
 // 真实视频URL
-const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/2026/02/01/ae8f478c008b448c865a03cabdeeec1a.mp4')
+// const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/2026/02/01/ae8f478c008b448c865a03cabdeeec1a.mp4')
+const realVideoUrl = ref('http://47.110.33.16:9000/ican-videos/videos/2026/02/06/1329d3084a9448bb9e211c2245aeffa1.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260206%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260206T192651Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=107ffdf57a21829d6930d2392ccea41c3c5eb288f73289b7260814ed58ca7548')
+
 
 // ==================== 动态雷达图数据（根据视频时间变化） ====================
 // 雷达图时间段数据已从mockAnalysisResult导入（第1307行）
