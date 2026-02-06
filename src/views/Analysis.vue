@@ -1085,6 +1085,7 @@ const mockAudioEmotionsData = mockAnalysisResult.timelineData.audioEmotions
 const mockTextRisksData = mockAnalysisResult.timelineData.textRisks
 const mockComprehensiveRisksData = mockAnalysisResult.timelineData.comprehensiveRisks
 const mockRadarDataByTime = mockAnalysisResult.timelineData.radarByTime
+const mockAverageRadarData = mockAnalysisResult.timelineData.averageRadarData  // 全片平均雷达数据
 // 提取辅助分析数据
 const mockRiskEvidence = mockAnalysisResult.riskEvidences
 const mockAIProfile = mockAnalysisResult.aiProfile
@@ -1660,6 +1661,30 @@ const multiModalRadarOption = computed(() => {
       }
     },
     series: [
+      // 底层（基准层）：全片平均雷达数据 - 静态参考线
+      {
+        type: 'radar',
+        symbol: 'none',  // 不显示数据点
+        data: [
+          {
+            value: mockAverageRadarData,  // 静态数据：全片平均值
+            name: '全片平均水平',
+            lineStyle: {
+              color: 'rgba(180, 188, 208, 0.6)',  // 浅灰蓝色
+              width: 2,
+              type: 'dashed'  // 虚线
+            },
+            areaStyle: {
+              color: 'rgba(180, 188, 208, 0.08)'  // 极低透明度填充
+            }
+          }
+        ],
+        label: {
+          show: false
+        },
+        z: 1  // 层级较低
+      },
+      // 顶层（实时层）：当前时刻雷达数据 - 动态变化
       {
         type: 'radar',
         symbol: 'circle',
@@ -1682,7 +1707,8 @@ const multiModalRadarOption = computed(() => {
         ],
         label: {
           show: false
-        }
+        },
+        z: 2  // 层级较高
       }
     ],
     // 动画配置：平滑过渡动画
@@ -1697,24 +1723,10 @@ const multiModalRadarOption = computed(() => {
 })
 
 // ==================== 报告视图专用雷达图配置 ====================
-// 1. 平均雷达图 - 所有时间段的平均值
-const averageRadarData = computed(() => {
-  const dimensions = 6
-  const averages = Array(dimensions).fill(0)
-  
-  mockRadarDataByTime.forEach(timeData => {
-    timeData.data.forEach((value, index) => {
-      averages[index] += value
-    })
-  })
-  
-  return averages.map(sum => Math.round(sum / mockRadarDataByTime.length))
-})
-
-// 2. 最高风险雷达图 - 找出综合风险最高的时间段
+// 1. 最高风险雷达图 - 找出综合风险最高的时间段
 const peakRiskData = computed(() => {
   let maxRisk = 0
-  let peakData = mockRadarDataByTime[0] || { data: [0, 0, 0, 0, 0, 0], timeStart: 0, timeEnd: 0 }
+  let peakData = mockRadarDataByTime[0] || { data: [0, 0, 0, 0, 0, 0] }
   
   mockRadarDataByTime.forEach(timeData => {
     const avgRisk = timeData.data.reduce((a, b) => a + b, 0) / timeData.data.length
@@ -1726,13 +1738,11 @@ const peakRiskData = computed(() => {
   
   return {
     data: peakData?.data || [0, 0, 0, 0, 0, 0],
-    timeStart: peakData?.timeStart || 0,
-    timeEnd: peakData?.timeEnd || 0,
     avgRisk: Math.round(maxRisk)
   }
 })
 
-// 平均雷达图配置
+// 2. 平均雷达图配置 - 使用后端提供的全片平均数据
 const averageRadarOption = computed(() => {
   const dimensionNames = ['身份置信度', '学校关联度', '负面情感度', '传播风险', '影响范围', '处置紧迫度']
   
@@ -1776,7 +1786,7 @@ const averageRadarOption = computed(() => {
         symbolSize: 6,
         data: [
           {
-            value: averageRadarData.value,
+            value: mockAverageRadarData,  // 直接使用后端提供的平均数据
             name: '平均风险画像',
             areaStyle: {
               color: 'rgba(75, 112, 226, 0.2)'

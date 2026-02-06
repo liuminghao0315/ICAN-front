@@ -306,7 +306,8 @@ export interface AnalysisResult {
     audioEmotions: AudioEmotion[]         // 音频情绪（索引即时间段）
     textRisks: TextRiskPoint[]            // 文本风险点（索引即时间段）
     comprehensiveRisks: ComprehensiveRiskPoint[]  // 综合风险点（索引即时间段）
-    radarByTime: RadarDataByTime[]        // 雷达图时间段数据
+    radarByTime: RadarDataByTime[]        // 雷达图时间段数据（实时动态）
+    averageRadarData: number[]            // 全片平均雷达数据（6个维度的平均值，用于底层参考线）
   }
   
   // 辅助分析数据（用于交互分析的扩展功能）
@@ -960,7 +961,11 @@ export const mockAnalysisResult: AnalysisResult = {
       { data: [85, 95, 88, 70, 85, 75] },
       { data: [85, 90, 65, 55, 70, 50] },
       { data: [85, 85, 35, 40, 50, 35] }
-    ]
+    ],
+
+    // 11.6 全片平均雷达数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
+    // 后端计算整个视频的平均值，用于雷达图底层参考线
+    averageRadarData: [85, 83, 49, 44, 55, 41]
   },
 
   // ========== 12. 辅助分析数据 ==========
