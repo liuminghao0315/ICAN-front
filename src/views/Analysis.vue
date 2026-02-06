@@ -181,7 +181,7 @@
                   <div class="pro-value text-identity">
                     {{ mockIdentityAnalysis.identityLabel }}
                   </div>
-                  <div class="pro-subtitle">置信度 {{ Math.round(mockIdentityAnalysis.confidence * 100) }}%</div>
+                  <div class="pro-subtitle">置信度 {{ mockIdentityAnalysis.modalityFusion.finalScore }}%</div>
                 </div>
               </div>
               
@@ -195,7 +195,7 @@
                   <div class="pro-value text-uni">
                     {{ mockUniversityBaseline.universityName }}
                   </div>
-                  <div class="pro-subtitle">匹配度 {{ Math.round(mockUniversityBaseline.logoConfidence * 100) }}%</div>
+                  <div class="pro-subtitle">匹配度 {{ mockUniversityBaseline.modalityFusion.finalScore }}%</div>
                 </div>
               </div>
               
@@ -481,7 +481,7 @@
                 <!-- 三模态卡片 - 横向排列 -->
                 <div class="modality-cards-row">
                   <!-- 视频模态 -->
-                  <div class="modality-card video-modality" :class="{ 'statistics-type': currentFusion.resultType === 'statistics' }">
+                  <div class="modality-card video-modality" :class="{ 'statistics-type': isStatisticsCard }">
                     <div class="modality-header">
                       <div class="modality-icon video-icon">
                         <el-icon :size="18"><VideoCamera /></el-icon>
@@ -490,7 +490,7 @@
                     </div>
                     
                     <!-- 加权计算类型 -->
-                    <template v-if="currentFusion.resultType !== 'statistics'">
+                    <template v-if="!isStatisticsCard && currentFusion">
                       <div class="modality-score">{{ currentFusion.videoScore }}<span class="score-unit">分</span></div>
                       <div class="modality-details">
                         <span class="detail-item">
@@ -499,7 +499,7 @@
                         </span>
                         <span class="detail-item">
                           <el-icon :size="12"><Memo /></el-icon>
-                          {{ currentFusion.videoEvidenceCount }}处证据
+                          {{ videoEvidences.length }}处证据
                         </span>
                       </div>
                     </template>
@@ -525,7 +525,7 @@
                   </div>
 
                   <!-- 音频模态 -->
-                  <div class="modality-card audio-modality" :class="{ 'statistics-type': currentFusion.resultType === 'statistics' }">
+                  <div class="modality-card audio-modality" :class="{ 'statistics-type': isStatisticsCard }">
                     <div class="modality-header">
                       <div class="modality-icon audio-icon">
                         <el-icon :size="18"><Microphone /></el-icon>
@@ -534,7 +534,7 @@
                     </div>
                     
                     <!-- 加权计算类型 -->
-                    <template v-if="currentFusion.resultType !== 'statistics'">
+                    <template v-if="!isStatisticsCard && currentFusion">
                       <div class="modality-score">{{ currentFusion.audioScore }}<span class="score-unit">分</span></div>
                       <div class="modality-details">
                         <span class="detail-item">
@@ -543,7 +543,7 @@
                         </span>
                         <span class="detail-item">
                           <el-icon :size="12"><Memo /></el-icon>
-                          {{ currentFusion.audioEvidenceCount }}处证据
+                          {{ audioEvidences.length }}处证据
                         </span>
                       </div>
                     </template>
@@ -569,7 +569,7 @@
                   </div>
 
                   <!-- 文本模态 -->
-                  <div class="modality-card text-modality" :class="{ 'statistics-type': currentFusion.resultType === 'statistics' }">
+                  <div class="modality-card text-modality" :class="{ 'statistics-type': isStatisticsCard }">
                     <div class="modality-header">
                       <div class="modality-icon text-icon">
                         <el-icon :size="18"><ChatLineRound /></el-icon>
@@ -578,7 +578,7 @@
                     </div>
                     
                     <!-- 加权计算类型 -->
-                    <template v-if="currentFusion.resultType !== 'statistics'">
+                    <template v-if="!isStatisticsCard && currentFusion">
                       <div class="modality-score">{{ currentFusion.textScore }}<span class="score-unit">分</span></div>
                       <div class="modality-details">
                         <span class="detail-item">
@@ -587,7 +587,7 @@
                         </span>
                         <span class="detail-item">
                           <el-icon :size="12"><Memo /></el-icon>
-                          {{ currentFusion.textEvidenceCount }}处证据
+                          {{ textEvidences.length }}处证据
                         </span>
                       </div>
                     </template>
@@ -618,7 +618,7 @@
                   </div>
 
                   <!-- 融合结果卡片 -->
-                  <div class="modality-card result-card" :class="{ 'statistics-type': currentFusion.resultType === 'statistics' }">
+                  <div class="modality-card result-card" :class="{ 'statistics-type': isStatisticsCard }">
                     <div class="modality-header">
                       <div class="modality-icon result-icon">
                         <el-icon :size="18"><Select /></el-icon>
@@ -627,35 +627,35 @@
                     </div>
                     
                     <!-- 加权计算类型 -->
-                    <template v-if="currentFusion.resultType !== 'statistics'">
+                    <template v-if="!isStatisticsCard && currentFusion">
                       <div class="modality-score final-score">
                         {{ currentFusion.finalScore }}<span class="score-unit">分</span>
                       </div>
-                      <div class="result-label">{{ currentFusion.resultLabel }}</div>
+                      <div class="result-label">{{ getResultLabel(currentCardId) }}</div>
                     </template>
                     
                     <!-- 统计类型 -->
                     <template v-else>
                       <div class="statistics-result">
                         <div class="statistics-total">
-                          共 <span class="total-count">{{ currentFusion.statistics?.total || 0 }}</span> 处
+                          共 <span class="total-count">{{ currentStatistics?.total || 0 }}</span> 处
                         </div>
                         <div class="statistics-breakdown">
-                          <span v-if="currentFusion.statistics?.positive" class="stat-item positive">
+                          <span v-if="currentStatistics?.positive" class="stat-item positive">
                             <span class="stat-dot"></span>
-                            {{ currentFusion.statistics.positive }}正面
+                            {{ currentStatistics.positive }}正面
                           </span>
-                          <span v-if="currentFusion.statistics?.neutral" class="stat-item neutral">
+                          <span v-if="currentStatistics?.neutral" class="stat-item neutral">
                             <span class="stat-dot"></span>
-                            {{ currentFusion.statistics.neutral }}中性
+                            {{ currentStatistics.neutral }}中性
                           </span>
-                          <span v-if="currentFusion.statistics?.negative" class="stat-item negative">
+                          <span v-if="currentStatistics?.negative" class="stat-item negative">
                             <span class="stat-dot"></span>
-                            {{ currentFusion.statistics.negative }}负面
+                            {{ currentStatistics.negative }}负面
                           </span>
                         </div>
                       </div>
-                      <div class="result-label">{{ currentFusion.resultLabel }}</div>
+                      <div class="result-label">情感分布统计</div>
                     </template>
                   </div>
                 </div>
@@ -746,6 +746,7 @@
                         v-for="(evidence, index) in textEvidences" 
                         :key="'text-' + index"
                         class="text-evidence-item-inline"
+                        :data-description="evidence.description"
                         @click="evidence.timestamp !== undefined && jumpToTime(evidence.timestamp)"
                       >
                         <div class="text-keyword-inline">
@@ -1050,24 +1051,30 @@ const viewMode = ref<'interactive' | 'report'>('interactive')
 const mockVideoArchive = mockAnalysisResult.videoInfo
 const mockIdentityAnalysis = mockAnalysisResult.identity
 const mockUniversityBaseline = mockAnalysisResult.university
+
+// 计算attitude的统计数据（前端统计）
+const attitudeStatistics = computed(() => {
+  const evidences = mockAnalysisResult.attitude.evidences
+  const positive = evidences.filter(e => e.sentiment === 'positive').length
+  const neutral = evidences.filter(e => e.sentiment === 'neutral').length
+  const negative = evidences.filter(e => e.sentiment === 'negative').length
+  const total = evidences.length
+  return { positive, neutral, negative, total }
+})
+
 const mockContentAnalysis = {
   topicCategory: mockAnalysisResult.topic.topicCategory,
   topicSubCategory: mockAnalysisResult.topic.topicSubCategory,
   sentimentTowardSchool: mockAnalysisResult.attitude.sentimentTowardSchool,
-  sentimentIntensity: mockAnalysisResult.attitude.sentimentIntensity,
-  schoolMentionCount: mockAnalysisResult.attitude.schoolMentionCount,
-  negativeMentionCount: mockAnalysisResult.attitude.negativeMentionCount,
-  keyTopics: mockAnalysisResult.topic.keyTopics
+  get negativeMentionCount() { return attitudeStatistics.value.negative },
+  get schoolMentionCount() { return attitudeStatistics.value.total }
 }
 const mockOpinionRisk = {
   riskLevel: mockAnalysisResult.opinionRisk.riskLevel,
   riskLabel: mockAnalysisResult.opinionRisk.riskLabel,
-  riskScore: mockAnalysisResult.opinionRisk.riskScore,
   riskReason: mockAnalysisResult.opinionRisk.riskReason,
-  spreadPotential: mockAnalysisResult.opinionRisk.spreadPotential,
   actionSuggestion: mockAnalysisResult.action.actionSuggestion,
-  actionDetail: mockAnalysisResult.action.actionDetail,
-  potentialImpacts: mockAnalysisResult.opinionRisk.potentialImpacts
+  actionDetail: mockAnalysisResult.action.actionDetail
 }
 // 提取台词转录数据
 const mockTranscriptSegmentsData = mockAnalysisResult.transcriptSegments
@@ -1091,7 +1098,7 @@ const cardsData = computed<CardData[]>(() => [
     id: 'identity',
     label: '身份判定',
     value: mockAnalysisResult.identity.identityLabel,
-    confidence: Math.round(mockAnalysisResult.identity.confidence * 100),
+    confidence: mockAnalysisResult.identity.modalityFusion.finalScore,
     confidenceLabel: '识别置信度',
     icon: User,
     iconClass: 'icon-bg-identity'
@@ -1100,7 +1107,7 @@ const cardsData = computed<CardData[]>(() => [
     id: 'university',
     label: '涉及高校',
     value: mockAnalysisResult.university.universityName,
-    confidence: Math.round(mockAnalysisResult.university.logoConfidence * 100),
+    confidence: mockAnalysisResult.university.modalityFusion.finalScore,
     confidenceLabel: '匹配度',
     icon: School,
     iconClass: 'icon-bg-uni'
@@ -1118,7 +1125,7 @@ const cardsData = computed<CardData[]>(() => [
     id: 'attitude',
     label: '对学校态度',
     value: mockAnalysisResult.attitude.sentimentLabel,
-    confidence: Math.round((mockAnalysisResult.attitude.statistics.negative / mockAnalysisResult.attitude.statistics.total) * 100),
+    confidence: Math.round((attitudeStatistics.value.negative / attitudeStatistics.value.total) * 100),
     confidenceLabel: '负面占比',
     icon: TrendCharts,
     iconClass: 'icon-bg-negative'
@@ -1127,7 +1134,7 @@ const cardsData = computed<CardData[]>(() => [
     id: 'opinionRisk',
     label: '潜在舆论风险',
     value: mockAnalysisResult.opinionRisk.riskLabel,
-    confidence: mockAnalysisResult.opinionRisk.riskScore,
+    confidence: mockAnalysisResult.opinionRisk.modalityFusion.finalScore,
     confidenceLabel: '风险指数',
     icon: WarningFilled,
     iconClass: 'icon-bg-risk-medium'
@@ -1136,7 +1143,7 @@ const cardsData = computed<CardData[]>(() => [
     id: 'action',
     label: '处置建议',
     value: mockAnalysisResult.action.actionSuggestion,
-    confidence: mockAnalysisResult.action.urgencyLevel,
+    confidence: mockAnalysisResult.action.modalityFusion.finalScore,
     confidenceLabel: '紧急程度',
     icon: DocumentChecked,
     iconClass: 'icon-bg-action'
@@ -1162,17 +1169,46 @@ const currentEvidences = computed(() => {
   return []
 })
 
-// 当前卡片的多模态融合数据
-const currentFusion = computed<ModalityFusion>(() => {
+// 当前卡片的多模态融合数据（仅加权融合分类使用）
+const currentFusion = computed<ModalityFusion | null>(() => {
   const cardId = currentCardId.value
   if (cardId === 'identity') return mockAnalysisResult.identity.modalityFusion
   if (cardId === 'university') return mockAnalysisResult.university.modalityFusion
   if (cardId === 'topic') return mockAnalysisResult.topic.modalityFusion
-  if (cardId === 'attitude') return mockAnalysisResult.attitude.modalityFusion
+  if (cardId === 'attitude') return null  // 统计分类，无融合数据
   if (cardId === 'opinionRisk') return mockAnalysisResult.opinionRisk.modalityFusion
   if (cardId === 'action') return mockAnalysisResult.action.modalityFusion
   return mockAnalysisResult.identity.modalityFusion
 })
+
+// 判断当前卡片是否为统计分类
+const isStatisticsCard = computed(() => currentCardId.value === 'attitude')
+
+// 当前卡片的统计数据（仅attitude使用）
+const currentStatistics = computed(() => {
+  if (currentCardId.value === 'attitude') {
+    return attitudeStatistics.value
+  }
+  return null
+})
+
+// 根据cardId获取结果标签
+const getResultLabel = (cardId: string): string => {
+  const labels: Record<string, string> = {
+    'identity': '识别置信度',
+    'university': '关联置信度',
+    'topic': '主题置信度',
+    'opinionRisk': '风险指数',
+    'action': '紧急程度'
+  }
+  return labels[cardId] || '置信度'
+}
+
+// 前端生成融合公式
+const getFusionFormula = (fusion: ModalityFusion | null): string => {
+  if (!fusion) return ''
+  return `视频${fusion.videoContribution.toFixed(1)} + 音频${fusion.audioContribution.toFixed(1)} + 文本${fusion.textContribution.toFixed(1)}`
+}
 
 // 分类证据
 const videoEvidences = computed(() => 
@@ -1933,12 +1969,12 @@ const riskChartOption = computed(() => {
         },
         data: [
           { 
-            value: Math.round(analysisData.value.riskScore * 100), 
+            value: Math.round((mockAnalysisResult.opinionRisk.modalityFusion?.finalScore || 0)), 
             name: '风险评分', 
             itemStyle: { color: '#f56c6c' } 
           },
           { 
-            value: Math.round((1 - analysisData.value.riskScore) * 100), 
+            value: Math.round(100 - (mockAnalysisResult.opinionRisk.modalityFusion?.finalScore || 0)), 
             name: '安全评分', 
             itemStyle: { color: '#52c41a' } 
           }
@@ -6315,11 +6351,86 @@ $purple: #4b70e2;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    position: relative;
     
     &:hover {
       background: #f0f2f5;
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    // 原生CSS tooltip
+    &::before {
+      content: attr(data-description);
+      position: absolute;
+      bottom: calc(100% + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 18px;
+      max-width: 320px;
+      width: max-content;
+      min-width: 180px;
+      
+      // 玻璃态背景
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.98));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      
+      // 样式
+      color: #1f2937;
+      font-size: 13px;
+      line-height: 1.7;
+      font-weight: 500;
+      border-radius: 12px;
+      border: 1px solid rgba(203, 213, 225, 0.8);
+      box-shadow: 
+        0 8px 24px rgba(15, 23, 42, 0.08),
+        0 2px 8px rgba(15, 23, 42, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      
+      // 隐藏状态
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      z-index: 9999;
+      
+      // 动画
+      transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                  visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateX(-50%) translateY(4px);
+    }
+    
+    // 箭头
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: calc(100% - 3.8px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 8px solid transparent;
+      border-top-color: rgba(255, 255, 255, 0.95);
+      filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.04));
+      
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      z-index: 9999;
+      
+      transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                  visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    // 悬停显示
+    &:hover::before,
+    &:hover::after {
+      opacity: 1;
+      visibility: visible;
+      transition-delay: 0.1s;
+    }
+    
+    &:hover::before {
+      transform: translateX(-50%) translateY(0);
     }
   }
   

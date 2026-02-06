@@ -48,7 +48,7 @@
             <span class="card-title-small">身份判定</span>
           </div>
           <div class="card-value text-identity">{{ analysisData.identity.identityLabel }}</div>
-          <div class="card-meta">置信度 {{ Math.round(analysisData.identity.confidence * 100) }}%</div>
+          <div class="card-meta">置信度 {{ analysisData.identity.modalityFusion.finalScore }}%</div>
         </div>
 
         <!-- 2. 涉及高校 -->
@@ -58,7 +58,7 @@
             <span class="card-title-small">涉及高校</span>
           </div>
           <div class="card-value text-uni">{{ analysisData.university.universityName }}</div>
-          <div class="card-meta">匹配度 {{ Math.round(analysisData.university.logoConfidence * 100) }}%</div>
+          <div class="card-meta">匹配度 {{ analysisData.university.modalityFusion.finalScore }}%</div>
         </div>
 
         <!-- 3. 内容主题 -->
@@ -82,7 +82,7 @@
           <div class="card-value" :class="getSentimentTextClass(analysisData.attitude.sentimentTowardSchool)">
             {{ getSentimentLabel(analysisData.attitude.sentimentTowardSchool) }}
           </div>
-          <div class="card-meta">{{ analysisData.attitude.statistics.negative }}处负面，占比 {{ Math.round((analysisData.attitude.statistics.negative / analysisData.attitude.statistics.total) * 100) }}%</div>
+          <div class="card-meta">{{ getAttitudeStatistics().negative }}处负面，占比 {{ Math.round((getAttitudeStatistics().negative / getAttitudeStatistics().total) * 100) }}%</div>
         </div>
 
         <!-- 5. 潜在舆论风险 -->
@@ -96,7 +96,7 @@
           <div class="card-value" :class="getOpinionRiskTextClass(analysisData.opinionRisk.riskLevel)">
             {{ analysisData.opinionRisk.riskLabel }}
           </div>
-          <div class="card-meta">风险指数 {{ analysisData.opinionRisk.riskScore }}分</div>
+          <div class="card-meta">风险指数 {{ analysisData.opinionRisk.modalityFusion.finalScore }}分</div>
         </div>
 
         <!-- 6. 处置建议 -->
@@ -151,29 +151,30 @@
       <div v-for="(card, cardKey) in evidenceCards" :key="cardKey + '-fusion'" class="fusion-section">
         <div class="fusion-header-bar">
           <h3 class="fusion-title">{{ card.label }}</h3>
-          <span class="fusion-result-badge">{{ analysisData[cardKey]?.modalityFusion?.resultLabel }}：{{ analysisData[cardKey]?.modalityFusion?.resultValue }}</span>
+          <span class="fusion-result-badge" v-if="cardKey === 'attitude'">{{ getResultLabel(cardKey) }}：{{ getAttitudeStatistics().total }}处（{{ getAttitudeStatistics().positive }}正 {{ getAttitudeStatistics().neutral }}中 {{ getAttitudeStatistics().negative }}负）</span>
+          <span class="fusion-result-badge" v-else>{{ getResultLabel(cardKey) }}：{{ analysisData[cardKey]?.modalityFusion?.finalScore || 0 }}%</span>
         </div>
         
         <!-- 统计类型卡片特殊处理 -->
-        <div v-if="analysisData[cardKey]?.modalityFusion?.resultType === 'statistics'" class="fusion-statistics">
+        <div v-if="cardKey === 'attitude'" class="fusion-statistics">
           <div class="stats-summary">
             <div class="stats-item positive">
               <span class="stats-icon">✅</span>
               <span class="stats-label">正面</span>
-              <span class="stats-count">{{ analysisData[cardKey]?.modalityFusion?.statistics?.positive || 0 }}次</span>
+              <span class="stats-count">{{ getAttitudeStatistics().positive }}次</span>
             </div>
             <div class="stats-item neutral">
               <span class="stats-icon">➖</span>
               <span class="stats-label">中性</span>
-              <span class="stats-count">{{ analysisData[cardKey]?.modalityFusion?.statistics?.neutral || 0 }}次</span>
+              <span class="stats-count">{{ getAttitudeStatistics().neutral }}次</span>
             </div>
             <div class="stats-item negative">
               <span class="stats-icon">❌</span>
               <span class="stats-label">负面</span>
-              <span class="stats-count">{{ analysisData[cardKey]?.modalityFusion?.statistics?.negative || 0 }}次</span>
+              <span class="stats-count">{{ getAttitudeStatistics().negative }}次</span>
             </div>
           </div>
-          <p class="stats-note">共分析{{ analysisData[cardKey]?.modalityFusion?.statistics?.total || 0 }}处情感表达，采用统计方法而非加权计算</p>
+          <p class="stats-note">共分析{{ getAttitudeStatistics().total }}处情感表达，采用统计方法而非加权计算</p>
         </div>
         
         <!-- 加权计算类型 -->
@@ -186,7 +187,7 @@
             <div class="fusion-score">{{ analysisData[cardKey]?.modalityFusion?.videoScore || 0 }}<span>分</span></div>
             <div class="fusion-meta">
               <span>贡献度 {{ (analysisData[cardKey]?.modalityFusion?.videoContribution || 0).toFixed(1) }}</span>
-              <span>{{ analysisData[cardKey]?.modalityFusion?.videoEvidenceCount || 0 }}处证据</span>
+              <span>{{ getModalityEvidenceCount(cardKey, 'video') }}处证据</span>
             </div>
           </div>
           
@@ -198,7 +199,7 @@
             <div class="fusion-score">{{ analysisData[cardKey]?.modalityFusion?.audioScore || 0 }}<span>分</span></div>
             <div class="fusion-meta">
               <span>贡献度 {{ (analysisData[cardKey]?.modalityFusion?.audioContribution || 0).toFixed(1) }}</span>
-              <span>{{ analysisData[cardKey]?.modalityFusion?.audioEvidenceCount || 0 }}处证据</span>
+              <span>{{ getModalityEvidenceCount(cardKey, 'audio') }}处证据</span>
             </div>
           </div>
           
@@ -210,7 +211,7 @@
             <div class="fusion-score">{{ analysisData[cardKey]?.modalityFusion?.textScore || 0 }}<span>分</span></div>
             <div class="fusion-meta">
               <span>贡献度 {{ (analysisData[cardKey]?.modalityFusion?.textContribution || 0).toFixed(1) }}</span>
-              <span>{{ analysisData[cardKey]?.modalityFusion?.textEvidenceCount || 0 }}处证据</span>
+              <span>{{ getModalityEvidenceCount(cardKey, 'text') }}处证据</span>
             </div>
           </div>
           
@@ -219,8 +220,8 @@
               <el-icon><Check /></el-icon>
               <span>融合结果</span>
             </div>
-            <div class="fusion-result">{{ analysisData[cardKey]?.modalityFusion?.resultValue || '-' }}</div>
-            <div class="fusion-formula">{{ analysisData[cardKey]?.modalityFusion?.fusionFormula || '' }}</div>
+            <div class="fusion-result">{{ analysisData[cardKey]?.modalityFusion?.finalScore || 0 }}%</div>
+            <div class="fusion-formula">{{ getFusionFormula(cardKey) }}</div>
           </div>
         </div>
       </div>
@@ -381,6 +382,46 @@ const formatTimeDisplay = (seconds: number): string => {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// 辅助函数：根据cardKey获取结果标签
+const getResultLabel = (cardKey: string): string => {
+  const labels: Record<string, string> = {
+    'identity': '识别置信度',
+    'university': '关联置信度',
+    'topic': '主题置信度',
+    'opinionRisk': '风险指数',
+    'action': '紧急程度',
+    'attitude': '情感分布统计'
+  }
+  return labels[cardKey] || '置信度'
+}
+
+// 前端生成融合公式
+const getFusionFormula = (cardKey: string): string => {
+  const fusion = props.analysisData[cardKey as keyof typeof props.analysisData]
+  if (!fusion || typeof fusion !== 'object' || !('modalityFusion' in fusion)) return ''
+  const mf = (fusion as any).modalityFusion
+  if (!mf) return ''
+  return `视频${mf.videoContribution?.toFixed(1) || 0} + 音频${mf.audioContribution?.toFixed(1) || 0} + 文本${mf.textContribution?.toFixed(1) || 0}`
+}
+
+// 统计evidences中各模态的数量
+const getModalityEvidenceCount = (cardKey: string, modalityType: 'video' | 'audio' | 'text'): number => {
+  const card = props.analysisData[cardKey as keyof typeof props.analysisData]
+  if (!card || typeof card !== 'object' || !('evidences' in card)) return 0
+  const evidences = (card as any).evidences || []
+  return evidences.filter((e: any) => e.type === modalityType).length
+}
+
+// 统计attitude的情感数据
+const getAttitudeStatistics = () => {
+  const evidences = props.analysisData.attitude.evidences
+  const positive = evidences.filter(e => e.sentiment === 'positive').length
+  const neutral = evidences.filter(e => e.sentiment === 'neutral').length
+  const negative = evidences.filter(e => e.sentiment === 'negative').length
+  const total = evidences.length
+  return { positive, neutral, negative, total }
 }
 
 // 辅助函数：获取情感图标样式

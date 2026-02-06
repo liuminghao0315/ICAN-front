@@ -1,294 +1,4 @@
-/**
- * 统一的分析结果Mock数据
- * 
- * 这个文件模拟Python后端返回的完整视频分析结果数据
- * 包含所有交互分析和报告视图需要的数据
- * 
- * 重要：这是整个分析页面的核心数据源！
- * 修改时请务必保持数据一致性！
- */
-
-// ==================== 类型定义 ====================
-
-/**
- * 证据类型定义
- */
-export interface Evidence {
-  timestamp: number         // 时间点（秒）
-  type: 'video' | 'audio' | 'text'  // 证据类型
-  description: string      // 描述
-  confidence: number       // 置信度 0-100
-  keyword?: string         // 文本证据的关键词
-  sentiment?: 'positive' | 'neutral' | 'negative'  // 情感标签（态度分析专用）
-}
-
-/**
- * 统计数据结构（用于态度分析）
- */
-export interface StatisticsData {
-  positive: number    // 正面次数
-  neutral: number     // 中性次数
-  negative: number    // 负面次数
-  total: number       // 总次数
-}
-
-/**
- * 多模态融合数据结构
- * 注：仅用于加权融合分类（identity, university, topic, opinionRisk, action）
- * 统计分类（attitude）不使用此结构
- */
-export interface ModalityFusion {
-  videoScore: number           // 视频模态得分 0-100（Python给出）
-  audioScore: number           // 音频模态得分 0-100（Python给出）
-  textScore: number            // 文本模态得分 0-100（Python给出）
-  videoContribution: number    // 视频模态贡献度（Python给出）
-  audioContribution: number    // 音频模态贡献度（Python给出）
-  textContribution: number     // 文本模态贡献度（Python给出）
-  finalScore: number           // 最终融合得分 0-100（Python给出）
-}
-
-/**
- * 台词转录片段
- */
-export interface TranscriptSegment {
-  id: string
-  start: number         // 开始时间（秒）
-  end: number           // 结束时间（秒）
-  text: string          // 台词内容
-  content: string       // 内容（用于兼容）
-  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级（小写，与代码一致）
-  keywords: string[]    // 关键词
-  reason: string        // 风险原因
-}
-
-/**
- * 视频风险点（基于索引的时间序列数据）
- */
-export interface VideoRiskPoint {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  reason: string        // 风险原因
-  intensity: number     // 风险强度 0-1
-}
-
-/**
- * 文本风险点（基于索引的时间序列数据）
- */
-export interface TextRiskPoint {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  reason: string        // 风险原因
-  intensity: number     // 风险强度 0-1
-}
-
-/**
- * 综合风险点（基于索引的时间序列数据）
- */
-export interface ComprehensiveRiskPoint {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  intensity: number     // 风险强度 0-1（三个模态的最大值）
-}
-
-/**
- * 音频情绪片段（基于索引的时间序列数据）
- */
-export interface AudioEmotion {
-  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪类型
-  intensity: number     // 强度 0-1
-  reason: string        // 检测原因
-}
-
-/**
- * 雷达图时间段数据（索引对应时间段，类似 videoRisks）
- */
-export interface RadarDataByTime {
-  data: number[]        // 6个维度的数据 [身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
-}
-
-/**
- * 风险证据（用于左侧证据列表展示）
- */
-export interface RiskEvidence {
-  id: string
-  time: string
-  timeSeconds: number
-  timeEndSeconds?: number
-  content: string
-  riskLevel: 'high' | 'medium' | 'low'
-  imageUrl: string
-  boxStyle: { top: string; left: string; width: string; height: string }
-  label: string
-  confidence: number
-  keywords: string[]
-  emotion?: string
-}
-
-/**
- * 检测到的关键词（带高亮标记）
- */
-export interface DetectedKeyword {
-  word: string                    // 关键词文本
-  isUniversityRelated: boolean   // 是否高校相关（由Python后端判断）
-}
-
-/**
- * AI目标侧写结果
- */
-export interface AIProfileResult {
-  identityStatus: 'confirmed' | 'suspected' | 'unknown'
-  identityLabel: string
-  confidence: number
-  matchSource: string
-  detectedKeywords: DetectedKeyword[]  // 修改为对象数组，包含高亮标记
-  staticFeatures: {
-    gender: string
-    ageRange: string
-    voiceProfile: string
-    clothing: string
-  }
-  sceneType: string
-  sceneConfidence: number
-}
-
-/**
- * CV检测框数据
- */
-export interface Detection {
-  id: string
-  type: 'face' | 'ocr' | 'logo' | 'uniform' | 'banner' | 'object'
-  boundingBox: { x: number; y: number; width: number; height: number }
-  confidence: number
-  label: string
-  timeStart: number
-  timeEnd: number
-  metadata?: {
-    emotion?: string
-    emotionIcon?: string
-    age?: number
-    gender?: string
-  }
-}
-
-/**
- * 场景识别数据
- */
-export interface SceneInfo {
-  id: string
-  name: string
-  icon: string
-  confidence: number
-  timeStart: number
-  timeEnd: number
-}
-
-/**
- * 视频基本信息
- */
-export interface VideoInfo {
-  videoId: string           // 视频ID
-  fileName: string          // 文件名
-  fileSize: number          // 文件大小（字节）
-  duration: number          // 时长（秒）
-  resolution: string        // 分辨率
-  uploadTime: string        // 上传时间
-  uploadSource: string      // 来源
-  analysisStatus: string    // 分析状态
-  description: string       // AI自动生成的视频内容摘要
-}
-
-/**
- * 身份判定分析结果
- */
-export interface IdentityAnalysis {
-  identityLabel: string     // 显示标签
-  evidences: Evidence[]     // 详细证据列表
-  modalityFusion: ModalityFusion  // 多模态融合分析
-}
-
-/**
- * 高校关联分析结果
- */
-export interface UniversityAnalysis {
-  universityName: string    // 高校名称
-  evidences: Evidence[]     // 详细证据列表
-  modalityFusion: ModalityFusion  // 多模态融合分析
-}
-
-/**
- * 内容主题分析结果
- */
-export interface TopicAnalysis {
-  topicCategory: string         // 主题大类
-  topicSubCategory: string      // 主题细分
-  evidences: Evidence[]         // 详细证据列表
-  modalityFusion: ModalityFusion  // 多模态融合分析
-}
-
-/**
- * 对学校态度分析结果（统计分类）
- */
-export interface AttitudeAnalysis {
-  sentimentTowardSchool: 'positive' | 'neutral' | 'negative'  // 情感倾向
-  sentimentLabel: string        // 显示标签
-  evidences: Evidence[]         // 详细证据列表（前端统计情感分布）
-}
-
-/**
- * 潜在舆论风险分析结果
- */
-export interface OpinionRiskAnalysis {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  riskLabel: string             // 显示标签
-  riskReason: string            // 风险原因
-  evidences: Evidence[]         // 详细证据列表
-  modalityFusion: ModalityFusion  // 多模态融合分析
-}
-
-/**
- * 处置建议分析结果
- */
-export interface ActionSuggestion {
-  actionSuggestion: string      // 建议
-  actionDetail: string          // 详细说明
-  evidences: Evidence[]         // 详细证据列表
-  modalityFusion: ModalityFusion  // 多模态融合分析
-}
-
-/**
- * 完整的视频分析结果（模拟Python后端返回）
- */
-export interface AnalysisResult {
-  // 视频基本信息
-  videoInfo: VideoInfo
-  
-  // 核心分析结果（6个维度，每个维度包含自己的证据和融合数据）
-  identity: IdentityAnalysis
-  university: UniversityAnalysis
-  topic: TopicAnalysis
-  attitude: AttitudeAnalysis
-  opinionRisk: OpinionRiskAnalysis
-  action: ActionSuggestion
-  
-  // 台词转录与风险定位
-  transcriptSegments: TranscriptSegment[]
-  
-  // 时间轴数据
-  timelineData: {
-    timeGranularity: number               // 时间粒度（秒），表示数组元素之间的时间间隔
-    videoRisks: VideoRiskPoint[]          // 视频风险点（索引即时间段）
-    audioEmotions: AudioEmotion[]         // 音频情绪（索引即时间段）
-    textRisks: TextRiskPoint[]            // 文本风险点（索引即时间段）
-    comprehensiveRisks: ComprehensiveRiskPoint[]  // 综合风险点（索引即时间段）
-    radarByTime: RadarDataByTime[]        // 雷达图时间段数据（实时动态）
-    averageRadarData: number[]            // 全片平均雷达数据（6个维度的平均值，用于底层参考线）
-  }
-  
-  // 辅助分析数据（用于交互分析的扩展功能）
-  riskEvidences: RiskEvidence[]       // 风险证据列表
-  aiProfile: AIProfileResult          // AI目标侧写
-  cvDetections: Detection[]           // CV视觉检测框
-  sceneRecognition: SceneInfo[]       // 场景识别
-}
-
+```ts
 // ==================== Mock数据（模拟Python后端返回的完整分析结果） ====================
 
 export const mockAnalysisResult: AnalysisResult = {
@@ -568,7 +278,15 @@ export const mockAnalysisResult: AnalysisResult = {
   opinionRisk: {
     riskLevel: 'medium',
     riskLabel: '中等风险',
+    riskScore: 58,⬛这个不是应该引用“FinalScore”吗？删了吧。
     riskReason: '可能引发跟风吐槽',
+    spreadPotential: 6.5,⬛
+    spreadPotentialLabel: '较易传播',⬛
+    potentialImpacts: [⬛这三个都是传播潜力的，并不是舆论风险，所以要删了。 
+      '若上传可能引发其他学生共鸣转发',
+      '对学校选课系统形象有一定负面影响',
+      '建议先与教务处沟通后再决定'
+    ],
     
     // 详细证据
     evidences: [
@@ -622,6 +340,7 @@ export const mockAnalysisResult: AnalysisResult = {
   action: {
     actionSuggestion: '谨慎发布',
     actionDetail: '建议人工复核后决定是否上传',
+    urgencyLevel: 75,⬛这个也是应该引用“FinalScore”的。 删了吧 
     
     // 详细证据
     evidences: [
@@ -970,3 +689,5 @@ export const mockAnalysisResult: AnalysisResult = {
     { id: 'scene-3', name: '校园室外', icon: '🌳', confidence: 0.88, timeStart: 35, timeEnd: 50 }
   ]
 }
+
+```
