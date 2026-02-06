@@ -74,13 +74,13 @@
         <!-- 4. 对学校态度 -->
         <div class="report-card">
           <div class="card-header-flex">
-            <div class="card-icon-small" :class="getSentimentIconClass(analysisData.attitude.sentimentTowardSchool)">
+            <div class="card-icon-small" :class="getSentimentIconClass(getSentimentByScore((getAttitudeStatistics().negative / getAttitudeStatistics().total) * 100))">
               <el-icon><TrendCharts /></el-icon>
             </div>
             <span class="card-title-small">对学校态度</span>
           </div>
-          <div class="card-value" :class="getSentimentTextClass(analysisData.attitude.sentimentTowardSchool)">
-            {{ getSentimentLabel(analysisData.attitude.sentimentTowardSchool) }}
+          <div class="card-value" :class="getSentimentTextClass(getSentimentByScore((getAttitudeStatistics().negative / getAttitudeStatistics().total) * 100))">
+            {{ getSentimentLabel(getSentimentByScore((getAttitudeStatistics().negative / getAttitudeStatistics().total) * 100)) }}
           </div>
           <div class="card-meta">{{ getAttitudeStatistics().negative }}处负面，占比 {{ Math.round((getAttitudeStatistics().negative / getAttitudeStatistics().total) * 100) }}%</div>
         </div>
@@ -88,12 +88,12 @@
         <!-- 5. 潜在舆论风险 -->
         <div class="report-card">
           <div class="card-header-flex">
-            <div class="card-icon-small" :class="getOpinionRiskIconClass(analysisData.opinionRisk.riskLevel)">
+            <div class="card-icon-small" :class="getOpinionRiskIconClass(getRiskLevelByScore(analysisData.opinionRisk.modalityFusion.finalScore))">
               <el-icon><WarningFilled /></el-icon>
             </div>
             <span class="card-title-small">潜在舆论风险</span>
           </div>
-          <div class="card-value" :class="getOpinionRiskTextClass(analysisData.opinionRisk.riskLevel)">
+          <div class="card-value" :class="getOpinionRiskTextClass(getRiskLevelByScore(analysisData.opinionRisk.modalityFusion.finalScore))">
             {{ analysisData.opinionRisk.riskLabel }}
           </div>
           <div class="card-meta">风险指数 {{ analysisData.opinionRisk.modalityFusion.finalScore }}分</div>
@@ -1161,7 +1161,7 @@ $purple: #4b70e2;
 .icon-bg-uni { background: rgba(64, 158, 255, 0.12); color: #409eff; }
 .icon-bg-topic { background: rgba(114, 46, 209, 0.12); color: #722ed1; }
 .icon-bg-positive { background: rgba(103, 194, 58, 0.12); color: #67c23a; }
-.icon-bg-neutral { background: rgba(144, 147, 153, 0.12); color: #909399; }
+.icon-bg-neutral { background: rgba(250, 173, 20, 0.12); color: #faad14; }
 .icon-bg-negative { background: rgba(245, 108, 108, 0.12); color: #f56c6c; }
 .icon-bg-risk-low { background: rgba(82, 196, 26, 0.12); color: #52c41a; }
 .icon-bg-risk-medium { background: rgba(250, 173, 20, 0.12); color: #faad14; }
@@ -1173,7 +1173,7 @@ $purple: #4b70e2;
 .text-uni { color: #409eff; }
 .text-topic { color: #722ed1; }
 .text-positive { color: #67c23a; }
-.text-neutral { color: #909399; }
+.text-neutral { color: #faad14; }
 .text-negative { color: #F56C6C; }
 .text-risk-low { color: #52c41a; }
 .text-risk-medium { color: #faad14; }

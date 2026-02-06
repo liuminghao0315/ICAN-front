@@ -227,7 +227,6 @@ export interface TopicAnalysis {
  * 对学校态度分析结果（统计分类）
  */
 export interface AttitudeAnalysis {
-  sentimentTowardSchool: 'positive' | 'neutral' | 'negative'  // 情感倾向
   sentimentLabel: string        // 显示标签
   evidences: Evidence[]         // 详细证据列表（前端统计情感分布）
 }
@@ -236,7 +235,6 @@ export interface AttitudeAnalysis {
  * 潜在舆论风险分析结果
  */
 export interface OpinionRiskAnalysis {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
   riskLabel: string             // 显示标签
   riskReason: string            // 风险原因
   evidences: Evidence[]         // 详细证据列表
@@ -489,7 +487,6 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // ========== 5. 对学校态度分析（统计分类）==========
   attitude: {
-    sentimentTowardSchool: 'negative',
     sentimentLabel: '负面/不满',
     
     // 详细证据（前端统计情感分布）
@@ -566,7 +563,6 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // ========== 6. 潜在舆论风险分析 ==========
   opinionRisk: {
-    riskLevel: 'medium',
     riskLabel: '中等风险',
     riskReason: '可能引发跟风吐槽',
     

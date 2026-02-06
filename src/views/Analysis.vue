@@ -215,13 +215,13 @@
               
               <div class="stat-pro-item" :class="{ 'active': currentCardId === 'attitude' }" @click="openEvidenceDrawer('attitude')">
                 <div class="card-tooltip">{{ currentCardId === 'attitude' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
-                <div class="pro-icon" :class="getSentimentIconClass(mockContentAnalysis.sentimentTowardSchool)">
+                <div class="pro-icon" :class="getSentimentIconClass(getSentimentByScore((attitudeStatistics.negative / attitudeStatistics.total) * 100))">
                   <el-icon><TrendCharts /></el-icon>
                 </div>
                 <div class="pro-content">
                   <div class="pro-label">对学校态度 <span class="evidence-badge">({{ mockAnalysisResult.attitude.evidences?.length || 0 }})</span></div>
-                  <div class="pro-value" :class="getSentimentTextClass(mockContentAnalysis.sentimentTowardSchool)">
-                    {{ getSentimentLabel(mockContentAnalysis.sentimentTowardSchool) }}
+                  <div class="pro-value" :class="getSentimentTextClass(getSentimentByScore((attitudeStatistics.negative / attitudeStatistics.total) * 100))">
+                    {{ getSentimentLabel(getSentimentByScore((attitudeStatistics.negative / attitudeStatistics.total) * 100)) }}
                   </div>
                   <div class="pro-subtitle">{{ mockContentAnalysis.negativeMentionCount }}处负面，占比 {{ Math.round((mockContentAnalysis.negativeMentionCount / mockContentAnalysis.schoolMentionCount) * 100) }}%</div>
                 </div>
@@ -229,7 +229,7 @@
               
               <div class="stat-pro-item" :class="{ 'active': currentCardId === 'opinionRisk' }" @click="openEvidenceDrawer('opinionRisk')">
                 <div class="card-tooltip">{{ currentCardId === 'opinionRisk' ? '点击关闭详细证据' : '点击查看详细证据' }}</div>
-                <div class="pro-icon" :class="getOpinionRiskIconClass(mockOpinionRisk.riskLevel)">
+                <div class="pro-icon" :class="getOpinionRiskIconClass(getRiskLevelByScore(mockAnalysisResult.opinionRisk.modalityFusion.finalScore))">
                   <el-icon><WarningFilled /></el-icon>
                 </div>
                 <div class="pro-content">
@@ -237,7 +237,7 @@
                     潜在舆论风险 <span class="evidence-badge">({{ mockAnalysisResult.opinionRisk.evidences?.length || 0 }})</span>
                     <span class="ai-predict-badge">AI预测</span>
                   </div>
-                  <div class="pro-value" :class="getOpinionRiskTextClass(mockOpinionRisk.riskLevel)">
+                  <div class="pro-value" :class="getOpinionRiskTextClass(getRiskLevelByScore(mockAnalysisResult.opinionRisk.modalityFusion.finalScore))">
                     {{ mockOpinionRisk.riskLabel }}
                   </div>
                   <div class="pro-subtitle">{{ mockOpinionRisk.riskReason }}</div>
@@ -1065,12 +1065,10 @@ const attitudeStatistics = computed(() => {
 const mockContentAnalysis = {
   topicCategory: mockAnalysisResult.topic.topicCategory,
   topicSubCategory: mockAnalysisResult.topic.topicSubCategory,
-  sentimentTowardSchool: mockAnalysisResult.attitude.sentimentTowardSchool,
   get negativeMentionCount() { return attitudeStatistics.value.negative },
   get schoolMentionCount() { return attitudeStatistics.value.total }
 }
 const mockOpinionRisk = {
-  riskLevel: mockAnalysisResult.opinionRisk.riskLevel,
   riskLabel: mockAnalysisResult.opinionRisk.riskLabel,
   riskReason: mockAnalysisResult.opinionRisk.riskReason,
   actionSuggestion: mockAnalysisResult.action.actionSuggestion,
@@ -1128,7 +1126,11 @@ const cardsData = computed<CardData[]>(() => [
     confidence: Math.round((attitudeStatistics.value.negative / attitudeStatistics.value.total) * 100),
     confidenceLabel: '负面占比',
     icon: TrendCharts,
-    iconClass: 'icon-bg-negative'
+    get iconClass() {
+      const negativeRatio = (attitudeStatistics.value.negative / attitudeStatistics.value.total) * 100
+      const sentiment = getSentimentByScore(negativeRatio)
+      return getSentimentIconClass(sentiment)
+    }
   },
   {
     id: 'opinionRisk',
@@ -1137,7 +1139,10 @@ const cardsData = computed<CardData[]>(() => [
     confidence: mockAnalysisResult.opinionRisk.modalityFusion.finalScore,
     confidenceLabel: '风险指数',
     icon: WarningFilled,
-    iconClass: 'icon-bg-risk-medium'
+    get iconClass() {
+      const riskLevel = getRiskLevelByScore(mockAnalysisResult.opinionRisk.modalityFusion.finalScore)
+      return getOpinionRiskIconClass(riskLevel)
+    }
   },
   {
     id: 'action',
@@ -1451,6 +1456,26 @@ const formattedCurrentTime = computed(() => {
 
 // ==================== 旧的interface定义已删除，统一使用mockAnalysisResult ====================
 
+// 辅助函数：根据finalScore获取情感类别（用于态度分析）
+const getSentimentByScore = (negativeRatio: number): string => {
+  // 负面占比 < 33.3% 为正面（绿色）
+  if (negativeRatio < 33.3) return 'positive'
+  // 负面占比 > 66.7% 为负面（红色）
+  if (negativeRatio > 66.7) return 'negative'
+  // 其余为中性（橙色）
+  return 'neutral'
+}
+
+// 辅助函数：根据finalScore获取风险等级（用于舆论风险）
+const getRiskLevelByScore = (score: number): string => {
+  // finalScore < 33.3 为低风险（绿色）
+  if (score < 33.3) return 'low'
+  // finalScore > 66.7 为高风险（红色）
+  if (score > 66.7) return 'high'
+  // 其余为中等风险（橙色）
+  return 'medium'
+}
+
 // 辅助函数：获取情感标签
 const getSentimentLabel = (sentiment: string): string => {
   const labels: Record<string, string> = {
@@ -1513,10 +1538,17 @@ const getPanelValueClass = (): string => {
       return 'text-uni'
     case 'topic':
       return 'text-topic'
-    case 'attitude':
-      return getSentimentTextClass(mockContentAnalysis.sentimentTowardSchool)
-    case 'opinionRisk':
-      return getOpinionRiskTextClass(mockOpinionRisk.riskLevel)
+    case 'attitude': {
+      // 基于负面占比动态计算
+      const negativeRatio = (attitudeStatistics.value.negative / attitudeStatistics.value.total) * 100
+      const sentiment = getSentimentByScore(negativeRatio)
+      return getSentimentTextClass(sentiment)
+    }
+    case 'opinionRisk': {
+      // 基于finalScore动态计算
+      const riskLevel = getRiskLevelByScore(mockAnalysisResult.opinionRisk.modalityFusion.finalScore)
+      return getOpinionRiskTextClass(riskLevel)
+    }
     case 'action':
       return 'text-action'
     default:
@@ -8539,6 +8571,23 @@ $purple: #4b70e2;
       &:hover {
         transform: translateY(1px) scale(0.98); // 激活时保持按下状态
       }
+      
+      // 确保图标颜色在active状态下保持原有颜色
+      .pro-icon {
+        // 保持原有的icon-bg-*类的颜色，不覆盖
+        &.icon-bg-identity,
+        &.icon-bg-uni,
+        &.icon-bg-topic,
+        &.icon-bg-positive,
+        &.icon-bg-neutral,
+        &.icon-bg-negative,
+        &.icon-bg-risk-low,
+        &.icon-bg-risk-medium,
+        &.icon-bg-risk-high,
+        &.icon-bg-action {
+          // 保持各自的颜色，不做改变
+        }
+      }
     }
   }
 
@@ -8641,8 +8690,8 @@ $purple: #4b70e2;
   }
 
   .icon-bg-neutral {
-    background: rgba(144, 147, 153, 0.1);
-    color: #909399;
+    background: rgba(250, 173, 20, 0.1);
+    color: #faad14;
   }
 
   .icon-bg-negative {
@@ -8672,7 +8721,7 @@ $purple: #4b70e2;
   }
 
   .text-neutral {
-    color: #909399;
+    color: #faad14;
   }
 
   .text-negative {
