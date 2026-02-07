@@ -10,24 +10,12 @@
           <span class="info-value">{{ analysisData.videoInfo.fileName }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">上传时间</span>
-          <span class="info-value">{{ analysisData.videoInfo.uploadTime }}</span>
-        </div>
-        <div class="info-item">
           <span class="info-label">视频时长</span>
           <span class="info-value">{{ formatDuration(analysisData.videoInfo.duration) }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">分辨率</span>
-          <span class="info-value">{{ analysisData.videoInfo.resolution }}</span>
-        </div>
-        <div class="info-item">
           <span class="info-label">上传来源</span>
           <span class="info-value">{{ analysisData.videoInfo.uploadSource }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">分析状态</span>
-          <span class="info-value status-completed">{{ analysisData.videoInfo.analysisStatus }}</span>
         </div>
       </div>
       
@@ -232,14 +220,14 @@
       <h2 class="section-title">四、高风险台词定位</h2>
       <div v-if="highRiskSegments.length > 0" class="transcript-risk-list">
         <div v-for="(segment, index) in highRiskSegments" :key="index" class="transcript-item-report">
-          <div class="transcript-timeline">{{ formatTimeDisplay(segment.start) }}</div>
+          <div class="transcript-timeline">{{ formatTimeDisplay(segment.timeSeconds) }}</div>
           <div class="transcript-content-report">
-            <div class="transcript-text">"{{ segment.text }}"</div>
+            <div class="transcript-text">"{{ segment.content }}"</div>
             <div class="transcript-meta">
               <span class="risk-badge-report" :class="'risk-' + segment.riskLevel.toLowerCase()">
                 {{ segment.riskLevel === 'high' ? '⚠️ 高风险' : '⚡ 中等风险' }}
               </span>
-              <span class="risk-reason">{{ segment.reason }}</span>
+              <span v-if="segment.label" class="risk-reason">{{ segment.label }}</span>
             </div>
           </div>
         </div>
@@ -349,7 +337,7 @@ const evidenceCards = {
 
 // 高风险台词（过滤低风险）
 const highRiskSegments = computed(() => 
-  props.analysisData.transcriptSegments.filter(s => s.riskLevel !== 'low')
+  props.analysisData.riskEvidences.filter(e => e.riskLevel !== 'low')
 )
 
 // 峰值风险数据

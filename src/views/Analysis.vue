@@ -133,33 +133,33 @@
                 </div>
 
                 <!-- 视频内容人物特征 -->
-                <div class="content-features-row">
+                <div v-if="mockAnalysisResult.videoInfo.mainCharacter && (mockAnalysisResult.videoInfo.mainCharacter.gender || mockAnalysisResult.videoInfo.mainCharacter.ageRange || mockAnalysisResult.videoInfo.mainCharacter.clothing || mockAnalysisResult.videoInfo.mainCharacter.voiceProfile)" class="content-features-row">
                   <div class="feature-label">
                     <el-icon :size="14"><User /></el-icon>
                     视频主要人物:
                   </div>
-                  <span class="profile-tag">
-                    <el-icon><Male /></el-icon> {{ mockAIProfile.staticFeatures.gender }}
+                  <span v-if="mockAnalysisResult.videoInfo.mainCharacter.gender" class="profile-tag">
+                    <el-icon><Male v-if="mockAnalysisResult.videoInfo.mainCharacter.gender.includes('男')"/><Female v-else /></el-icon> {{ mockAnalysisResult.videoInfo.mainCharacter.gender }}
                   </span>
-                  <span class="profile-tag">
-                    <el-icon><Calendar /></el-icon> {{ mockAIProfile.staticFeatures.ageRange }}
+                  <span v-if="mockAnalysisResult.videoInfo.mainCharacter.ageRange" class="profile-tag">
+                    <el-icon><Calendar /></el-icon> {{ mockAnalysisResult.videoInfo.mainCharacter.ageRange }}
                   </span>
-                  <span class="profile-tag">
-                    <el-icon><School /></el-icon> {{ mockAIProfile.staticFeatures.clothing }}
+                  <span v-if="mockAnalysisResult.videoInfo.mainCharacter.clothing" class="profile-tag">
+                    <el-icon><School /></el-icon> {{ mockAnalysisResult.videoInfo.mainCharacter.clothing }}
                   </span>
-                  <span class="profile-tag">
-                    <el-icon><Microphone /></el-icon> {{ mockAIProfile.staticFeatures.voiceProfile }}
+                  <span v-if="mockAnalysisResult.videoInfo.mainCharacter.voiceProfile" class="profile-tag">
+                    <el-icon><Microphone /></el-icon> {{ mockAnalysisResult.videoInfo.mainCharacter.voiceProfile }}
                   </span>
                 </div>
 
                 <!-- 检测到的关键内容 -->
-                <div class="detected-keywords-row">
+                <div v-if="mockAnalysisResult.videoInfo.detectedKeywords && mockAnalysisResult.videoInfo.detectedKeywords.length > 0" class="detected-keywords-row">
                   <div class="feature-label">
                     <el-icon :size="14"><Search /></el-icon>
                     内容关键词:
                   </div>
                   <div class="keywords-container">
-                    <span v-for="(kw, idx) in mockAIProfile.detectedKeywords" :key="idx" 
+                    <span v-for="(kw, idx) in mockAnalysisResult.videoInfo.detectedKeywords" :key="idx" 
                           class="keyword-tag-detected"
                           :class="{ 'university-related': kw.isUniversityRelated }">
                       {{ kw.word }}
@@ -402,9 +402,9 @@
               <!-- 当前帧信息叠加（顶部） -->
               <div class="frame-info-overlay" v-if="currentEvidence">
                 <div class="info-tags-row">
-                  <span v-if="currentEvidence.emotion" class="info-tag emotion" :class="'emotion-' + currentEvidence.emotion">
+                  <span v-if="currentEvidence.emotion" class="info-tag emotion" :style="{ background: currentEvidence.emotion.bgColor + 'e6', color: currentEvidence.emotion.textColor }">
                     <el-icon :size="11"><Microphone /></el-icon>
-                    {{ getEmotionText(currentEvidence.emotion) }}
+                    {{ currentEvidence.emotion.label }}
                   </span>
                   <span v-if="currentEvidence.riskLevel === 'high'" class="info-tag risk-alert">
                     <el-icon :size="11"><Warning /></el-icon>
@@ -829,9 +829,9 @@
                   @click="selectEvidence(evidence.id)"
                 >
                   <div class="segment-header">
-                    <span class="time-range">{{ evidence.time }}</span>
-                    <span v-if="evidence.emotion" class="emotion-badge" :class="getEmotionClass(evidence.emotion)">
-                      {{ getEmotionText(evidence.emotion) }}
+                    <span class="time-range">{{ formatTimeRange(evidence.timeSeconds, evidence.timeEndSeconds) }}</span>
+                    <span v-if="evidence.emotion" class="emotion-badge" :style="{ background: evidence.emotion.bgColor, color: evidence.emotion.textColor }">
+                      {{ evidence.emotion.label }}
                     </span>
                     <span v-if="evidence.riskLevel !== 'low'" class="risk-tag" :class="evidence.riskLevel.toLowerCase()">
                       {{ evidence.riskLevel === 'high' ? '高风险' : '中风险' }}
@@ -841,15 +841,15 @@
                   
                   <!-- Gemini优化：音频特征展示 -->
                   <div v-if="evidence.emotion" class="audio-features">
-                    <span class="audio-feature-tag" :class="'emotion-' + evidence.emotion">
+                    <span class="audio-feature-tag" :style="{ background: evidence.emotion.bgColor, color: evidence.emotion.textColor }">
                       <el-icon :size="11"><Headset /></el-icon>
-                      情绪: {{ getEmotionText(evidence.emotion) }}
+                      情绪: {{ evidence.emotion.label }}
                     </span>
                     <span v-if="evidence.riskLevel === 'high'" class="audio-feature-tag volume">
                       <el-icon :size="11"><Sound /></el-icon>
                       音量: 嘶吼
                     </span>
-                    <span v-if="evidence.emotion === 'angry'" class="audio-feature-tag pitch">
+                    <span v-if="evidence.emotion && evidence.emotion.label.includes('怒')" class="audio-feature-tag pitch">
                       <el-icon :size="11"><TrendCharts /></el-icon>
                       音调: 升高
                     </span>
@@ -861,7 +861,7 @@
                   </div>
                 </div>
                 
-                <div v-if="mockTranscriptSegments.length === 0" class="empty-transcript">
+                <div v-if="mockRiskEvidence.length === 0" class="empty-transcript">
                   <el-icon :size="36"><Microphone /></el-icon>
                   <p>暂无语音转录数据</p>
                 </div>
@@ -1019,7 +1019,7 @@ import ReportView from '@/components/ReportView.vue'
 import { mockAnalysisResult } from '@/data/mockAnalysisResult'
 import type { ModalityFusion, Evidence, Detection, RiskEvidence, AIProfileResult, SceneInfo } from '@/data/mockAnalysisResult'
 // 导入Element Plus图标
-import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked } from '@element-plus/icons-vue'
+import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked, Male, Female } from '@element-plus/icons-vue'
 
 // 注册ECharts组件
 use([
@@ -1083,8 +1083,6 @@ const mockOpinionRisk = {
   actionSuggestion: mockAnalysisResult.action.actionSuggestion,
   actionDetail: mockAnalysisResult.action.actionDetail
 }
-// 提取台词转录数据
-const mockTranscriptSegmentsData = mockAnalysisResult.transcriptSegments
 // 提取时间轴数据
 const timeGranularity = mockAnalysisResult.timelineData.timeGranularity  // 时间粒度
 const mockVideoRisksData = mockAnalysisResult.timelineData.videoRisks
@@ -1095,7 +1093,6 @@ const mockRadarDataByTime = mockAnalysisResult.timelineData.radarByTime
 const mockAverageRadarData = mockAnalysisResult.timelineData.averageRadarData  // 全片平均雷达数据
 // 提取辅助分析数据
 const mockRiskEvidence = mockAnalysisResult.riskEvidences
-const mockAIProfile = mockAnalysisResult.aiProfile
 const mockDetections = mockAnalysisResult.cvDetections
 const mockScenes = mockAnalysisResult.sceneRecognition
 
@@ -1310,9 +1307,6 @@ const currentPlayTime = ref(0)
 // 视频真实时长（秒）- 从 mock 数据初始化，视频加载成功后会更新为真实时长
 const videoDuration = ref(mockAnalysisResult.videoInfo.duration)
 
-// 当前激活的台词段落索引
-const currentSegmentIndex = ref(-1)
-
 // 当前显示的检测框
 const currentDetection = ref<any>(null)
 
@@ -1391,8 +1385,7 @@ const selectedEvidenceId = ref<string>('')
 const riskFilter = ref<'all' | 'medium-high' | 'high'>('all')
 
 // 真实视频URL
-// const realVideoUrl = ref('https://5aedd2d8.r12.cpolar.top/ican-videos/videos/2026/02/01/ae8f478c008b448c865a03cabdeeec1a.mp4')
-const realVideoUrl = ref('http://47.110.33.16:9000/ican-videos/videos/2026/02/06/1329d3084a9448bb9e211c2245aeffa1.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260206%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260206T192651Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=107ffdf57a21829d6930d2392ccea41c3c5eb288f73289b7260814ed58ca7548')
+const realVideoUrl = ref(mockAnalysisResult.videoInfo.videoUrl)
 
 
 // ==================== 动态雷达图数据（根据视频时间变化） ====================
@@ -1564,9 +1557,6 @@ const getPanelValueClass = (): string => {
 // ==================== 高校舆情分析核心数据 END ====================
 
 
-// 台词转录数据（直接使用统一数据源）
-const mockTranscriptSegments = computed(() => mockTranscriptSegmentsData)
-
 // 视频风险点（直接使用统一数据源）
 const mockVideoRisks = computed(() => mockVideoRisksData)
 
@@ -1586,7 +1576,7 @@ const angryEmotionCount = computed(() => {
 })
 
 const highRiskSegmentCount = computed(() => {
-  return mockTranscriptSegments.value.filter(s => s.riskLevel === 'high').length
+  return mockRiskEvidence.filter(e => e.riskLevel === 'high').length
 })
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
@@ -1708,7 +1698,7 @@ const multiModalRadarOption = computed(() => {
       }
     },
     radar: {
-      center: ['45%', '50%'],  // 👈 添加这行：雷达图中心位置 [左右, 上下]
+      center: ['50%', '50%'],  // 👈 雷达图中心位置 [左右, 上下]，左移以减少右侧空白
       radius: '75%', 
       indicator: [
         { name: '身份置信度', max: 100 },
@@ -2878,6 +2868,20 @@ const formatFileSize = (bytes: number): string => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
 
+// 格式化时间范围（秒 -> mm:ss-mm:ss）
+const formatTimeRange = (startSeconds: number, endSeconds?: number): string => {
+  const formatTime = (seconds: number): string => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+    const s = Math.floor(seconds % 60).toString().padStart(2, '0')
+    return `${m}:${s}`
+  }
+  
+  if (endSeconds) {
+    return `${formatTime(startSeconds)}-${formatTime(endSeconds)}`
+  }
+  return formatTime(startSeconds)
+}
+
 // 判断逻辑已移到Python后端，通过isUniversityRelated字段控制
 
 const getStatusText = (status: string): string => {
@@ -2936,33 +2940,6 @@ const getSentimentText = (label: SentimentLabel): string => {
   return texts[label] || '未知'
 }
 
-// 语音情感英文转中文映射
-const getEmotionText = (emotion: string | null | undefined): string => {
-  if (!emotion) return '未知'
-  const emotionMap: Record<string, string> = {
-    'energetic': '充满活力',
-    'calm': '平静',
-    'happy': '开心',
-    'sad': '悲伤',
-    'angry': '愤怒',
-    'fear': '恐惧',
-    'surprise': '惊讶',
-    'disgust': '厌恶',
-    'neutral': '中性',
-    'excited': '兴奋',
-    'relaxed': '放松',
-    'tense': '紧张',
-    'bored': '无聊',
-    'confident': '自信',
-    'nervous': '紧张不安',
-    'passionate': '热情',
-    'melancholic': '忧郁',
-    'cheerful': '欢快',
-    'serious': '严肃',
-    'humorous': '幽默'
-  }
-  return emotionMap[emotion.toLowerCase()] || emotion
-}
 
 // 所有业务逻辑判断已移到Python后端
 
@@ -3212,11 +3189,6 @@ const onVideoTimeUpdate = () => {
     selectedEvidenceId.value = currentEvidenceByTime.id
   }
   
-  const index = mockTranscriptSegments.value.findIndex(
-    seg => currentTime >= seg.start && currentTime < seg.end
-  )
-  currentSegmentIndex.value = index
-  
   const detection = mockVideoRisks.value.find(
     risk => Math.abs(currentTime - risk.time) < 3
   )
@@ -3457,17 +3429,6 @@ const highlightKeywords = (text: string, keywords: string[]) => {
     result = result.replace(regex, `<span class="risk-keyword">${keyword}</span>`)
   })
   return result
-}
-
-// 获取情绪类别样式
-const getEmotionClass = (emotion: string) => {
-  const classMap: Record<string, string> = {
-    'angry': 'emotion-angry',
-    'calm': 'emotion-calm',
-    'tense': 'emotion-tense',
-    'serious': 'emotion-serious'
-  }
-  return classMap[emotion] || 'emotion-neutral'
 }
 
 // ==================== V1.5 新增：证据选择逻辑 ====================
@@ -7713,13 +7674,13 @@ $purple: #4b70e2;
       .radar-with-score {
         display: flex;
         align-items: center;
-        padding-left: 40px;
+        padding-left: 30px;
         gap: 20px;
         margin-bottom: 12px;
         
         .radar-chart-area {
           flex: 1;
-          max-width: 380px;
+          max-width: 350px;
           
           .radar-chart-compact {
             height: 220px;

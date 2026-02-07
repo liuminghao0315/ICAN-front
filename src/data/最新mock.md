@@ -4,15 +4,16 @@
 export const mockAnalysisResult: AnalysisResult = {
   // ========== 1. 视频基本信息 ==========
   videoInfo: {
-    videoId: 'video_20240201_001',
+    videoId: 'video_20240201_001',⬛之后做反馈给管理员的功能的时候，需要把这个放到 API 里面，保留。
+      ⬛这里要加一个视频url地址。 目前的视频连接是前端硬编码的。 这样不对，应该放到这个字段里。
     fileName: '北大学生吐槽选课系统_20240201.mp4',
-    fileSize: 128 * 1024 * 1024, // 128MB
-    duration: 50, // 50秒
-    resolution: '1920×1080',
-    uploadTime: '2024-02-01 14:30:25',
-    uploadSource: '本地上传',
-    analysisStatus: '分析完成',
-    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，若上传到公开平台可能引发其他学生共鸣转发。'
+    fileSize: 128 * 1024 * 1024, // 128MB⬛技术性参数不需要。 
+    duration: 50, // 50秒⬛浏览器渲染的时候，如果视频播放器加载成功了，那么就渲染视频加载器读取出来的视频实际时长；如果加载失败，那就选择渲染 Duration。。
+    resolution: '1920×1080',⬛技术性参数不需要。 
+    uploadTime: '2024-02-01 14:30:25',⬛就算是以后做自动爬虫，也不能叫这个字段名，或也不一定需要
+    uploadSource: '本地上传',⬛这个还是要留着，以后做自动爬虫肯定是要用于区分的。 
+    analysisStatus: '分析完成',⬛既然能看到这个分析结果，当然是分析完成了。 
+    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，若上传到公开平台可能引发其他学生共鸣转发。'⬛可选
   },
 
   // ========== 2. 身份判定分析 ==========
@@ -199,7 +200,6 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // ========== 5. 对学校态度分析（统计分类）==========
   attitude: {
-    sentimentTowardSchool: 'negative',
     sentimentLabel: '负面/不满',
     
     // 详细证据（前端统计情感分布）
@@ -276,17 +276,8 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // ========== 6. 潜在舆论风险分析 ==========
   opinionRisk: {
-    riskLevel: 'medium',
     riskLabel: '中等风险',
-    riskScore: 58,⬛这个不是应该引用“FinalScore”吗？删了吧。
     riskReason: '可能引发跟风吐槽',
-    spreadPotential: 6.5,⬛
-    spreadPotentialLabel: '较易传播',⬛
-    potentialImpacts: [⬛这三个都是传播潜力的，并不是舆论风险，所以要删了。 
-      '若上传可能引发其他学生共鸣转发',
-      '对学校选课系统形象有一定负面影响',
-      '建议先与教务处沟通后再决定'
-    ],
     
     // 详细证据
     evidences: [
@@ -340,7 +331,6 @@ export const mockAnalysisResult: AnalysisResult = {
   action: {
     actionSuggestion: '谨慎发布',
     actionDetail: '建议人工复核后决定是否上传',
-    urgencyLevel: 75,⬛这个也是应该引用“FinalScore”的。 删了吧 
     
     // 详细证据
     evidences: [
@@ -384,7 +374,7 @@ export const mockAnalysisResult: AnalysisResult = {
   },
 
   // ========== 8. 台词转录与风险定位 ==========
-  transcriptSegments: [
+  transcriptSegments: [⬛奇怪哦。为什么后面还有个riskEvidences？而且，目前浏览器中字幕滚动图（语音转文字与风险定位）显示的就是riskEvidences的内容啊，反而这个transcriptSegments倒是没见到，怎么回事？？
     {
       id: '1',
       start: 0,
@@ -569,20 +559,21 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // ========== 12. 辅助分析数据 ==========
   // 12.1 风险证据列表（用于左侧证据展示，与台词转录不同）
+      ⬛我浏览器中显示的这个riskEvidences，就是语音转文字与风险定位中显示的东西，而不是transcriptSegments，就很离谱啊。 
   riskEvidences: [
     {
       id: 'evidence-1',
-      time: '00:05-00:10',
+      time: '00:05-00:10',⬛这又有必要吗？下面不是有两个时间戳吗？那这个可以动态生成，还需要 mock 吗？ 
       timeSeconds: 5,
       timeEndSeconds: 10,
       content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
       riskLevel: 'low',
-      imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop',
+      imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop',⬛这个用不上吧？本来就是字幕对应的。左边不就有视频了吗？还看imageUrl看什么？
       boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
       label: '',
       confidence: 0,
       keywords: [],
-      emotion: 'calm'
+      emotion: 'calm'⬛这是老问题了。你不要用这种预设词，这种枚举之类的预设词全部让后端给你。你不要自己去下定义，不然后面如果要增加广度，你还得自己匹配，纯给自己找麻烦，真是无聊之举。 然后我还发现了，你视频框左上角的标记也是用这个值的。我建议就是像这种由于文字不同，会导致文字的颜色和文字底部的颜色要变化的话，那你还是用加几个字段吧。 比如加两个字段，一个是“底”的颜色，一个是“字”的颜色。通过字段读取给你，而不是你自己在前端去自己定义枚举匹配之类的。你再检查一下，还有哪些地方需要改成这种模式？ 
     },
     {
       id: 'evidence-2',
@@ -644,11 +635,11 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // 12.2 AI目标侧写
   aiProfile: {
-    identityStatus: 'suspected',
-    identityLabel: '疑似在校学生',
-    confidence: 0.85,
-    matchSource: '语音中自称"北大计算机系学生"，检测到校园场景',
-    detectedKeywords: [
+    identityStatus: 'suspected',⬛这个数据没用到啊。 
+    identityLabel: '疑似在校学生',⬛这个数据没用到啊。 
+    confidence: 0.85,⬛这个数据没用到啊。 
+    matchSource: '语音中自称"北大计算机系学生"，检测到校园场景',⬛这个数据没用到啊。 
+    detectedKeywords: [⬛这个是内容关键词上面的，也就是视频栏中的。 如果里面所有的元素都不存在，其数组为空，那么，“内容关键词”这五个字及图标就不能显示出来。 应该把这个字段移动到videoInfo。 
       { word: '北大', isUniversityRelated: true },
       { word: '北京大学', isUniversityRelated: true },
       { word: '计算机系', isUniversityRelated: true },
@@ -660,14 +651,14 @@ export const mockAnalysisResult: AnalysisResult = {
       { word: '热门课', isUniversityRelated: true },
       { word: '抢不到', isUniversityRelated: false }
     ],
-    staticFeatures: {
-      gender: '男性',
+    staticFeatures: {⬛这个是视频主要人物。也是视频栏中的。 这里面的四个字段都要做成可选的。 如果没有填入或填入的为空串，那么图标就不能显示。看起来就像是没有这数据的（给其他数据让位置）。如果这四个字段都没有“直”或都为空，那么这一行整个的视频主要人物这六个字以及图标都不能显示出来。    应该把这个字段移动到videoInfo。 
+      gender: '男性',⬛这个要做一下对应。就如果值为“女性”，你这个浏览器中显示的图标也要是女性的图标
       ageRange: '20-24岁',
       voiceProfile: '年轻男性/情绪激动',
       clothing: '休闲装'
     },
-    sceneType: '校园宿舍',
-    sceneConfidence: 0.88
+    sceneType: '校园宿舍',⬛这个数据没用到啊。 
+    sceneConfidence: 0.88⬛这个数据没用到啊。 
   },
 
   // 12.3 CV视觉检测框

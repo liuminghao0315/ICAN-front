@@ -37,20 +37,6 @@ export interface ModalityFusion {
   finalScore: number           // 最终融合得分 0-100（Python给出）
 }
 
-/**
- * 台词转录片段
- */
-export interface TranscriptSegment {
-  id: string
-  start: number         // 开始时间（秒）
-  end: number           // 结束时间（秒）
-  text: string          // 台词内容
-  content: string       // 内容（用于兼容）
-  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级（小写，与代码一致）
-  keywords: string[]    // 关键词
-  reason: string        // 风险原因
-}
 
 /**
  * 视频风险点（基于索引的时间序列数据）
@@ -99,17 +85,19 @@ export interface RadarDataByTime {
  */
 export interface RiskEvidence {
   id: string
-  time: string
   timeSeconds: number
   timeEndSeconds?: number
   content: string
   riskLevel: 'high' | 'medium' | 'low'
-  imageUrl: string
   boxStyle: { top: string; left: string; width: string; height: string }
   label: string
   confidence: number
   keywords: string[]
-  emotion?: string
+  emotion?: {
+    label: string          // 情绪文本标签（如"平静"、"愤怒"）
+    bgColor: string        // 背景颜色
+    textColor: string      // 文字颜色
+  }
 }
 
 /**
@@ -121,22 +109,11 @@ export interface DetectedKeyword {
 }
 
 /**
- * AI目标侧写结果
+ * AI目标侧写结果（已废弃大部分字段，保留用于兼容）
  */
 export interface AIProfileResult {
-  identityStatus: 'confirmed' | 'suspected' | 'unknown'
-  identityLabel: string
-  confidence: number
-  matchSource: string
-  detectedKeywords: DetectedKeyword[]  // 修改为对象数组，包含高亮标记
-  staticFeatures: {
-    gender: string
-    ageRange: string
-    voiceProfile: string
-    clothing: string
-  }
-  sceneType: string
-  sceneConfidence: number
+  // 注：detectedKeywords 和 staticFeatures 已移至 VideoInfo
+  // 其他字段已在前端不使用，保留接口定义以防万一
 }
 
 /**
@@ -171,18 +148,27 @@ export interface SceneInfo {
 }
 
 /**
+ * 视频主要人物特征
+ */
+export interface MainCharacter {
+  gender?: string          // 性别（可选）
+  ageRange?: string        // 年龄范围（可选）
+  voiceProfile?: string    // 声音特征（可选）
+  clothing?: string        // 着装（可选）
+}
+
+/**
  * 视频基本信息
  */
 export interface VideoInfo {
-  videoId: string           // 视频ID
-  fileName: string          // 文件名
-  fileSize: number          // 文件大小（字节）
-  duration: number          // 时长（秒）
-  resolution: string        // 分辨率
-  uploadTime: string        // 上传时间
-  uploadSource: string      // 来源
-  analysisStatus: string    // 分析状态
-  description: string       // AI自动生成的视频内容摘要
+  videoId: string                       // 视频ID
+  videoUrl: string                      // 视频播放地址（Python后端提供）
+  fileName: string                      // 文件名
+  duration: number                      // 时长（秒）
+  uploadSource: string                  // 来源
+  description?: string                  // AI自动生成的视频内容摘要（可选）
+  detectedKeywords?: DetectedKeyword[]  // 检测到的关键词（可选）
+  mainCharacter?: MainCharacter         // 视频主要人物特征（可选）
 }
 
 /**
@@ -256,9 +242,6 @@ export interface AnalysisResult {
   opinionRisk: OpinionRiskAnalysis
   action: ActionSuggestion
   
-  // 台词转录与风险定位
-  transcriptSegments: TranscriptSegment[]
-  
   // 时间轴数据
   timelineData: {
     timeGranularity: number               // 时间粒度（秒），表示数组元素之间的时间间隔
@@ -283,14 +266,33 @@ export const mockAnalysisResult: AnalysisResult = {
   // ========== 1. 视频基本信息 ==========
   videoInfo: {
     videoId: 'video_20240201_001',
+    videoUrl: 'http://47.110.33.16:9000/ican-videos/videos/2026/02/06/1329d3084a9448bb9e211c2245aeffa1.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260206%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260206T192651Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=107ffdf57a21829d6930d2392ccea41c3c5eb288f73289b7260814ed58ca7548', // 视频地址（由Python后端提供）
     fileName: '北大学生吐槽选课系统_20240201.mp4',
-    fileSize: 128 * 1024 * 1024, // 128MB
     duration: 50, // 50秒
-    resolution: '1920×1080',
-    uploadTime: '2024-02-01 14:30:25',
     uploadSource: '本地上传',
-    analysisStatus: '分析完成',
-    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，若上传到公开平台可能引发其他学生共鸣转发。'
+    description: '自称北京大学计算机系学生，吐槽学校选课系统经常崩溃、热门课抢不到等问题，情绪较为激动，若上传到公开平台可能引发其他学生共鸣转发。',
+    
+    // 检测到的关键词
+    detectedKeywords: [
+      { word: '北大', isUniversityRelated: true },
+      { word: '北京大学', isUniversityRelated: true },
+      { word: '计算机系', isUniversityRelated: true },
+      { word: '我们学校', isUniversityRelated: true },
+      { word: '选课系统', isUniversityRelated: true },
+      { word: '教务处', isUniversityRelated: true },
+      { word: '失望', isUniversityRelated: false },
+      { word: '不负责任', isUniversityRelated: false },
+      { word: '热门课', isUniversityRelated: true },
+      { word: '抢不到', isUniversityRelated: false }
+    ],
+    
+    // 视频主要人物特征
+    mainCharacter: {
+      gender: '男性',
+      ageRange: '20-24岁',
+      voiceProfile: '年轻男性/情绪激动',
+      clothing: '休闲装'
+    }
   },
 
   // ========== 2. 身份判定分析 ==========
@@ -650,77 +652,7 @@ export const mockAnalysisResult: AnalysisResult = {
     }
   },
 
-  // ========== 8. 台词转录与风险定位 ==========
-  transcriptSegments: [
-    {
-      id: '1',
-      start: 0,
-      end: 10,
-      text: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
-      content: '大家好，我是北大计算机系的学生，今天想跟大家聊聊我们学校的选课系统。',
-      emotion: 'calm',
-      riskLevel: 'low',
-      keywords: ['学生', '选课系统'],
-      reason: '平静介绍，正常陈述'
-    },
-    {
-      id: '2',
-      start: 10,
-      end: 22,
-      text: '说实话，这个系统真的让人很失望。每次选课的时候都会崩溃，根本登不上去。',
-      content: '说实话，这个系统真的让人很失望。每次选课的时候都会崩溃，根本登不上去。',
-      emotion: 'serious',
-      riskLevel: 'medium',
-      keywords: ['失望', '崩溃'],
-      reason: '表达不满，涉及系统问题'
-    },
-    {
-      id: '3',
-      start: 22,
-      end: 32,
-      text: '学校的选课系统简直就是个笑话！每到选课季就崩溃，这是什么垃圾服务器？！',
-      content: '学校的选课系统简直就是个笑话！每到选课季就崩溃，这是什么垃圾服务器？！',
-      emotion: 'angry',
-      riskLevel: 'high',
-      keywords: ['笑话', '垃圾'],
-      reason: '情绪激烈，使用极端词汇批评学校'
-    },
-    {
-      id: '4',
-      start: 32,
-      end: 42,
-      text: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
-      content: '好多热门课根本抢不到，有些同学为了选上课都得半夜爬起来盯着电脑，这合理吗？',
-      emotion: 'serious',
-      riskLevel: 'medium',
-      keywords: ['抢不到', '热门课'],
-      reason: '持续表达不满，可能引发其他学生共鸣'
-    },
-    {
-      id: '5',
-      start: 42,
-      end: 48,
-      text: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
-      content: '希望学校教务处能够重视这个问题，不要再让学生们为选课焦虑了，我们的诉求很简单...',
-      emotion: 'calm',
-      riskLevel: 'low',
-      keywords: ['教务处', '诉求'],
-      reason: '理性表达诉求，语气缓和'
-    },
-    {
-      id: '6',
-      start: 48,
-      end: 50,
-      text: '如果你也是北大的学生，如果你也有同样的经历，请点赞、转发，让更多人看到！',
-      content: '如果你也是北大的学生，如果你也有同样的经历，请点赞、转发，让更多人看到！',
-      emotion: 'tense',
-      riskLevel: 'medium',
-      keywords: ['点赞', '转发'],
-      reason: '呼吁传播，有一定传播风险'
-    }
-  ],
-
-  // ========== 11. 时间轴数据 ==========
+  // ========== 8. 时间轴数据 ==========
   timelineData: {
     timeGranularity: 10,  // 时间粒度：10秒
 
@@ -834,108 +766,89 @@ export const mockAnalysisResult: AnalysisResult = {
     averageRadarData: [85, 83, 49, 44, 55, 41]
   },
 
-  // ========== 12. 辅助分析数据 ==========
-  // 12.1 风险证据列表（用于左侧证据展示，与台词转录不同）
+  // ========== 12. 台词转录数据 ==========
   riskEvidences: [
     {
       id: 'evidence-1',
-      time: '00:05-00:10',
       timeSeconds: 5,
       timeEndSeconds: 10,
       content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
       riskLevel: 'low',
-      imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=450&fit=crop',
       boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
       label: '',
       confidence: 0,
       keywords: [],
-      emotion: 'calm'
+      emotion: {
+        label: '平静',
+        bgColor: 'rgba(82, 196, 26, 0.15)',
+        textColor: '#52c41a'
+      }
     },
     {
       id: 'evidence-2',
-      time: '00:15-00:22',
       timeSeconds: 15,
       timeEndSeconds: 22,
       content: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
       riskLevel: 'high',
-      imageUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800&h=450&fit=crop',
       boxStyle: { top: '25%', left: '15%', width: '45%', height: '35%' },
       label: 'OCR敏感词：[抵制]',
       confidence: 0.98,
       keywords: ['欺骗', '抵制', '联合'],
-      emotion: 'angry'
+      emotion: {
+        label: '愤怒',
+        bgColor: 'rgba(245, 108, 108, 0.15)',
+        textColor: '#f56c6c'
+      }
     },
     {
       id: 'evidence-3',
-      time: '00:25-00:32',
       timeSeconds: 25,
       timeEndSeconds: 32,
       content: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
       riskLevel: 'medium',
-      imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=450&fit=crop',
       boxStyle: { top: '35%', left: '30%', width: '30%', height: '40%' },
       label: '肢体动作：过激手势',
       confidence: 0.85,
       keywords: ['风险', '真相'],
-      emotion: 'serious'
+      emotion: {
+        label: '严肃',
+        bgColor: 'rgba(75, 112, 226, 0.15)',
+        textColor: '#4b70e2'
+      }
     },
     {
       id: 'evidence-4',
-      time: '00:35-00:42',
       timeSeconds: 35,
       timeEndSeconds: 42,
       content: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
       riskLevel: 'medium',
-      imageUrl: 'https://images.unsplash.com/photo-1577896851905-4dcc0c7f1f1c?w=800&h=450&fit=crop',
       boxStyle: { top: '20%', left: '25%', width: '35%', height: '30%' },
       label: '抗议性标语区域',
       confidence: 0.91,
       keywords: ['追究'],
-      emotion: 'tense'
+      emotion: {
+        label: '紧张',
+        bgColor: 'rgba(250, 173, 20, 0.15)',
+        textColor: '#faad14'
+      }
     },
     {
       id: 'evidence-5',
-      time: '00:45-00:50',
       timeSeconds: 45,
       timeEndSeconds: 50,
       content: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
       riskLevel: 'low',
-      imageUrl: 'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=800&h=450&fit=crop',
       boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
       label: '',
       confidence: 0,
       keywords: [],
-      emotion: 'calm'
+      emotion: {
+        label: '平静',
+        bgColor: 'rgba(82, 196, 26, 0.15)',
+        textColor: '#52c41a'
+      }
     }
   ],
-
-  // 12.2 AI目标侧写
-  aiProfile: {
-    identityStatus: 'suspected',
-    identityLabel: '疑似在校学生',
-    confidence: 0.85,
-    matchSource: '语音中自称"北大计算机系学生"，检测到校园场景',
-    detectedKeywords: [
-      { word: '北大', isUniversityRelated: true },
-      { word: '北京大学', isUniversityRelated: true },
-      { word: '计算机系', isUniversityRelated: true },
-      { word: '我们学校', isUniversityRelated: true },
-      { word: '选课系统', isUniversityRelated: true },
-      { word: '教务处', isUniversityRelated: true },
-      { word: '失望', isUniversityRelated: false },
-      { word: '不负责任', isUniversityRelated: false },
-      { word: '热门课', isUniversityRelated: true },
-      { word: '抢不到', isUniversityRelated: false }
-    ],
-    staticFeatures: {
-      gender: '男性',
-      ageRange: '20-24岁',
-      voiceProfile: '年轻男性/情绪激动',
-      clothing: '休闲装'
-    },
-    sceneType: '校园宿舍',
-    sceneConfidence: 0.88
-  },
 
   // 12.3 CV视觉检测框
   cvDetections: [
