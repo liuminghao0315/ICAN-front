@@ -399,19 +399,7 @@
                 </div>
               </div>
               
-              <!-- 当前帧信息叠加（顶部） -->
-              <div class="frame-info-overlay" v-if="currentEvidence">
-                <div class="info-tags-row">
-                  <span v-if="currentEvidence.emotion" class="info-tag emotion" :style="{ background: currentEvidence.emotion.bgColor + 'e6', color: currentEvidence.emotion.textColor }">
-                    <el-icon :size="11"><Microphone /></el-icon>
-                    {{ currentEvidence.emotion.label }}
-                  </span>
-                  <span v-if="currentEvidence.riskLevel === 'high'" class="info-tag risk-alert">
-                    <el-icon :size="11"><Warning /></el-icon>
-                    高风险告警
-                  </span>
-                </div>
-              </div>
+              <!-- 【废弃】当前帧信息叠加 - 已移至事件卡片中显示 -->
               
               <!-- 伪进度条（已禁用，使用HTML5原生控制条） -->
               <div class="fake-controls" v-if="false">
@@ -788,82 +776,117 @@
               <div class="panel-header-compact">
                 <span class="panel-title-compact">
                   <el-icon :size="14"><Microphone /></el-icon>
-                  语音转文字与风险定位
+                  全模态事件流
                 </span>
                 <div class="risk-filter-group">
+                  <!-- 新增：模态筛选器 -->
                   <button 
-                    class="filter-btn"
-                    :class="{ active: riskFilter === 'all' }"
-                    @click="riskFilter = 'all'"
+                    class="filter-btn modality-filter"
+                    :class="{ active: modalityFilter === 'all' }"
+                    @click="modalityFilter = 'all'"
+                    title="显示所有类型的事件"
                   >
-                    全部
+                    <el-icon :size="12"><Menu /></el-icon>
+                    全模态
                   </button>
                   <button 
-                    class="filter-btn"
-                    :class="{ active: riskFilter === 'medium-high' }"
-                    @click="riskFilter = 'medium-high'"
+                    class="filter-btn modality-filter risk"
+                    :class="{ active: modalityFilter === 'risk-only' }"
+                    @click="modalityFilter = 'risk-only'"
+                    title="只显示中高风险事件"
                   >
-                    中/高风险
+                    <el-icon :size="12"><WarningFilled /></el-icon>
+                    风险优先
                   </button>
                   <button 
-                    class="filter-btn"
-                    :class="{ active: riskFilter === 'high' }"
-                    @click="riskFilter = 'high'"
+                    class="filter-btn modality-filter speech"
+                    :class="{ active: modalityFilter === 'speech-only' }"
+                    @click="modalityFilter = 'speech-only'"
+                    title="只显示语音台词"
                   >
-                    高风险
+                    <el-icon :size="12"><Microphone /></el-icon>
+                    纯字幕
                   </button>
                 </div>
               </div>
               
-              <div class="transcript-list">
+              <div class="transcript-list timeline-events-list">
+                <!-- 【新逻辑】渲染事件流卡片 -->
                 <div 
-                  v-for="evidence in filteredRiskEvidence" 
-                  :key="evidence.id"
-                  class="transcript-segment"
-                  :class="{ 
-                    'active': selectedEvidenceId === evidence.id,
-                    'inactive': selectedEvidenceId === evidence.id && !isCurrentEvidenceActive,
-                    'high-risk': evidence.riskLevel === 'high',
-                    'medium-risk': evidence.riskLevel === 'medium'
-                  }"
-                  @click="selectEvidence(evidence.id)"
+                  v-for="event in filteredTimelineEvents" 
+                  :key="event.id"
+                  class="timeline-event-card"
+                  :class="[
+                    `modality-${event.modality}`,
+                    `risk-${event.riskLevel}`,
+                    { 
+                      'active': selectedEvidenceId === event.id,
+                      'is-playing': currentPlayTime >= event.startTime && currentPlayTime <= event.endTime
+                    }
+                  ]"
+                  @click="jumpToTime(event.startTime)"
                 >
-                  <div class="segment-header">
-                    <span class="time-range">{{ formatTimeRange(evidence.timeSeconds, evidence.timeEndSeconds) }}</span>
-                    <span v-if="evidence.emotion" class="emotion-badge" :style="{ background: evidence.emotion.bgColor, color: evidence.emotion.textColor }">
-                      {{ evidence.emotion.label }}
-                    </span>
-                    <span v-if="evidence.riskLevel !== 'low'" class="risk-tag" :class="evidence.riskLevel.toLowerCase()">
-                      {{ evidence.riskLevel === 'high' ? '高风险' : '中风险' }}
-                    </span>
-                  </div>
-                  <div class="segment-text" v-html="highlightKeywords(evidence.content, evidence.keywords)"></div>
-                  
-                  <!-- Gemini优化：音频特征展示 -->
-                  <div v-if="evidence.emotion" class="audio-features">
-                    <span class="audio-feature-tag" :style="{ background: evidence.emotion.bgColor, color: evidence.emotion.textColor }">
-                      <el-icon :size="11"><Headset /></el-icon>
-                      情绪: {{ evidence.emotion.label }}
-                    </span>
-                    <span v-if="evidence.riskLevel === 'high'" class="audio-feature-tag volume">
-                      <el-icon :size="11"><Sound /></el-icon>
-                      音量: 嘶吼
-                    </span>
-                    <span v-if="evidence.emotion && evidence.emotion.label.includes('怒')" class="audio-feature-tag pitch">
-                      <el-icon :size="11"><TrendCharts /></el-icon>
-                      音调: 升高
-                    </span>
+                  <!-- 左侧：模态图标 + 风险色边框 -->
+                  <div class="event-left-indicator" :class="`risk-border-${event.riskLevel}`">
+                    <div class="modality-icon">
+                      <el-icon v-if="event.modality === 'speech'" :size="16"><Microphone /></el-icon>
+                      <el-icon v-else-if="event.modality === 'visual'" :size="16"><View /></el-icon>
+                      <el-icon v-else-if="event.modality === 'audio-effect'" :size="16"><Headset /></el-icon>
+                    </div>
                   </div>
                   
-                  <div v-if="evidence.label" class="detection-info">
-                    <el-icon :size="12" color="#f56c6c"><Warning /></el-icon>
-                    <span>检测到: {{ evidence.label }} (置信度: {{ Math.round(evidence.confidence * 100) }}%)</span>
+                  <!-- 右侧：卡片内容 -->
+                  <div class="event-content">
+                    <div class="event-header">
+                      <span class="time-range">{{ formatTimeRange(event.startTime, event.endTime) }}</span>
+                      <span class="modality-label" :class="`label-${event.modality}`">
+                        {{ event.modality === 'speech' ? '语音' : event.modality === 'visual' ? '视觉' : '声学' }}
+                      </span>
+                      <span v-if="event.riskLevel !== 'low'" class="risk-badge" :class="`badge-${event.riskLevel}`">
+                        {{ event.riskLevel === 'high' ? '高' : '中' }}风险
+                      </span>
+                    </div>
+                    
+                    <!-- 语音卡片内容 -->
+                    <template v-if="event.modality === 'speech'">
+                      <div class="event-text" v-html="highlightKeywords(event.transcript, event.keywords)"></div>
+                      <div v-if="event.emotion" class="emotion-tag" :style="{ background: event.emotion.bgColor, color: event.emotion.textColor }">
+                        <el-icon :size="11"><Microphone /></el-icon>
+                        {{ event.emotion.label }} ({{ Math.round(event.emotion.intensity * 100) }}%)
+                      </div>
+                    </template>
+                    
+                    <!-- 视觉卡片内容 -->
+                    <template v-else-if="event.modality === 'visual'">
+                      <div class="event-description">
+                        <el-icon :size="14" color="#4b70e2"><View /></el-icon>
+                        <span>{{ event.detectionLabel }}</span>
+                      </div>
+                      <div class="detection-meta">
+                        <span class="confidence-chip">置信度 {{ event.confidence }}%</span>
+                        <span v-if="event.boundingBox" class="bbox-chip">检测框已标注</span>
+                      </div>
+                    </template>
+                    
+                    <!-- 声学卡片内容 -->
+                    <template v-else-if="event.modality === 'audio-effect'">
+                      <div class="event-description">
+                        <el-icon :size="14" color="#faad14"><Headset /></el-icon>
+                        <span>{{ event.description }}</span>
+                      </div>
+                      <div class="audio-intensity">
+                        <span class="intensity-label">强度:</span>
+                        <div class="intensity-bar">
+                          <div class="intensity-fill" :style="{ width: (event.intensity * 100) + '%' }"></div>
+                        </div>
+                      </div>
+                    </template>
                   </div>
                 </div>
                 
-                <div v-if="mockRiskEvidence.length === 0" class="empty-transcript">
-                  <el-icon :size="36"><Microphone /></el-icon>
-                  <p>暂无语音转录数据</p>
+                <div v-if="filteredTimelineEvents.length === 0" class="empty-transcript">
+                  <el-icon :size="36"><Menu /></el-icon>
+                  <p>当前筛选条件下无事件</p>
                 </div>
               </div>
             </div>
@@ -1017,9 +1040,9 @@ import type { CardData } from '@/components/EvidenceDrawer.vue'
 import ReportView from '@/components/ReportView.vue'
 // 导入统一的分析结果mock数据（核心数据源 - 唯一数据源）
 import { mockAnalysisResult } from '@/data/mockAnalysisResult'
-import type { ModalityFusion, Evidence, Detection, RiskEvidence, AIProfileResult, SceneInfo } from '@/data/mockAnalysisResult'
+import type { ModalityFusion, Evidence, SceneInfo, TimelineEvent, SpeechEvent, VisualEvent, AudioEffectEvent } from '@/data/mockAnalysisResult'
 // 导入Element Plus图标
-import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked, Male, Female } from '@element-plus/icons-vue'
+import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked, Male, Female, Menu, View, Headset } from '@element-plus/icons-vue'
 
 // 注册ECharts组件
 use([
@@ -1092,8 +1115,6 @@ const mockComprehensiveRisksData = mockAnalysisResult.timelineData.comprehensive
 const mockRadarDataByTime = mockAnalysisResult.timelineData.radarByTime
 const mockAverageRadarData = mockAnalysisResult.timelineData.averageRadarData  // 全片平均雷达数据
 // 提取辅助分析数据
-const mockRiskEvidence = mockAnalysisResult.riskEvidences
-const mockDetections = mockAnalysisResult.cvDetections
 const mockScenes = mockAnalysisResult.sceneRecognition
 
 // 卡片UI配置（动态从mockAnalysisResult获取数据）
@@ -1381,11 +1402,21 @@ const videoDisplayArea = ref<VideoDisplayArea>({
 // 当前选中的证据ID
 const selectedEvidenceId = ref<string>('')
 
-// 风险过滤器状态
-const riskFilter = ref<'all' | 'medium-high' | 'high'>('all')
+// 【新增】模态筛选器：全模态/风险优先/纯字幕
+const modalityFilter = ref<'all' | 'risk-only' | 'speech-only'>('all')
 
 // 真实视频URL
 const realVideoUrl = ref(mockAnalysisResult.videoInfo.videoUrl)
+
+// 【全模态智能事件流】导入事件流数据
+const timelineEvents = mockAnalysisResult.timelineEvents
+
+// 【开发模式】验证事件流数据
+if (import.meta.env.DEV) {
+  import('@/utils/verifyTimelineEvents').then(({ printValidationReport }) => {
+    printValidationReport()
+  })
+}
 
 
 // ==================== 动态雷达图数据（根据视频时间变化） ====================
@@ -1398,38 +1429,57 @@ const currentRadarData = computed(() => {
   return mockRadarDataByTime[index].data
 })
 
-// 当前选中的证据对象
-const currentEvidence = computed(() => {
-  return mockRiskEvidence.find(e => e.id === selectedEvidenceId.value) || mockRiskEvidence[0]
-})
-
-// 过滤后的风险证据列表
-const filteredRiskEvidence = computed(() => {
-  if (riskFilter.value === 'all') {
-    return mockRiskEvidence
-  } else if (riskFilter.value === 'medium-high') {
-    return mockRiskEvidence.filter(e => e.riskLevel === 'high' || e.riskLevel === 'medium')
-  } else if (riskFilter.value === 'high') {
-    return mockRiskEvidence.filter(e => e.riskLevel === 'high')
+// 【新逻辑】过滤后的事件流列表
+const filteredTimelineEvents = computed(() => {
+  let events = timelineEvents
+  
+  // 模态筛选
+  if (modalityFilter.value === 'speech-only') {
+    events = events.filter(e => e.modality === 'speech')
+  } else if (modalityFilter.value === 'risk-only') {
+    events = events.filter(e => e.riskLevel === 'high' || e.riskLevel === 'medium')
   }
-  return mockRiskEvidence
-})
-
-// 判断当前选中的字幕是否正在播放中（用于区分"正在播放"和"已结束"状态）
-const isCurrentEvidenceActive = computed(() => {
-  if (!selectedEvidenceId.value || !currentEvidence.value) return false
-  const currentTime = currentPlayTime.value
-  const evidence = currentEvidence.value
-  return currentTime >= evidence.timeSeconds && currentTime < (evidence.timeEndSeconds || evidence.timeSeconds + 10)
+  // 'all' 模式：显示所有模态
+  
+  return events
 })
 
 // ==================== CV视觉模态：当前显示的检测框和场景 ====================
-// 当前显示的所有检测框（根据视频时间筛选）
-const currentDetections = computed(() => {
+// 【新逻辑】当前激活的事件（视频播放驱动）
+const activeTimelineEvents = computed(() => {
   const currentTime = currentPlayTime.value
-  return mockDetections.filter(detection => 
-    currentTime >= detection.timeStart && currentTime <= detection.timeEnd
+  return timelineEvents.filter(event => 
+    currentTime >= event.startTime && currentTime <= event.endTime
   )
+})
+
+// 【新逻辑】当前显示的检测框（从激活事件中提取）
+const currentDetections = computed(() => {
+  const detections: any[] = []
+  
+  // 从激活的 Visual 事件中提取检测框
+  activeTimelineEvents.value.forEach(event => {
+    if (event.modality === 'visual' && event.boundingBox) {
+      const visualEvent = event as any
+      detections.push({
+        id: visualEvent.id,
+        type: visualEvent.detectionType,
+        boundingBox: {
+          x: visualEvent.boundingBox.x,
+          y: visualEvent.boundingBox.y,
+          width: visualEvent.boundingBox.width,
+          height: visualEvent.boundingBox.height
+        },
+        confidence: visualEvent.confidence / 100,
+        label: visualEvent.detectionLabel,
+        timeStart: visualEvent.startTime,
+        timeEnd: visualEvent.endTime,
+        metadata: visualEvent.metadata || {}
+      })
+    }
+  })
+  
+  return detections
 })
 
 // 当前场景信息
@@ -1576,7 +1626,7 @@ const angryEmotionCount = computed(() => {
 })
 
 const highRiskSegmentCount = computed(() => {
-  return mockRiskEvidence.filter(e => e.riskLevel === 'high').length
+  return timelineEvents.filter(e => e.riskLevel === 'high').length
 })
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
@@ -3105,21 +3155,21 @@ const onChartContainerClick = (event: MouseEvent) => {
     mainVideoPlayerRef.value.currentTime = clickedTime
     mainVideoPlayerRef.value.play().catch(e => console.log('播放失败:', e))
     
-    // 找到最接近的证据并更新选中状态
-    if (mockRiskEvidence.length > 0) {
-      let nearestEvidence = mockRiskEvidence[0]
-      let minDiff = Math.abs(mockRiskEvidence[0].timeSeconds - clickedTime)
+    // 【新逻辑】找到最接近的事件并更新选中状态
+    if (timelineEvents.length > 0) {
+      let nearestEvent = timelineEvents[0]
+      let minDiff = Math.abs(timelineEvents[0].startTime - clickedTime)
       
-      mockRiskEvidence.forEach(evidence => {
-        const diff = Math.abs(evidence.timeSeconds - clickedTime)
+      timelineEvents.forEach(event => {
+        const diff = Math.abs(event.startTime - clickedTime)
         if (diff < minDiff) {
           minDiff = diff
-          nearestEvidence = evidence
+          nearestEvent = event
         }
       })
       
-      if (nearestEvidence) {
-        selectedEvidenceId.value = nearestEvidence.id
+      if (nearestEvent) {
+        selectedEvidenceId.value = nearestEvent.id
       }
     }
     // 跳转已完成，无需提示消息
@@ -3139,21 +3189,23 @@ const onTimelineClick = (params: any) => {
         mainVideoPlayerRef.value.play().catch(e => console.log('播放失败:', e))
       }
       
-      // 找到最接近点击时间的证据，更新选中状态
-      let nearestEvidence = mockRiskEvidence[0]
-      let minDiff = Math.abs(mockRiskEvidence[0].timeSeconds - clickedTime)
-      
-      mockRiskEvidence.forEach(evidence => {
-        const diff = Math.abs(evidence.timeSeconds - clickedTime)
-        if (diff < minDiff) {
-          minDiff = diff
-          nearestEvidence = evidence
+      // 【新逻辑】找到最接近点击时间的事件，更新选中状态
+      if (timelineEvents.length > 0) {
+        let nearestEvent = timelineEvents[0]
+        let minDiff = Math.abs(timelineEvents[0].startTime - clickedTime)
+        
+        timelineEvents.forEach(event => {
+          const diff = Math.abs(event.startTime - clickedTime)
+          if (diff < minDiff) {
+            minDiff = diff
+            nearestEvent = event
+          }
+        })
+        
+        // 更新选中的事件ID（不触发selectEvidence，避免重复跳转）
+        if (nearestEvent) {
+          selectedEvidenceId.value = nearestEvent.id
         }
-      })
-      
-      // 更新选中的证据ID（不触发selectEvidence，避免重复跳转）
-      if (nearestEvidence) {
-        selectedEvidenceId.value = nearestEvidence.id
       }
       
       // 跳转已完成，无需提示消息
@@ -3181,12 +3233,13 @@ const onVideoTimeUpdate = () => {
   updateProgressLine(newTime)
   
   const currentTime = newTime
-  const currentEvidenceByTime = mockRiskEvidence.find(
-    e => currentTime >= e.timeSeconds && currentTime < (e.timeEndSeconds || e.timeSeconds + 10)
+  // 【新逻辑】从事件流中查找当前时间的事件
+  const currentEventByTime = timelineEvents.find(
+    e => currentTime >= e.startTime && currentTime < e.endTime
   )
   
-  if (currentEvidenceByTime && currentEvidenceByTime.id !== selectedEvidenceId.value) {
-    selectedEvidenceId.value = currentEvidenceByTime.id
+  if (currentEventByTime && currentEventByTime.id !== selectedEvidenceId.value) {
+    selectedEvidenceId.value = currentEventByTime.id
   }
   
   const detection = mockVideoRisks.value.find(
@@ -3354,11 +3407,11 @@ const onVideoLoaded = () => {
   // 计算视频显示区域（用于精确定位检测框）
   calculateVideoDisplayArea()
   
-  // 自动跳转到第一个高风险证据
+  // 【新逻辑】自动跳转到第一个高风险事件
   if (selectedEvidenceId.value) {
-    const evidence = mockRiskEvidence.find(e => e.id === selectedEvidenceId.value)
-    if (evidence && mainVideoPlayerRef.value) {
-      mainVideoPlayerRef.value.currentTime = evidence.timeSeconds
+    const event = timelineEvents.find(e => e.id === selectedEvidenceId.value)
+    if (event && mainVideoPlayerRef.value) {
+      mainVideoPlayerRef.value.currentTime = event.startTime
     }
   }
 }
@@ -3373,7 +3426,7 @@ const jumpToTime = (time: number) => {
 }
 
 // 获取检测框样式（业界标准：支持分类颜色 + 精确定位）
-const getDetectionBoxStyle = (detection: Detection) => {
+const getDetectionBoxStyle = (detection: any) => {
   const box = detection.boundingBox
   const color = DETECTION_COLORS[detection.type] || '#fff'
   const area = videoDisplayArea.value
@@ -3438,10 +3491,10 @@ const highlightKeywords = (text: string, keywords: string[]) => {
 const selectEvidence = (evidenceId: string) => {
   selectedEvidenceId.value = evidenceId
   
-  // 跳转视频到对应时间
-  const evidence = mockRiskEvidence.find(e => e.id === evidenceId)
-  if (evidence && mainVideoPlayerRef.value) {
-    mainVideoPlayerRef.value.currentTime = evidence.timeSeconds
+  // 【新逻辑】跳转视频到对应时间
+  const event = timelineEvents.find(e => e.id === evidenceId)
+  if (event && mainVideoPlayerRef.value) {
+    mainVideoPlayerRef.value.currentTime = event.startTime
     mainVideoPlayerRef.value.play().catch(e => console.log('自动播放失败:', e))
   }
   // 已定位，无需提示消息
@@ -3742,13 +3795,7 @@ watch(selectedEvidenceId, () => {
   scrollToActiveSubtitle()
 })
 
-// 监听字幕活跃状态变化，从停顿恢复到播放时也要滚动
-watch(isCurrentEvidenceActive, (newActive, oldActive) => {
-  // 从非活跃变为活跃时，触发滚动（处理第一条字幕的边界情况）
-  if (newActive && !oldActive) {
-    scrollToActiveSubtitle()
-  }
-})
+// 【废弃】旧的字幕活跃状态监听 - 已不需要
 
 // 订阅任务完成事件，自动刷新视频列表
 subscribeCompleted((data) => {
@@ -3808,12 +3855,12 @@ onMounted(() => {
     loadAnalysisById(route.query.resultId as string)
   }
   
-  // V1.5: 初始化默认选中第一个高风险证据
-  const firstHighRisk = mockRiskEvidence.find(e => e.riskLevel === 'high')
+  // V1.5: 初始化默认选中第一个高风险事件
+  const firstHighRisk = timelineEvents.find(e => e.riskLevel === 'high')
   if (firstHighRisk) {
     selectedEvidenceId.value = firstHighRisk.id
-  } else if (mockRiskEvidence.length > 0) {
-    selectedEvidenceId.value = mockRiskEvidence[0].id
+  } else if (timelineEvents.length > 0) {
+    selectedEvidenceId.value = timelineEvents[0].id
   }
   
   // 添加窗口resize监听（浏览器窗口大小变化）
@@ -7359,6 +7406,9 @@ $purple: #4b70e2;
           color: $gray;
           cursor: pointer;
           transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
           
           &:hover {
             border-color: $purple;
@@ -7371,6 +7421,23 @@ $purple: #4b70e2;
             background: $purple;
             color: #fff;
             box-shadow: 0 2px 6px rgba($purple, 0.25);
+          }
+          
+          // 【新增】模态筛选器特定样式
+          &.modality-filter {
+            &.risk.active {
+              border-color: #f56c6c;
+              background: linear-gradient(135deg, #f56c6c, #ff8a80);
+              color: white;
+              box-shadow: 0 2px 8px rgba(245, 108, 108, 0.35);
+            }
+            
+            &.speech.active {
+              border-color: #52c41a;
+              background: linear-gradient(135deg, #52c41a, #73d13d);
+              color: white;
+              box-shadow: 0 2px 8px rgba(82, 196, 26, 0.35);
+            }
           }
         }
       }
@@ -7584,6 +7651,238 @@ $purple: #4b70e2;
         color: #f56c6c;
         font-weight: 500;
         border-left: 3px solid #f56c6c;
+      }
+    }
+    
+    // 【新增】全模态事件流卡片样式
+    .timeline-event-card {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: $bg;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 2px solid transparent;
+      
+      &:hover {
+        background: white;
+        transform: translateX(-4px);
+        box-shadow: 4px 4px 12px rgba($neu-2, 0.6);
+      }
+      
+      &.is-playing {
+        background: white;
+        box-shadow: 0 0 0 3px rgba($purple, 0.15), 4px 4px 12px rgba($neu-2, 0.6);
+        transform: scale(1.02);
+      }
+      
+      // 左侧指示器：模态图标 + 风险色边框
+      .event-left-indicator {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 0;
+        border-left: 4px solid;
+        border-radius: 2px;
+        
+        &.risk-border-high {
+          border-color: #f56c6c;
+        }
+        
+        &.risk-border-medium {
+          border-color: #faad14;
+        }
+        
+        &.risk-border-low {
+          border-color: #52c41a;
+        }
+        
+        .modality-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, rgba($purple, 0.1), rgba($purple, 0.05));
+          color: $purple;
+        }
+      }
+      
+      // 卡片内容区域
+      .event-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        
+        .event-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          
+          .time-range {
+            font-size: 11px;
+            color: $gray;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-weight: 600;
+          }
+          
+          .modality-label {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            
+            &.label-speech {
+              background: rgba(82, 196, 26, 0.12);
+              color: #52c41a;
+            }
+            
+            &.label-visual {
+              background: rgba(75, 112, 226, 0.12);
+              color: $purple;
+            }
+            
+            &.label-audio-effect {
+              background: rgba(250, 173, 20, 0.12);
+              color: #faad14;
+            }
+          }
+          
+          .risk-badge {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            
+            &.badge-high {
+              background: #f56c6c;
+              color: white;
+            }
+            
+            &.badge-medium {
+              background: #faad14;
+              color: white;
+            }
+          }
+        }
+        
+        .event-text {
+          font-size: 13px;
+          color: $black;
+          line-height: 1.7;
+          word-break: break-word;
+          
+          :deep(.risk-keyword) {
+            color: #f56c6c;
+            font-weight: 700;
+            background: rgba(245, 108, 108, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+          }
+        }
+        
+        .event-description {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: $black;
+          line-height: 1.6;
+        }
+        
+        .emotion-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 600;
+          width: fit-content;
+        }
+        
+        .detection-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          .confidence-chip, .bbox-chip {
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba($purple, 0.1);
+            color: $purple;
+          }
+          
+          .bbox-chip {
+            background: rgba(82, 196, 26, 0.1);
+            color: #52c41a;
+          }
+        }
+        
+        .audio-intensity {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          .intensity-label {
+            font-size: 11px;
+            color: $gray;
+            font-weight: 600;
+          }
+          
+          .intensity-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba($neu-2, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            
+            .intensity-fill {
+              height: 100%;
+              background: linear-gradient(90deg, #faad14, #f56c6c);
+              transition: width 0.3s ease;
+            }
+          }
+        }
+      }
+      
+      // 模态特定样式
+      &.modality-speech {
+        .event-left-indicator .modality-icon {
+          background: linear-gradient(135deg, rgba(82, 196, 26, 0.15), rgba(82, 196, 26, 0.05));
+          color: #52c41a;
+        }
+      }
+      
+      &.modality-visual {
+        .event-left-indicator .modality-icon {
+          background: linear-gradient(135deg, rgba(75, 112, 226, 0.15), rgba(75, 112, 226, 0.05));
+          color: $purple;
+        }
+      }
+      
+      &.modality-audio-effect {
+        .event-left-indicator .modality-icon {
+          background: linear-gradient(135deg, rgba(250, 173, 20, 0.15), rgba(250, 173, 20, 0.05));
+          color: #faad14;
+        }
+      }
+      
+      // 风险级别背景色
+      &.risk-high {
+        background: rgba(245, 108, 108, 0.06);
+      }
+      
+      &.risk-medium {
+        background: rgba(250, 173, 20, 0.06);
       }
     }
     

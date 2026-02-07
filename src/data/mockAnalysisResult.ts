@@ -81,24 +81,80 @@ export interface RadarDataByTime {
 }
 
 /**
- * 风险证据（用于左侧证据列表展示）
+ * 【全模态智能事件流】核心接口
+ * 
+ * 唯一证据数据库，彻底解决"哑剧漏洞"
+ * 统一管理所有时间轴事件，驱动视频检测框显示
  */
-export interface RiskEvidence {
+
+/**
+ * 事件卡片模态类型
+ */
+export type EventModalityType = 'speech' | 'visual' | 'audio-effect'
+
+/**
+ * 时间轴事件基础接口
+ */
+export interface TimelineEventBase {
   id: string
-  timeSeconds: number
-  timeEndSeconds?: number
-  content: string
-  riskLevel: 'high' | 'medium' | 'low'
-  boxStyle: { top: string; left: string; width: string; height: string }
-  label: string
-  confidence: number
-  keywords: string[]
-  emotion?: {
-    label: string          // 情绪文本标签（如"平静"、"愤怒"）
-    bgColor: string        // 背景颜色
-    textColor: string      // 文字颜色
-  }
+  modality: EventModalityType        // 模态类型：语音/视觉/声学
+  startTime: number                  // 开始时间（秒）
+  endTime: number                    // 结束时间（秒）
+  riskLevel: 'high' | 'medium' | 'low'  // 风险等级
+  riskScore: number                  // 风险分数 0-100
 }
+
+/**
+ * 语音事件卡片（Speech）
+ * 包含台词、情绪、风险评估
+ */
+export interface SpeechEvent extends TimelineEventBase {
+  modality: 'speech'
+  transcript: string                 // 语音转文字内容
+  keywords: string[]                 // 敏感关键词
+  emotion: {
+    label: string                    // 情绪标签
+    intensity: number                // 情绪强度 0-1
+    bgColor: string
+    textColor: string
+  }
+  confidence: number                 // 识别置信度 0-100
+}
+
+/**
+ * 视觉事件卡片（Visual）
+ * 记录无语音但有画面风险的时刻
+ */
+export interface VisualEvent extends TimelineEventBase {
+  modality: 'visual'
+  detectionType: 'face' | 'ocr' | 'logo' | 'uniform' | 'banner' | 'object' | 'gesture'
+  detectionLabel: string             // 检测结论（如：检测到校徽、敏感手势）
+  boundingBox?: {                    // CV检测框坐标（如果有）
+    x: number                        // 百分比 0-100
+    y: number
+    width: number
+    height: number
+  }
+  confidence: number                 // 检测置信度 0-100
+  metadata?: Record<string, any>     // 扩展元数据
+}
+
+/**
+ * 声学事件卡片（Audio Effect）
+ * 非语言声音异响
+ */
+export interface AudioEffectEvent extends TimelineEventBase {
+  modality: 'audio-effect'
+  effectType: 'scream' | 'crash' | 'applause' | 'whistle' | 'bang' | 'other'
+  description: string                // 声音描述
+  intensity: number                  // 声音强度 0-1
+  confidence: number                 // 检测置信度 0-100
+}
+
+/**
+ * 联合类型：所有事件卡片
+ */
+export type TimelineEvent = SpeechEvent | VisualEvent | AudioEffectEvent
 
 /**
  * 检测到的关键词（带高亮标记）
@@ -106,33 +162,6 @@ export interface RiskEvidence {
 export interface DetectedKeyword {
   word: string                    // 关键词文本
   isUniversityRelated: boolean   // 是否高校相关（由Python后端判断）
-}
-
-/**
- * AI目标侧写结果（已废弃大部分字段，保留用于兼容）
- */
-export interface AIProfileResult {
-  // 注：detectedKeywords 和 staticFeatures 已移至 VideoInfo
-  // 其他字段已在前端不使用，保留接口定义以防万一
-}
-
-/**
- * CV检测框数据
- */
-export interface Detection {
-  id: string
-  type: 'face' | 'ocr' | 'logo' | 'uniform' | 'banner' | 'object'
-  boundingBox: { x: number; y: number; width: number; height: number }
-  confidence: number
-  label: string
-  timeStart: number
-  timeEnd: number
-  metadata?: {
-    emotion?: string
-    emotionIcon?: string
-    age?: number
-    gender?: string
-  }
 }
 
 /**
@@ -253,11 +282,11 @@ export interface AnalysisResult {
     averageRadarData: number[]            // 全片平均雷达数据（6个维度的平均值，用于底层参考线）
   }
   
-  // 辅助分析数据（用于交互分析的扩展功能）
-  riskEvidences: RiskEvidence[]       // 风险证据列表
-  aiProfile: AIProfileResult          // AI目标侧写
-  cvDetections: Detection[]           // CV视觉检测框
-  sceneRecognition: SceneInfo[]       // 场景识别
+  // 【全模态智能事件流】唯一证据数据库
+  timelineEvents: TimelineEvent[]     // 按时间排序的事件流，驱动右侧列表和检测框
+  
+  // 场景识别
+  sceneRecognition: SceneInfo[]
 }
 
 // ==================== Mock数据（模拟Python后端返回的完整分析结果） ====================
@@ -766,103 +795,265 @@ export const mockAnalysisResult: AnalysisResult = {
     averageRadarData: [85, 83, 49, 44, 55, 41]
   },
 
-  // ========== 12. 台词转录数据 ==========
-  riskEvidences: [
+  // ========== 12. 【全模态智能事件流】唯一证据数据库 ==========
+  timelineEvents: [
+    // 0-5秒：视频开场，检测到敏感画面（无语音）
     {
-      id: 'evidence-1',
-      timeSeconds: 5,
-      timeEndSeconds: 10,
-      content: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
+      id: 'visual-001',
+      modality: 'visual',
+      startTime: 0,
+      endTime: 5,
+      riskLevel: 'medium',
+      riskScore: 55,
+      detectionType: 'logo',
+      detectionLabel: '检测到北京大学校徽',
+      boundingBox: { x: 70, y: 25, width: 15, height: 15 },
+      confidence: 95,
+      metadata: { logoType: 'university', universityName: '北京大学' }
+    } as VisualEvent,
+    
+    // 5-10秒：开始说话，平静介绍
+    {
+      id: 'speech-001',
+      modality: 'speech',
+      startTime: 5,
+      endTime: 10,
       riskLevel: 'low',
-      boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
-      label: '',
-      confidence: 0,
+      riskScore: 20,
+      transcript: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
       keywords: [],
       emotion: {
         label: '平静',
+        intensity: 0.3,
         bgColor: 'rgba(82, 196, 26, 0.15)',
         textColor: '#52c41a'
-      }
-    },
+      },
+      confidence: 92
+    } as SpeechEvent,
+    
+    // 10-12秒：声学事件（拍桌子）
     {
-      id: 'evidence-2',
-      timeSeconds: 15,
-      timeEndSeconds: 22,
-      content: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
+      id: 'audio-001',
+      modality: 'audio-effect',
+      startTime: 10,
+      endTime: 12,
+      riskLevel: 'medium',
+      riskScore: 58,
+      effectType: 'bang',
+      description: '检测到重物撞击声（疑似拍桌动作）',
+      intensity: 0.75,
+      confidence: 88
+    } as AudioEffectEvent,
+    
+    // 12-15秒：语音（自称学生）+ 画面检测到校服
+    {
+      id: 'speech-002',
+      modality: 'speech',
+      startTime: 12,
+      endTime: 15,
+      riskLevel: 'low',
+      riskScore: 25,
+      transcript: '我是北京大学计算机系的学生，今天想说说选课的问题...',
+      keywords: ['北京大学', '计算机系', '学生'],
+      emotion: {
+        label: '平静',
+        intensity: 0.4,
+        bgColor: 'rgba(82, 196, 26, 0.15)',
+        textColor: '#52c41a'
+      },
+      confidence: 95
+    } as SpeechEvent,
+    
+    {
+      id: 'visual-002',
+      modality: 'visual',
+      startTime: 12,
+      endTime: 18,
+      riskLevel: 'medium',
+      riskScore: 60,
+      detectionType: 'uniform',
+      detectionLabel: '检测到北大校服',
+      boundingBox: { x: 30, y: 45, width: 35, height: 50 },
+      confidence: 89
+    } as VisualEvent,
+    
+    // 15-22秒：高风险语音段（煽动性内容）
+    {
+      id: 'speech-003',
+      modality: 'speech',
+      startTime: 15,
+      endTime: 22,
       riskLevel: 'high',
-      boxStyle: { top: '25%', left: '15%', width: '45%', height: '35%' },
-      label: 'OCR敏感词：[抵制]',
-      confidence: 0.98,
+      riskScore: 95,
+      transcript: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
       keywords: ['欺骗', '抵制', '联合'],
       emotion: {
         label: '愤怒',
+        intensity: 0.95,
         bgColor: 'rgba(245, 108, 108, 0.15)',
         textColor: '#f56c6c'
-      }
-    },
+      },
+      confidence: 98
+    } as SpeechEvent,
+    
+    // 16-20秒：OCR检测到敏感文字（与语音重叠）
     {
-      id: 'evidence-3',
-      timeSeconds: 25,
-      timeEndSeconds: 32,
-      content: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
+      id: 'visual-003',
+      modality: 'visual',
+      startTime: 16,
+      endTime: 20,
+      riskLevel: 'high',
+      riskScore: 98,
+      detectionType: 'ocr',
+      detectionLabel: 'OCR敏感词：[抵制]',
+      boundingBox: { x: 15, y: 55, width: 40, height: 12 },
+      confidence: 98
+    } as VisualEvent,
+    
+    // 20-22秒：愤怒表情特写（无语音，纯视觉风险）
+    {
+      id: 'visual-004',
+      modality: 'visual',
+      startTime: 20,
+      endTime: 22,
+      riskLevel: 'high',
+      riskScore: 92,
+      detectionType: 'face',
+      detectionLabel: '愤怒表情 + 过激手势',
+      boundingBox: { x: 32, y: 18, width: 28, height: 38 },
+      confidence: 98,
+      metadata: { emotion: 'angry', emotionIcon: '😡' }
+    } as VisualEvent,
+    
+    // 22-24秒：声学事件（尖叫/嘶吼）
+    {
+      id: 'audio-002',
+      modality: 'audio-effect',
+      startTime: 22,
+      endTime: 24,
+      riskLevel: 'high',
+      riskScore: 90,
+      effectType: 'scream',
+      description: '检测到愤怒咆哮声，音量骤升',
+      intensity: 0.95,
+      confidence: 92
+    } as AudioEffectEvent,
+    
+    // 24-28秒：横幅标语画面（无语音，哑剧时段）
+    {
+      id: 'visual-005',
+      modality: 'visual',
+      startTime: 24,
+      endTime: 28,
+      riskLevel: 'high',
+      riskScore: 88,
+      detectionType: 'banner',
+      detectionLabel: '检测到抗议性横幅标语',
+      boundingBox: { x: 10, y: 70, width: 80, height: 20 },
+      confidence: 93
+    } as VisualEvent,
+    
+    // 25-32秒：继续吐槽
+    {
+      id: 'speech-004',
+      modality: 'speech',
+      startTime: 25,
+      endTime: 32,
       riskLevel: 'medium',
-      boxStyle: { top: '35%', left: '30%', width: '30%', height: '40%' },
-      label: '肢体动作：过激手势',
-      confidence: 0.85,
+      riskScore: 68,
+      transcript: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
       keywords: ['风险', '真相'],
       emotion: {
         label: '严肃',
+        intensity: 0.7,
         bgColor: 'rgba(75, 112, 226, 0.15)',
         textColor: '#4b70e2'
-      }
-    },
+      },
+      confidence: 85
+    } as SpeechEvent,
+    
+    // 30-34秒：违规手势（与语音重叠）
     {
-      id: 'evidence-4',
-      timeSeconds: 35,
-      timeEndSeconds: 42,
-      content: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
+      id: 'visual-006',
+      modality: 'visual',
+      startTime: 30,
+      endTime: 34,
+      riskLevel: 'high',
+      riskScore: 85,
+      detectionType: 'gesture',
+      detectionLabel: '检测到过激肢体动作',
+      boundingBox: { x: 35, y: 40, width: 30, height: 35 },
+      confidence: 87
+    } as VisualEvent,
+    
+    // 35-42秒：追究威胁
+    {
+      id: 'speech-005',
+      modality: 'speech',
+      startTime: 35,
+      endTime: 42,
       riskLevel: 'medium',
-      boxStyle: { top: '20%', left: '25%', width: '35%', height: '30%' },
-      label: '抗议性标语区域',
-      confidence: 0.91,
-      keywords: ['追究'],
+      riskScore: 72,
+      transcript: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
+      keywords: ['追究', '没完'],
       emotion: {
         label: '紧张',
+        intensity: 0.68,
         bgColor: 'rgba(250, 173, 20, 0.15)',
         textColor: '#faad14'
-      }
-    },
+      },
+      confidence: 91
+    } as SpeechEvent,
+    
+    // 36-40秒：OCR检测到追究相关文字
     {
-      id: 'evidence-5',
-      timeSeconds: 45,
-      timeEndSeconds: 50,
-      content: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+      id: 'visual-007',
+      modality: 'visual',
+      startTime: 36,
+      endTime: 40,
+      riskLevel: 'medium',
+      riskScore: 70,
+      detectionType: 'ocr',
+      detectionLabel: 'OCR敏感词：[追究]',
+      boundingBox: { x: 20, y: 60, width: 35, height: 10 },
+      confidence: 91
+    } as VisualEvent,
+    
+    // 42-44秒：沉默段，但画面显示学校选课系统（纯视觉）
+    {
+      id: 'visual-008',
+      modality: 'visual',
+      startTime: 42,
+      endTime: 44,
+      riskLevel: 'medium',
+      riskScore: 55,
+      detectionType: 'ocr',
+      detectionLabel: 'OCR识别：屏幕显示学校选课系统界面',
+      boundingBox: { x: 5, y: 10, width: 90, height: 70 },
+      confidence: 85
+    } as VisualEvent,
+    
+    // 45-50秒：呼吁传播
+    {
+      id: 'speech-006',
+      modality: 'speech',
+      startTime: 45,
+      endTime: 50,
       riskLevel: 'low',
-      boxStyle: { top: '0%', left: '0%', width: '0%', height: '0%' },
-      label: '',
-      confidence: 0,
-      keywords: [],
+      riskScore: 35,
+      transcript: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
+      keywords: ['相关部门', '真实情况'],
       emotion: {
         label: '平静',
+        intensity: 0.3,
         bgColor: 'rgba(82, 196, 26, 0.15)',
         textColor: '#52c41a'
-      }
-    }
+      },
+      confidence: 88
+    } as SpeechEvent
   ],
-
-  // 12.3 CV视觉检测框
-  cvDetections: [
-    { id: 'face-1', type: 'face', boundingBox: { x: 35, y: 20, width: 25, height: 35 }, confidence: 0.96, label: '平静表情', timeStart: 5, timeEnd: 15, metadata: { emotion: 'calm', emotionIcon: '😐', age: 22, gender: '男性' } },
-    { id: 'face-2', type: 'face', boundingBox: { x: 32, y: 18, width: 28, height: 38 }, confidence: 0.98, label: '愤怒表情', timeStart: 15, timeEnd: 30, metadata: { emotion: 'angry', emotionIcon: '😡', age: 22, gender: '男性' } },
-    { id: 'face-3', type: 'face', boundingBox: { x: 30, y: 15, width: 30, height: 40 }, confidence: 0.94, label: '严肃表情', timeStart: 30, timeEnd: 50, metadata: { emotion: 'serious', emotionIcon: '😟', age: 22, gender: '男性' } },
-    { id: 'ocr-1', type: 'ocr', boundingBox: { x: 15, y: 55, width: 40, height: 12 }, confidence: 0.98, label: 'OCR敏感词：[抵制]', timeStart: 15, timeEnd: 20, metadata: {} },
-    { id: 'ocr-2', type: 'ocr', boundingBox: { x: 20, y: 60, width: 35, height: 10 }, confidence: 0.91, label: 'OCR敏感词：[追究]', timeStart: 35, timeEnd: 40, metadata: {} },
-    { id: 'logo-1', type: 'logo', boundingBox: { x: 70, y: 25, width: 15, height: 15 }, confidence: 0.95, label: '检测到北大校徽', timeStart: 10, timeEnd: 30, metadata: {} },
-    { id: 'uniform-1', type: 'uniform', boundingBox: { x: 30, y: 45, width: 35, height: 50 }, confidence: 0.89, label: '检测到北大校服', timeStart: 5, timeEnd: 35, metadata: {} },
-    { id: 'banner-1', type: 'banner', boundingBox: { x: 10, y: 70, width: 80, height: 20 }, confidence: 0.93, label: '检测到横幅标语', timeStart: 20, timeEnd: 28, metadata: {} }
-  ],
-
-  // 12.4 场景识别
+  
+  // ========== 13. 场景识别 ==========
   sceneRecognition: [
     { id: 'scene-1', name: '教室', icon: '🏫', confidence: 0.92, timeStart: 0, timeEnd: 15 },
     { id: 'scene-2', name: '宿舍', icon: '🛏️', confidence: 0.95, timeStart: 15, timeEnd: 35 },
