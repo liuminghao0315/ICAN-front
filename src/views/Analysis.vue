@@ -26,6 +26,14 @@
             报告视图
           </button>
         </div>
+        <button 
+          v-if="viewMode === 'report'" 
+          class="neu-btn primary-btn" 
+          @click="exportToPdf"
+        >
+          <el-icon><Download /></el-icon>
+          导出报告
+        </button>
         <button class="neu-btn primary-btn video-selector-btn" @click="showVideoDrawer = true">
           <el-icon><VideoPlay /></el-icon>
           选择视频
@@ -1035,13 +1043,7 @@
       <ReportView 
         v-else 
         key="report"
-        :analysis-data="mockAnalysisResult"
-        :timeline-chart-option="multiModalTimelineOption"
-        :average-radar-chart-option="averageRadarOption"
-        :peak-radar-chart-option="peakRiskRadarOption"
-        @export-pdf="exportReport"
-        @back-to-list="$router.push('/videos')"
-        ref="reportViewRef"
+        :data="mockAnalysisResult"
       />
       </transition>
     </div> <!-- 闭合分析结果展示区域 -->
@@ -1099,7 +1101,7 @@ import ReportView from '@/components/ReportView.vue'
 import { mockAnalysisResult } from '@/data/mockAnalysisResult'
 import type { ModalityFusion, Evidence, SceneInfo, TimelineEvent, SpeechEvent, VisualEvent, AudioEffectEvent } from '@/data/mockAnalysisResult'
 // 导入Element Plus图标
-import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked, Male, Female, Menu, View, Headset, VideoPause, InfoFilled } from '@element-plus/icons-vue'
+import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked, Male, Female, Menu, View, Headset, VideoPause, InfoFilled, Download } from '@element-plus/icons-vue'
 
 // 注册ECharts组件
 use([
@@ -3692,31 +3694,15 @@ const getCurrentRiskLabel = (): string => {
 // PDF导出状态
 const exportingPdf = ref(false)
 
-// 报告视图组件引用
-const reportViewRef = ref<InstanceType<typeof ReportView> | null>(null)
-// 播放视频按钮引用（导出时需要隐藏）
-const playVideoBtnRef = ref<HTMLElement | null>(null)
 // 视频播放器引用
 const videoPlayerRef = ref<HTMLVideoElement | null>(null)
 
 /**
- * 导出PDF报告
- * 使用 html2canvas 将页面内容转换为图片，然后使用 jsPDF 生成PDF
- * 支持多页PDF和中文显示
+ * 导出报告为PDF（智能分页，避免截断内容）
  */
-const exportReport = async () => {
-  // 数据验证
+const exportToPdf = async () => {
   if (!analysisData.value) {
     ElMessage.warning('没有可导出的分析数据')
-    return
-  }
-  
-  // 获取报告视图组件的refs
-  const reportContent = reportViewRef.value?.reportContentRef
-  const actionButtons = reportViewRef.value?.actionButtonsRef
-  
-  if (!reportContent) {
-    ElMessage.error('无法获取报告内容')
     return
   }
   
@@ -3726,20 +3712,13 @@ const exportReport = async () => {
   }
   
   exportingPdf.value = true
-  ElMessage.info('正在生成PDF报告，请稍候...')
-  const playVideoBtn = playVideoBtnRef.value
-  const originalActionDisplay = actionButtons?.style.display
-  const originalPlayBtnDisplay = playVideoBtn?.style.display
-  
-  if (actionButtons) {
-    actionButtons.style.display = 'none'
-  }
-  if (playVideoBtn) {
-    playVideoBtn.style.display = 'none'
-  }
+  const loadingMsg = ElMessage.info({
+    message: '正在生成PDF报告，请稍候...',
+    duration: 0
+  })
   
   try {
-    // 动态导入依赖，减少初始包大小
+    // 动态导入依赖
     const html2canvasModule = await import('html2canvas')
     const html2canvas = html2canvasModule.default
     const jsPDFModule = await import('jspdf')
@@ -3749,21 +3728,37 @@ const exportReport = async () => {
       throw new Error('PDF导出依赖加载失败')
     }
     
-    const element = reportContent
+    // 获取报告容器和所有需要避免分页截断的区块
+    const reportContainer = document.querySelector('.report-container') as HTMLElement
+    if (!reportContainer) {
+      throw new Error('无法获取报告内容')
+    }
     
-    // 使用 html2canvas 将内容渲染为图片
-    // scale: 2 提高清晰度，适合打印
-    const canvas = await html2canvas(element, {
-      scale: 2, // 提高清晰度
-      useCORS: true, // 允许跨域图片
-      allowTaint: true, // 允许跨域图片污染画布
-      backgroundColor: '#ecf0f3', // 背景色与新拟态风格一致
-      logging: false, // 关闭调试日志
-      width: element.scrollWidth,
-      height: element.scrollHeight
+    // 获取所有标记为避免分页的元素
+    const avoidBreakElements = reportContainer.querySelectorAll('.report-section, .dimension-card, .risk-peak-analysis, .portrait-item')
+    const breakPoints = new Set<number>()
+    
+    // 计算每个区块的边界位置
+    const containerTop = reportContainer.offsetTop
+    avoidBreakElements.forEach(el => {
+      const htmlEl = el as HTMLElement
+      const top = htmlEl.offsetTop - containerTop
+      const bottom = top + htmlEl.offsetHeight
+      breakPoints.add(top)
+      breakPoints.add(bottom)
     })
     
-    // 验证canvas生成成功
+    // 使用 html2canvas 将内容渲染为图片
+    const canvas = await html2canvas(reportContainer, {
+      scale: 2, // 2倍保证清晰度
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: reportContainer.scrollWidth,
+      height: reportContainer.scrollHeight
+    })
+    
     if (!canvas || canvas.width === 0 || canvas.height === 0) {
       throw new Error('无法生成报告图片')
     }
@@ -3775,7 +3770,7 @@ const exportReport = async () => {
     const pdf = new jsPDF('p', 'mm', 'a4')
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
-    const margin = 10 // 页边距 10mm
+    const margin = 10
     const contentWidth = pageWidth - margin * 2
     const availableHeight = pageHeight - margin * 2
     
@@ -3783,21 +3778,54 @@ const exportReport = async () => {
     const ratio = contentWidth / imgWidth
     const scaledHeight = imgHeight * ratio
     
-    // 如果内容超过一页，需要分页处理
-    let yPos = margin
-    let remainingHeight = scaledHeight
-    let sourceY = 0
+    // 将breakPoints转换为canvas像素坐标并排序
+    const sortedBreakPoints = Array.from(breakPoints)
+      .map(bp => bp * 2) // scale=2，所以要乘2
+      .sort((a, b) => a - b)
     
-    while (remainingHeight > 0) {
-      const heightToDraw = Math.min(remainingHeight, availableHeight)
+    // 智能分页处理
+    let currentPage = 0
+    let sourceY = 0
+    let pageContentHeight = 0
+    
+    // 查找最接近但不超过目标高度的分页点
+    const findBestBreakPoint = (currentY: number, maxHeight: number) => {
+      const targetY = currentY + maxHeight
+      // 找到小于targetY但最接近的breakPoint
+      let bestPoint = targetY
+      for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
+        const bp = sortedBreakPoints[i]
+        if (bp > currentY && bp <= targetY) {
+          // 检查这个分页点会不会太小（至少要有一半页面内容）
+          if ((bp - currentY) >= maxHeight * 0.4) {
+            bestPoint = bp
+            break
+          }
+        }
+      }
+      return bestPoint
+    }
+    
+    while (sourceY < imgHeight) {
+      const remainingHeight = imgHeight - sourceY
+      const maxSourceHeight = availableHeight / ratio
       
-      // 计算源图片中对应的区域高度
-      const sourceHeight = heightToDraw / ratio
+      let actualSourceHeight: number
+      if (remainingHeight <= maxSourceHeight) {
+        // 最后一页，直接用剩余高度
+        actualSourceHeight = remainingHeight
+      } else {
+        // 查找最佳分页点
+        const bestBreakY = findBestBreakPoint(sourceY, maxSourceHeight)
+        actualSourceHeight = Math.min(bestBreakY - sourceY, remainingHeight)
+      }
+      
+      const actualPdfHeight = actualSourceHeight * ratio
       
       // 创建临时画布来裁剪当前页的内容
       const tempCanvas = document.createElement('canvas')
       tempCanvas.width = imgWidth
-      tempCanvas.height = sourceHeight
+      tempCanvas.height = actualSourceHeight
       const ctx = tempCanvas.getContext('2d')
       
       if (!ctx) {
@@ -3807,56 +3835,54 @@ const exportReport = async () => {
       // 从原canvas中裁剪当前页的内容
       ctx.drawImage(
         canvas,
-        0, sourceY, imgWidth, sourceHeight, // 源区域
-        0, 0, imgWidth, sourceHeight // 目标区域
+        0, sourceY, imgWidth, actualSourceHeight,
+        0, 0, imgWidth, actualSourceHeight
       )
       
-      // 将裁剪后的内容添加到PDF
-      const tempImgData = tempCanvas.toDataURL('image/png', 0.95)
-      pdf.addImage(tempImgData, 'PNG', margin, yPos, contentWidth, heightToDraw)
+      // 将裁剪后的内容添加到PDF（使用JPEG格式，0.85质量平衡清晰度和大小）
+      const tempImgData = tempCanvas.toDataURL('image/jpeg', 0.85)
       
-      // 更新剩余高度和源图片位置
-      remainingHeight -= heightToDraw
-      sourceY += sourceHeight
-      
-      // 如果还有剩余内容，添加新页
-      if (remainingHeight > 0) {
+      // 如果不是第一页，先添加新页
+      if (currentPage > 0) {
         pdf.addPage()
-        yPos = margin
+      }
+      
+      pdf.addImage(tempImgData, 'JPEG', margin, margin, contentWidth, actualPdfHeight)
+      
+      // 更新位置
+      sourceY += actualSourceHeight
+      currentPage++
+      
+      // 避免无限循环
+      if (actualSourceHeight < 1) {
+        break
       }
     }
     
-    // 生成文件名：分析报告_视频标题_日期.pdf
-    const data = analysisData.value
+    // 生成文件名
     const dateStr = new Date().toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     }).replace(/\//g, '-')
     
-    // 清理文件名中的非法字符
-    const safeTitle = (data.videoTitle || '视频')
+    const safeTitle = (mockAnalysisResult.videoInfo.fileName || '视频')
       .replace(/[<>:"/\\|?*]/g, '_')
-      .substring(0, 50) // 限制长度
+      .substring(0, 50)
     
     const fileName = `分析报告_${safeTitle}_${dateStr}.pdf`
     
     // 保存PDF文件
     pdf.save(fileName)
     
+    loadingMsg.close()
     ElMessage.success('PDF报告导出成功！')
   } catch (error: any) {
     console.error('PDF导出失败:', error)
+    loadingMsg.close()
     const errorMessage = error?.message || 'PDF导出失败，请稍后重试'
     ElMessage.error(errorMessage)
   } finally {
-    // 恢复按钮显示
-    if (actionButtons) {
-      actionButtons.style.display = originalActionDisplay || ''
-    }
-    if (playVideoBtn) {
-      playVideoBtn.style.display = originalPlayBtnDisplay || ''
-    }
     exportingPdf.value = false
   }
 }
