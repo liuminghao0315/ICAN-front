@@ -811,74 +811,77 @@
               </div>
               
               <div class="transcript-list timeline-events-list">
+                <!-- 【垂直时间线】视觉锚点 -->
+                <div class="timeline-vertical-line"></div>
+                
                 <!-- 【新逻辑】渲染事件流卡片 -->
                 <div 
                   v-for="event in filteredTimelineEvents" 
                   :key="event.id"
-                  class="timeline-event-card"
+                  class="timeline-event-item"
                   :class="[
                     `modality-${event.modality}`,
                     `risk-${event.riskLevel}`,
                     { 
-                      'active': selectedEvidenceId === event.id,
-                      'is-playing': currentPlayTime >= event.startTime && currentPlayTime <= event.endTime
+                      'is-active': currentPlayTime >= event.startTime && currentPlayTime <= event.endTime
                     }
                   ]"
                   @click="jumpToTime(event.startTime)"
                 >
-                  <!-- 左侧：模态图标 + 风险色边框 -->
-                  <div class="event-left-indicator" :class="`risk-border-${event.riskLevel}`">
-                    <div class="modality-icon">
-                      <el-icon v-if="event.modality === 'speech'" :size="16"><Microphone /></el-icon>
-                      <el-icon v-else-if="event.modality === 'visual'" :size="16"><View /></el-icon>
-                      <el-icon v-else-if="event.modality === 'audio-effect'" :size="16"><Headset /></el-icon>
+                  <!-- 时间标签 + 图标锚点 -->
+                  <div class="event-timeline-anchor">
+                    <div class="event-time">{{ formatTime(event.startTime) }}</div>
+                    <div class="event-dot" :class="`risk-${event.riskLevel}`">
+                      <el-icon :size="12">
+                        <Microphone v-if="event.modality === 'speech'" />
+                        <View v-else-if="event.modality === 'visual'" />
+                        <Headset v-else-if="event.modality === 'audio-effect'" />
+                      </el-icon>
                     </div>
                   </div>
                   
-                  <!-- 右侧：卡片内容 -->
-                  <div class="event-content">
-                    <div class="event-header">
-                      <span class="time-range">{{ formatTimeRange(event.startTime, event.endTime) }}</span>
-                      <span class="modality-label" :class="`label-${event.modality}`">
-                        {{ event.modality === 'speech' ? '语音' : event.modality === 'visual' ? '视觉' : '声学' }}
-                      </span>
-                      <span v-if="event.riskLevel !== 'low'" class="risk-badge" :class="`badge-${event.riskLevel}`">
-                        {{ event.riskLevel === 'high' ? '高' : '中' }}风险
-                      </span>
-                    </div>
-                    
-                    <!-- 语音卡片内容 -->
+                  <!-- 内容区 -->
+                  <div class="event-body">
+                    <!-- Speech：字幕式大字排版 -->
                     <template v-if="event.modality === 'speech'">
-                      <div class="event-text" v-html="highlightKeywords(event.transcript, event.keywords)"></div>
-                      <div v-if="event.emotion" class="emotion-tag" :style="{ background: event.emotion.bgColor, color: event.emotion.textColor }">
-                        <el-icon :size="11"><Microphone /></el-icon>
-                        {{ event.emotion.label }} ({{ Math.round(event.emotion.intensity * 100) }}%)
-                      </div>
-                    </template>
-                    
-                    <!-- 视觉卡片内容 -->
-                    <template v-else-if="event.modality === 'visual'">
-                      <div class="event-description">
-                        <el-icon :size="14" color="#4b70e2"><View /></el-icon>
-                        <span>{{ event.detectionLabel }}</span>
-                      </div>
-                      <div class="detection-meta">
-                        <span class="confidence-chip">置信度 {{ event.confidence }}%</span>
-                        <span v-if="event.boundingBox" class="bbox-chip">检测框已标注</span>
-                      </div>
-                    </template>
-                    
-                    <!-- 声学卡片内容 -->
-                    <template v-else-if="event.modality === 'audio-effect'">
-                      <div class="event-description">
-                        <el-icon :size="14" color="#faad14"><Headset /></el-icon>
-                        <span>{{ event.description }}</span>
-                      </div>
-                      <div class="audio-intensity">
-                        <span class="intensity-label">强度:</span>
-                        <div class="intensity-bar">
-                          <div class="intensity-fill" :style="{ width: (event.intensity * 100) + '%' }"></div>
+                      <div class="speech-transcript" v-html="highlightKeywords(event.transcript, event.keywords)"></div>
+                      
+                      <!-- 激活时展开的详情 -->
+                      <transition name="expand">
+                        <div v-if="currentPlayTime >= event.startTime && currentPlayTime <= event.endTime" class="speech-meta">
+                          <span v-if="event.emotion" class="meta-tag emotion" :style="{ background: event.emotion.bgColor, color: event.emotion.textColor }">
+                            {{ event.emotion.label }}
+                          </span>
+                          <span v-if="event.riskLevel !== 'low'" class="meta-tag risk" :class="`risk-${event.riskLevel}`">
+                            {{ event.riskLevel === 'high' ? '高风险' : '中风险' }}
+                          </span>
                         </div>
+                      </transition>
+                    </template>
+                    
+                    <!-- Visual/AudioEffect：系统通知式紧凑排版 -->
+                    <template v-else>
+                      <div class="system-notification" :class="`notif-${event.modality}`">
+                        <div class="notif-main">
+                          <span class="notif-label">
+                            {{ event.modality === 'visual' ? event.detectionLabel : event.description }}
+                          </span>
+                        </div>
+                        
+                        <!-- 激活时展开的详情 -->
+                        <transition name="expand">
+                          <div v-if="currentPlayTime >= event.startTime && currentPlayTime <= event.endTime" class="notif-detail">
+                            <span v-if="event.modality === 'visual'" class="detail-chip">
+                              置信度 {{ event.confidence }}%
+                            </span>
+                            <span v-if="event.modality === 'audio-effect'" class="detail-chip">
+                              强度 {{ Math.round(event.intensity * 100) }}%
+                            </span>
+                            <span v-if="event.riskLevel !== 'low'" class="detail-chip risk" :class="`risk-${event.riskLevel}`">
+                              {{ event.riskLevel === 'high' ? '高风险' : '中风险' }}
+                            </span>
+                          </div>
+                        </transition>
                       </div>
                     </template>
                   </div>
@@ -2919,13 +2922,14 @@ const formatFileSize = (bytes: number): string => {
 }
 
 // 格式化时间范围（秒 -> mm:ss-mm:ss）
+// 格式化单个时间点
+const formatTime = (seconds: number): string => {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+  const s = Math.floor(seconds % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
 const formatTimeRange = (startSeconds: number, endSeconds?: number): string => {
-  const formatTime = (seconds: number): string => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0')
-    const s = Math.floor(seconds % 60).toString().padStart(2, '0')
-    return `${m}:${s}`
-  }
-  
   if (endSeconds) {
     return `${formatTime(startSeconds)}-${formatTime(endSeconds)}`
   }
@@ -7446,7 +7450,8 @@ $purple: #4b70e2;
     .transcript-list {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 16px 16px 16px 24px; // 左侧减少padding为时间线留空间
+      position: relative; // 支持垂直时间线的绝对定位
       
       &::-webkit-scrollbar {
         width: 6px;
@@ -7654,236 +7659,227 @@ $purple: #4b70e2;
       }
     }
     
-    // 【新增】全模态事件流卡片样式
-    .timeline-event-card {
+    // 【极简转录文稿】垂直时间线
+    .timeline-vertical-line {
+      position: absolute;
+      left: 50px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, 
+        transparent 0%, 
+        rgba($neu-2, 0.3) 5%, 
+        rgba($neu-2, 0.3) 95%, 
+        transparent 100%
+      );
+      z-index: 0;
+    }
+    
+    // 【极简转录文稿】事件项
+    .timeline-event-item {
+      position: relative;
       display: flex;
-      gap: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
-      background: $bg;
-      border-radius: 10px;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 4px; // 压缩间距
+      padding: 6px 0; // 最小化内边距
       cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 2px solid transparent;
+      transition: all 0.2s ease;
       
       &:hover {
-        background: white;
-        transform: translateX(-4px);
-        box-shadow: 4px 4px 12px rgba($neu-2, 0.6);
+        .event-timeline-anchor .event-dot {
+          transform: scale(1.3);
+        }
       }
       
-      &.is-playing {
-        background: white;
-        box-shadow: 0 0 0 3px rgba($purple, 0.15), 4px 4px 12px rgba($neu-2, 0.6);
-        transform: scale(1.02);
+      &.is-active {
+        .event-timeline-anchor .event-dot {
+          transform: scale(1.5);
+          box-shadow: 0 0 0 4px rgba($purple, 0.15);
+        }
+        
+        .event-body {
+          // 激活态微动画：轻微放大
+          transform: translateX(2px);
+        }
       }
       
-      // 左侧指示器：模态图标 + 风险色边框
-      .event-left-indicator {
+      // 时间锚点
+      .event-timeline-anchor {
+        position: relative;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        gap: 6px;
-        padding: 8px 0;
-        border-left: 4px solid;
-        border-radius: 2px;
+        gap: 8px;
+        flex-shrink: 0;
+        width: 70px;
+        z-index: 1;
         
-        &.risk-border-high {
-          border-color: #f56c6c;
+        .event-time {
+          font-size: 10px;
+          color: $gray;
+          font-family: 'Monaco', 'Consolas', monospace;
+          font-weight: 500;
+          text-align: right;
+          width: 42px;
         }
         
-        &.risk-border-medium {
-          border-color: #faad14;
-        }
-        
-        &.risk-border-low {
-          border-color: #52c41a;
-        }
-        
-        .modality-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
+        .event-dot {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, rgba($purple, 0.1), rgba($purple, 0.05));
-          color: $purple;
+          background: white;
+          border: 2px solid;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 2px 4px rgba($neu-2, 0.3);
+          
+          &.risk-high {
+            border-color: #f56c6c;
+            color: #f56c6c;
+          }
+          
+          &.risk-medium {
+            border-color: #faad14;
+            color: #faad14;
+          }
+          
+          &.risk-low {
+            border-color: #52c41a;
+            color: #52c41a;
+          }
         }
       }
       
-      // 卡片内容区域
-      .event-content {
+      // 内容区
+      .event-body {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+        transition: all 0.2s ease;
+      }
+      
+      // 【Speech】字幕式大字排版
+      &.modality-speech {
+        padding: 8px 0; // Speech 增加些许垂直空间
         
-        .event-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-          
-          .time-range {
-            font-size: 11px;
-            color: $gray;
-            font-family: 'Monaco', 'Consolas', monospace;
-            font-weight: 600;
-          }
-          
-          .modality-label {
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 600;
-            
-            &.label-speech {
-              background: rgba(82, 196, 26, 0.12);
-              color: #52c41a;
-            }
-            
-            &.label-visual {
-              background: rgba(75, 112, 226, 0.12);
-              color: $purple;
-            }
-            
-            &.label-audio-effect {
-              background: rgba(250, 173, 20, 0.12);
-              color: #faad14;
-            }
-          }
-          
-          .risk-badge {
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 700;
-            
-            &.badge-high {
-              background: #f56c6c;
-              color: white;
-            }
-            
-            &.badge-medium {
-              background: #faad14;
-              color: white;
-            }
-          }
-        }
-        
-        .event-text {
-          font-size: 13px;
+        .speech-transcript {
+          font-size: 15px; // 大字号
+          line-height: 1.8;
           color: $black;
-          line-height: 1.7;
+          font-weight: 400;
           word-break: break-word;
           
           :deep(.risk-keyword) {
             color: #f56c6c;
             font-weight: 700;
-            background: rgba(245, 108, 108, 0.2);
+            background: rgba(245, 108, 108, 0.15);
             padding: 2px 6px;
             border-radius: 4px;
           }
         }
         
-        .event-description {
+        .speech-meta {
           display: flex;
           align-items: center;
-          gap: 8px;
-          font-size: 13px;
-          color: $black;
-          line-height: 1.6;
-        }
-        
-        .emotion-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px 10px;
-          border-radius: 8px;
-          font-size: 11px;
-          font-weight: 600;
-          width: fit-content;
-        }
-        
-        .detection-meta {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+          gap: 6px;
+          margin-top: 6px;
           
-          .confidence-chip, .bbox-chip {
-            padding: 3px 8px;
-            border-radius: 6px;
+          .meta-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
             font-size: 10px;
             font-weight: 600;
-            background: rgba($purple, 0.1);
-            color: $purple;
-          }
-          
-          .bbox-chip {
-            background: rgba(82, 196, 26, 0.1);
-            color: #52c41a;
-          }
-        }
-        
-        .audio-intensity {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          
-          .intensity-label {
-            font-size: 11px;
-            color: $gray;
-            font-weight: 600;
-          }
-          
-          .intensity-bar {
-            flex: 1;
-            height: 6px;
-            background: rgba($neu-2, 0.3);
-            border-radius: 3px;
-            overflow: hidden;
             
-            .intensity-fill {
-              height: 100%;
-              background: linear-gradient(90deg, #faad14, #f56c6c);
-              transition: width 0.3s ease;
+            &.risk {
+              &.risk-high {
+                background: rgba(245, 108, 108, 0.15);
+                color: #f56c6c;
+              }
+              
+              &.risk-medium {
+                background: rgba(250, 173, 20, 0.15);
+                color: #faad14;
+              }
             }
           }
         }
       }
       
-      // 模态特定样式
-      &.modality-speech {
-        .event-left-indicator .modality-icon {
-          background: linear-gradient(135deg, rgba(82, 196, 26, 0.15), rgba(82, 196, 26, 0.05));
-          color: #52c41a;
-        }
-      }
-      
-      &.modality-visual {
-        .event-left-indicator .modality-icon {
-          background: linear-gradient(135deg, rgba(75, 112, 226, 0.15), rgba(75, 112, 226, 0.05));
-          color: $purple;
-        }
-      }
-      
+      // 【Visual/AudioEffect】系统通知式紧凑排版
+      &.modality-visual,
       &.modality-audio-effect {
-        .event-left-indicator .modality-icon {
-          background: linear-gradient(135deg, rgba(250, 173, 20, 0.15), rgba(250, 173, 20, 0.05));
-          color: #faad14;
+        .system-notification {
+          display: inline-block;
+          max-width: 85%;
+          padding: 6px 12px; // 紧凑内边距
+          border-radius: 6px;
+          background: rgba($neu-2, 0.08); // 淡色背景
+          border-left: 3px solid;
+          transition: all 0.2s ease;
+          
+          &.notif-visual {
+            border-color: rgba(75, 112, 226, 0.6);
+          }
+          
+          &.notif-audio-effect {
+            border-color: rgba(250, 173, 20, 0.6);
+          }
+          
+          .notif-main {
+            .notif-label {
+              font-size: 12px; // 小字号
+              line-height: 1.5;
+              color: rgba($black, 0.85);
+              font-weight: 500;
+            }
+          }
+          
+          .notif-detail {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid rgba($neu-2, 0.15);
+            
+            .detail-chip {
+              padding: 1px 6px;
+              border-radius: 3px;
+              font-size: 9px;
+              font-weight: 600;
+              background: rgba($black, 0.05);
+              color: $gray;
+              
+              &.risk {
+                &.risk-high {
+                  background: rgba(245, 108, 108, 0.15);
+                  color: #f56c6c;
+                }
+                
+                &.risk-medium {
+                  background: rgba(250, 173, 20, 0.15);
+                  color: #faad14;
+                }
+              }
+            }
+          }
         }
       }
-      
-      // 风险级别背景色
-      &.risk-high {
-        background: rgba(245, 108, 108, 0.06);
-      }
-      
-      &.risk-medium {
-        background: rgba(250, 173, 20, 0.06);
-      }
+    }
+    
+    // 展开动画
+    .expand-enter-active,
+    .expand-leave-active {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      max-height: 100px;
+      overflow: hidden;
+    }
+    
+    .expand-enter-from,
+    .expand-leave-to {
+      max-height: 0;
+      opacity: 0;
+      margin-top: 0;
     }
     
     .empty-transcript {
