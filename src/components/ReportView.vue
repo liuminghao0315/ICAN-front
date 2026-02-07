@@ -82,7 +82,7 @@
             <span class="card-title-small">潜在舆论风险</span>
           </div>
           <div class="card-value" :class="getOpinionRiskTextClass(getRiskLevelByScore(analysisData.opinionRisk.modalityFusion.finalScore))">
-            {{ analysisData.opinionRisk.riskLabel }}
+            {{ getRiskLabel(getRiskLevelByScore(analysisData.opinionRisk.modalityFusion.finalScore)) }}
           </div>
           <div class="card-meta">风险指数 {{ analysisData.opinionRisk.modalityFusion.finalScore }}分</div>
         </div>
@@ -224,7 +224,7 @@
           <div class="transcript-content-report">
             <div class="transcript-text">"{{ segment.content }}"</div>
             <div class="transcript-meta">
-              <span class="risk-badge-report" :class="'risk-' + segment.riskLevel.toLowerCase()">
+              <span class="risk-badge-report" :class="'risk-' + segment.riskLevel">
                 {{ segment.riskLevel === 'high' ? '⚠️ 高风险' : '⚡ 中等风险' }}
               </span>
               <span v-if="segment.label" class="risk-reason">{{ segment.label }}</span>
@@ -335,10 +335,18 @@ const evidenceCards = {
   action: { label: '处置建议' }
 }
 
-// 高风险台词（过滤低风险）
-const highRiskSegments = computed(() => 
-  props.analysisData.riskEvidences.filter(e => e.riskLevel !== 'low')
-)
+// 高风险台词（过滤低风险）- 从timelineEvents中提取SpeechEvent
+const highRiskSegments = computed(() => {
+  const speechEvents = props.analysisData.timelineEvents.filter(e => e.modality === 'speech')
+  return speechEvents
+    .filter(e => e.riskScore >= 33.3) // 过滤掉低风险
+    .map(e => ({
+      timeSeconds: e.startTime,
+      content: (e as any).transcript,
+      riskLevel: getRiskLevelByRiskScore(e.riskScore),
+      label: `风险分数: ${e.riskScore}`
+    }))
+})
 
 // 峰值风险数据
 const peakRisk = computed(() => {
@@ -402,12 +410,12 @@ const getModalityEvidenceCount = (cardKey: string, modalityType: 'video' | 'audi
   return evidences.filter((e: any) => e.type === modalityType).length
 }
 
-// 统计attitude的情感数据
+// 统计attitude的情感数据（根据sentimentScore统计）
 const getAttitudeStatistics = () => {
   const evidences = props.analysisData.attitude.evidences
-  const positive = evidences.filter(e => e.sentiment === 'positive').length
-  const neutral = evidences.filter(e => e.sentiment === 'neutral').length
-  const negative = evidences.filter(e => e.sentiment === 'negative').length
+  const positive = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore < 33.3).length
+  const neutral = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore >= 33.3 && e.sentimentScore <= 66.7).length
+  const negative = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore > 66.7).length
   const total = evidences.length
   return { positive, neutral, negative, total }
 }
@@ -440,6 +448,30 @@ const getSentimentLabel = (sentiment: string): string => {
     'negative': '负面/不满'
   }
   return labels[sentiment] || '未知'
+}
+
+// 辅助函数：根据finalScore获取风险等级
+const getRiskLevelByScore = (score: number): string => {
+  if (score < 33.3) return 'low'
+  if (score > 66.7) return 'high'
+  return 'medium'
+}
+
+// 辅助函数：获取风险等级标签
+const getRiskLabel = (riskLevel: string): string => {
+  const labels: Record<string, string> = {
+    'low': '低风险',
+    'medium': '中等风险',
+    'high': '高风险'
+  }
+  return labels[riskLevel] || '未知'
+}
+
+// 辅助函数：根据riskScore获取风险等级
+const getRiskLevelByRiskScore = (riskScore: number): string => {
+  if (riskScore < 33.3) return 'low'
+  if (riskScore > 66.7) return 'high'
+  return 'medium'
 }
 
 // 辅助函数：获取舆论风险图标样式

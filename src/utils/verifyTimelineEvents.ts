@@ -45,7 +45,7 @@ export function verifyTimelineEvents(): ValidationResult {
     if (!event.modality) errors.push(`事件 #${index}: 缺少 modality`)
     if (event.startTime === undefined) errors.push(`事件 #${index}: 缺少 startTime`)
     if (event.endTime === undefined) errors.push(`事件 #${index}: 缺少 endTime`)
-    if (!event.riskLevel) errors.push(`事件 #${index}: 缺少 riskLevel`)
+    if (event.riskScore === undefined) errors.push(`事件 #${index}: 缺少 riskScore`)
     
     // 2. 检查时间逻辑
     if (event.startTime >= event.endTime) {
@@ -68,10 +68,10 @@ export function verifyTimelineEvents(): ValidationResult {
       if (!audioEvent.description) warnings.push(`事件 ${event.id}: AudioEffect 卡片缺少 description`)
     }
     
-    // 4. 统计风险等级
-    if (event.riskLevel === 'high') highRiskCount++
-    else if (event.riskLevel === 'medium') mediumRiskCount++
-    else if (event.riskLevel === 'low') lowRiskCount++
+    // 4. 统计风险等级（根据 riskScore 计算）
+    if (event.riskScore > 66.7) highRiskCount++
+    else if (event.riskScore >= 33.3) mediumRiskCount++
+    else lowRiskCount++
   })
   
   // 5. 检查时间覆盖率

@@ -19,7 +19,7 @@ export interface Evidence {
   description: string      // 描述
   confidence: number       // 置信度 0-100
   keyword?: string         // 文本证据的关键词
-  sentiment?: 'positive' | 'neutral' | 'negative'  // 情感标签（态度分析专用）
+  sentimentScore?: number  // 情感分数 0-100（态度分析专用，前端根据区间判断：<33.3正面，>66.7负面）
 }
 
 /**
@@ -42,33 +42,29 @@ export interface ModalityFusion {
  * 视频风险点（基于索引的时间序列数据）
  */
 export interface VideoRiskPoint {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
   reason: string        // 风险原因
-  intensity: number     // 风险强度 0-1
+  intensity: number     // 风险强度 0-1（前端根据区间判断：<0.333低风险，>0.667高风险）
 }
 
 /**
  * 文本风险点（基于索引的时间序列数据）
  */
 export interface TextRiskPoint {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
   reason: string        // 风险原因
-  intensity: number     // 风险强度 0-1
+  intensity: number     // 风险强度 0-1（前端根据区间判断：<0.333低风险，>0.667高风险）
 }
 
 /**
  * 综合风险点（基于索引的时间序列数据）
  */
 export interface ComprehensiveRiskPoint {
-  riskLevel: 'low' | 'medium' | 'high'  // 风险等级
-  intensity: number     // 风险强度 0-1（三个模态的最大值）
+  intensity: number     // 风险强度 0-1（三个模态的最大值，前端根据区间判断：<0.333低风险，>0.667高风险）
 }
 
 /**
  * 音频情绪片段（基于索引的时间序列数据）
  */
 export interface AudioEmotion {
-  emotion: 'calm' | 'happy' | 'angry' | 'sad' | 'tense' | 'serious'  // 情绪类型
   intensity: number     // 强度 0-1
   reason: string        // 检测原因
 }
@@ -100,8 +96,7 @@ export interface TimelineEventBase {
   modality: EventModalityType        // 模态类型：语音/视觉/声学
   startTime: number                  // 开始时间（秒）
   endTime: number                    // 结束时间（秒）
-  riskLevel: 'high' | 'medium' | 'low'  // 风险等级
-  riskScore: number                  // 风险分数 0-100
+  riskScore: number                  // 风险分数 0-100（<33.3低风险，>66.7高风险，否则中风险）
 }
 
 /**
@@ -145,7 +140,6 @@ export interface VisualEvent extends TimelineEventBase {
  */
 export interface AudioEffectEvent extends TimelineEventBase {
   modality: 'audio-effect'
-  effectType: 'scream' | 'crash' | 'applause' | 'whistle' | 'bang' | 'other'
   description: string                // 声音描述
   intensity: number                  // 声音强度 0-1
   confidence: number                 // 检测置信度 0-100
@@ -232,18 +226,16 @@ export interface TopicAnalysis {
  * 对学校态度分析结果（统计分类）
  */
 export interface AttitudeAnalysis {
-  sentimentLabel: string        // 显示标签
-  evidences: Evidence[]         // 详细证据列表（前端统计情感分布）
+  evidences: Evidence[]         // 详细证据列表（前端统计情感分布，根据sentimentScore计算）
 }
 
 /**
  * 潜在舆论风险分析结果
  */
 export interface OpinionRiskAnalysis {
-  riskLabel: string             // 显示标签
   riskReason: string            // 风险原因
   evidences: Evidence[]         // 详细证据列表
-  modalityFusion: ModalityFusion  // 多模态融合分析
+  modalityFusion: ModalityFusion  // 多模态融合分析（前端根据finalScore计算风险等级：<33.3低风险，>66.7高风险）
 }
 
 /**
@@ -508,8 +500,6 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // ========== 5. 对学校态度分析（统计分类）==========
   attitude: {
-    sentimentLabel: '负面/不满',
-    
     // 详细证据（前端统计情感分布）
     evidences: [
       {
@@ -517,14 +507,14 @@ export const mockAnalysisResult: AnalysisResult = {
         type: 'video',
         description: '表情分析：检测到微笑表情',
         confidence: 88,
-        sentiment: 'positive'
+        sentimentScore: 15  // 正面（<33.3）
       },
       {
         timestamp: 15,
         type: 'audio',
         description: '语调分析：语气轻松愉快',
         confidence: 85,
-        sentiment: 'positive'
+        sentimentScore: 20  // 正面
       },
       {
         timestamp: 25,
@@ -532,21 +522,21 @@ export const mockAnalysisResult: AnalysisResult = {
         description: '正面情感词汇',
         confidence: 90,
         keyword: '喜欢',
-        sentiment: 'positive'
+        sentimentScore: 10  // 正面
       },
       {
         timestamp: 35,
         type: 'video',
         description: '表情分析：检测到愤怒、失望表情',
         confidence: 85,
-        sentiment: 'negative'
+        sentimentScore: 85  // 负面（>66.7）
       },
       {
         timestamp: 45,
         type: 'audio',
         description: '语调分析：声调提高，语速加快，情绪激动',
         confidence: 92,
-        sentiment: 'negative'
+        sentimentScore: 92  // 负面
       },
       {
         timestamp: 50,
@@ -554,7 +544,7 @@ export const mockAnalysisResult: AnalysisResult = {
         description: '负面情感词汇',
         confidence: 95,
         keyword: '失望',
-        sentiment: 'negative'
+        sentimentScore: 95  // 负面
       },
       {
         timestamp: 32,
@@ -562,14 +552,14 @@ export const mockAnalysisResult: AnalysisResult = {
         description: '批评性用语',
         confidence: 88,
         keyword: '不负责任',
-        sentiment: 'negative'
+        sentimentScore: 88  // 负面
       },
       {
         timestamp: 38,
         type: 'audio',
         description: '持续的不满情绪表达（但语气相对平静）',
         confidence: 90,
-        sentiment: 'neutral'
+        sentimentScore: 50  // 中性（33.3-66.7）
       },
       {
         timestamp: 46,
@@ -577,14 +567,13 @@ export const mockAnalysisResult: AnalysisResult = {
         description: '客观描述问题',
         confidence: 87,
         keyword: '系统问题',
-        sentiment: 'neutral'
+        sentimentScore: 45  // 中性
       }
     ]
   },
 
   // ========== 6. 潜在舆论风险分析 ==========
   opinionRisk: {
-    riskLabel: '中等风险',
     riskReason: '可能引发跟风吐槽',
     
     // 详细证据
@@ -683,116 +672,172 @@ export const mockAnalysisResult: AnalysisResult = {
 
   // ========== 8. 时间轴数据 ==========
   timelineData: {
-    timeGranularity: 10,  // 时间粒度：10秒
+    timeGranularity: 5,  // 时间粒度：5秒
 
-    // 11.1 视频风险点（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
+    // 11.1 视频风险点（10个元素，索引0-9对应0-5s, 5-10s, 10-15s, 15-20s, 20-25s, 25-30s, 30-35s, 35-40s, 40-45s, 45-50s）
     videoRisks: [
       {
-        riskLevel: 'low',
-        reason: '检测到学生宿舍场景',
-        intensity: 0.25
+        reason: '检测到学生宿舍场景，视频开场',
+        intensity: 0.20
       },
       {
-        riskLevel: 'low',
-        reason: '正常陈述，无明显风险',
-        intensity: 0.30
+        reason: '背景环境稳定，无明显风险画面',
+        intensity: 0.28
       },
       {
-        riskLevel: 'high',
+        reason: '正常陈述画面，表情平静',
+        intensity: 0.32
+      },
+      {
+        reason: '开始出现不满表情',
+        intensity: 0.45
+      },
+      {
         reason: '检测到愤怒表情和激烈手势',
         intensity: 0.92
       },
       {
-        riskLevel: 'medium',
-        reason: '持续的不满情绪表达',
-        intensity: 0.68
+        reason: '持续激动状态，肢体动作幅度大',
+        intensity: 0.88
       },
       {
-        riskLevel: 'medium',
+        reason: '情绪仍较激动，但开始平复',
+        intensity: 0.70
+      },
+      {
+        reason: '持续的不满情绪表达',
+        intensity: 0.65
+      },
+      {
         reason: 'OCR识别到学校选课系统界面截图',
         intensity: 0.55
+      },
+      {
+        reason: '画面趋于平静，结束陈述',
+        intensity: 0.38
       }
     ],
 
-    // 11.2 音频情绪（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
+    // 11.2 音频情绪（10个元素，索引0-9对应0-5s, 5-10s, 10-15s, 15-20s, 20-25s, 25-30s, 30-35s, 35-40s, 40-45s, 45-50s）
     audioEmotions: [
       {
-        emotion: 'calm',
-        intensity: 0.30,
-        reason: '语音平稳，无明显情绪波动'
+        intensity: 0.25,
+        reason: '视频开场，无语音'
       },
       {
-        emotion: 'calm',
+        intensity: 0.35,
+        reason: '语音平稳，开始介绍'
+      },
+      {
         intensity: 0.42,
-        reason: '语速正常，开始表达不满'
+        reason: '语速正常，平静陈述'
       },
       {
-        emotion: 'angry',
+        intensity: 0.58,
+        reason: '语气开始严肃，表达不满'
+      },
+      {
         intensity: 0.95,
         reason: '检测到愤怒咆哮，音量突然增大'
       },
       {
-        emotion: 'tense',
-        intensity: 0.70,
+        intensity: 0.85,
+        reason: '持续愤怒情绪，语速加快'
+      },
+      {
+        intensity: 0.72,
         reason: '语气紧张激动，音调升高'
       },
       {
-        emotion: 'tense',
+        intensity: 0.68,
+        reason: '情绪仍然紧张，但略有缓和'
+      },
+      {
         intensity: 0.52,
-        reason: '情绪逐渐平复，但仍有紧张感'
+        reason: '情绪逐渐平复，语气严肃'
+      },
+      {
+        intensity: 0.40,
+        reason: '趋于平静，结束陈述'
       }
     ],
 
-    // 11.3 文本风险点（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
+    // 11.3 文本风险点（10个元素，索引0-9对应0-5s, 5-10s, 10-15s, 15-20s, 20-25s, 25-30s, 30-35s, 35-40s, 40-45s, 45-50s）
     textRisks: [
       {
-        riskLevel: 'low',
+        reason: '开场无语音，无文本风险',
+        intensity: 0.15
+      },
+      {
         reason: '平静介绍，正常陈述',
-        intensity: 0.20
+        intensity: 0.22
       },
       {
-        riskLevel: 'medium',
-        reason: '表达不满，涉及系统问题',
-        intensity: 0.58
+        reason: '提及学生身份，陈述基本信息',
+        intensity: 0.30
       },
       {
-        riskLevel: 'high',
+        reason: '开始表达不满，涉及系统问题',
+        intensity: 0.55
+      },
+      {
         reason: '情绪激烈，使用极端词汇批评学校',
         intensity: 1.0
       },
       {
-        riskLevel: 'medium',
-        reason: '持续表达不满，可能引发其他学生共鸣',
-        intensity: 0.65
+        reason: '持续批评，出现煽动性词汇',
+        intensity: 0.92
       },
       {
-        riskLevel: 'medium',
+        reason: '表达不满，可能引发共鸣',
+        intensity: 0.68
+      },
+      {
+        reason: '持续表达不满情绪',
+        intensity: 0.62
+      },
+      {
         reason: '呼吁传播，有一定传播风险',
         intensity: 0.50
+      },
+      {
+        reason: '总结陈述，情绪平复',
+        intensity: 0.35
       }
     ],
 
-    // 11.4 综合风险点（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
+    // 11.4 综合风险点（10个元素，索引0-9对应0-5s, 5-10s, 10-15s, 15-20s, 20-25s, 25-30s, 30-35s, 35-40s, 40-45s, 45-50s）
     comprehensiveRisks: [
-      { riskLevel: 'low', intensity: 0.30 },
-      { riskLevel: 'medium', intensity: 0.58 },
-      { riskLevel: 'high', intensity: 1.0 },
-      { riskLevel: 'medium', intensity: 0.70 },
-      { riskLevel: 'medium', intensity: 0.55 }
+      { intensity: 0.25 },
+      { intensity: 0.35 },
+      { intensity: 0.42 },
+      { intensity: 0.58 },
+      { intensity: 1.0 },
+      { intensity: 0.92 },
+      { intensity: 0.72 },
+      { intensity: 0.68 },
+      { intensity: 0.55 },
+      { intensity: 0.40 }
     ],
 
-    // 11.5 雷达图时间段数据（5个元素，索引0-4对应0-10s, 10-20s, 20-30s, 30-40s, 40-50s）
+    // 11.5 雷达图时间段数据（10个元素，索引0-9对应0-5s, 5-10s, 10-15s, 15-20s, 20-25s, 25-30s, 30-35s, 35-40s, 40-45s, 45-50s）
+    // 6个维度：[身份置信度, 学校关联度, 负面情感度, 传播风险, 影响范围, 处置紧迫度]
     radarByTime: [
-      { data: [85, 65, 15, 20, 25, 15] },
-      { data: [85, 80, 40, 35, 45, 30] },
-      { data: [85, 95, 88, 70, 85, 75] },
-      { data: [85, 90, 65, 55, 70, 50] },
-      { data: [85, 85, 35, 40, 50, 35] }
+      { data: [82, 60, 12, 15, 20, 12] },   // 0-5s: 开场，低风险
+      { data: [85, 68, 18, 22, 28, 18] },   // 5-10s: 开始介绍
+      { data: [88, 75, 28, 30, 38, 25] },   // 10-15s: 自称学生
+      { data: [88, 82, 45, 38, 48, 32] },   // 15-20s: 开始表达不满
+      { data: [88, 95, 92, 75, 88, 78] },   // 20-25s: 高风险时段-愤怒爆发
+      { data: [88, 95, 85, 68, 82, 72] },   // 25-30s: 持续高风险-激烈批评
+      { data: [88, 92, 70, 60, 75, 55] },   // 30-35s: 风险开始下降
+      { data: [85, 88, 62, 52, 68, 48] },   // 35-40s: 持续不满但情绪缓和
+      { data: [85, 85, 42, 42, 52, 38] },   // 40-45s: 呼吁传播
+      { data: [85, 82, 30, 35, 45, 30] }    // 45-50s: 结束陈述，趋于平静
     ],
 
     // 11.6 全片平均雷达数据（6个维度：身份置信、学校关联、负面情感、传播风险、影响范围、处置紧迫）
     // 后端计算整个视频的平均值，用于雷达图底层参考线
-    averageRadarData: [85, 83, 49, 44, 55, 41]
+    averageRadarData: [86, 82, 48, 44, 54, 41]
   },
 
   // ========== 12. 【全模态智能事件流】唯一证据数据库 ==========
@@ -803,13 +848,11 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 0,
       endTime: 5,
-      riskLevel: 'medium',
       riskScore: 55,
       detectionType: 'logo',
       detectionLabel: '检测到北京大学校徽',
       boundingBox: { x: 70, y: 25, width: 15, height: 15 },
-      confidence: 95,
-      metadata: { logoType: 'university', universityName: '北京大学' }
+      confidence: 95
     } as VisualEvent,
     
     // 5-10秒：开始说话，平静介绍
@@ -818,7 +861,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'speech',
       startTime: 5,
       endTime: 10,
-      riskLevel: 'low',
       riskScore: 20,
       transcript: '大家好，我是今天的视频发布者，主要想聊聊最近发生的一些事情...',
       keywords: [],
@@ -837,9 +879,7 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'audio-effect',
       startTime: 10,
       endTime: 12,
-      riskLevel: 'medium',
       riskScore: 58,
-      effectType: 'bang',
       description: '检测到重物撞击声（疑似拍桌动作）',
       intensity: 0.75,
       confidence: 88
@@ -851,7 +891,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'speech',
       startTime: 12,
       endTime: 15,
-      riskLevel: 'low',
       riskScore: 25,
       transcript: '我是北京大学计算机系的学生，今天想说说选课的问题...',
       keywords: ['北京大学', '计算机系', '学生'],
@@ -869,7 +908,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 12,
       endTime: 18,
-      riskLevel: 'medium',
       riskScore: 60,
       detectionType: 'uniform',
       detectionLabel: '检测到北大校服',
@@ -883,7 +921,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'speech',
       startTime: 15,
       endTime: 22,
-      riskLevel: 'high',
       riskScore: 95,
       transcript: '但是学校的这个政策完全是欺骗学生的，大家千万不要相信，我们应该联合起来抵制这种行为！',
       keywords: ['欺骗', '抵制', '联合'],
@@ -902,7 +939,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 16,
       endTime: 20,
-      riskLevel: 'high',
       riskScore: 98,
       detectionType: 'ocr',
       detectionLabel: 'OCR敏感词：[抵制]',
@@ -916,13 +952,11 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 20,
       endTime: 22,
-      riskLevel: 'high',
       riskScore: 92,
       detectionType: 'face',
       detectionLabel: '愤怒表情 + 过激手势',
       boundingBox: { x: 32, y: 18, width: 28, height: 38 },
-      confidence: 98,
-      metadata: { emotion: 'angry', emotionIcon: '😡' }
+      confidence: 98
     } as VisualEvent,
     
     // 22-24秒：声学事件（尖叫/嘶吼）
@@ -931,9 +965,7 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'audio-effect',
       startTime: 22,
       endTime: 24,
-      riskLevel: 'high',
       riskScore: 90,
-      effectType: 'scream',
       description: '检测到愤怒咆哮声，音量骤升',
       intensity: 0.95,
       confidence: 92
@@ -945,7 +977,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 24,
       endTime: 28,
-      riskLevel: 'high',
       riskScore: 88,
       detectionType: 'banner',
       detectionLabel: '检测到抗议性横幅标语',
@@ -959,7 +990,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'speech',
       startTime: 25,
       endTime: 32,
-      riskLevel: 'medium',
       riskScore: 68,
       transcript: '我知道说这些话可能会有风险，但是我觉得必须要站出来说明真相...',
       keywords: ['风险', '真相'],
@@ -978,7 +1008,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 30,
       endTime: 34,
-      riskLevel: 'high',
       riskScore: 85,
       detectionType: 'gesture',
       detectionLabel: '检测到过激肢体动作',
@@ -992,7 +1021,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'speech',
       startTime: 35,
       endTime: 42,
-      riskLevel: 'medium',
       riskScore: 72,
       transcript: '如果不给我们一个合理的解释，这件事情没完，我们会一直追究下去...',
       keywords: ['追究', '没完'],
@@ -1011,7 +1039,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 36,
       endTime: 40,
-      riskLevel: 'medium',
       riskScore: 70,
       detectionType: 'ocr',
       detectionLabel: 'OCR敏感词：[追究]',
@@ -1025,7 +1052,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'visual',
       startTime: 42,
       endTime: 44,
-      riskLevel: 'medium',
       riskScore: 55,
       detectionType: 'ocr',
       detectionLabel: 'OCR识别：屏幕显示学校选课系统界面',
@@ -1039,7 +1065,6 @@ export const mockAnalysisResult: AnalysisResult = {
       modality: 'speech',
       startTime: 45,
       endTime: 50,
-      riskLevel: 'low',
       riskScore: 35,
       transcript: '希望能引起相关部门的注意，也希望更多的同学能够看到这个视频，了解真实情况。',
       keywords: ['相关部门', '真实情况'],

@@ -185,7 +185,7 @@ export interface Evidence {
   confidence: number       // 置信度 0-100
   thumbnail?: string       // 视频证据的缩略图
   keyword?: string         // 文本证据的关键词
-  sentiment?: 'positive' | 'neutral' | 'negative'  // 情感标签（用于统计类卡片）
+  sentimentScore?: number  // 情感分数 0-100（用于统计类卡片，前端根据区间判断）
 }
 
 // 卡片数据类型

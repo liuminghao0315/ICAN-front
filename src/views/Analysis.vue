@@ -289,6 +289,12 @@
                 <p>请选择风险证据</p>
               </div>
               
+              <!-- 实时风险状态指示器（左上角呼吸灯） -->
+              <div v-show="realVideoUrl" class="risk-status-indicator" :class="getCurrentRiskClass()">
+                <span class="breathing-dot"></span>
+                <span class="risk-label">{{ getCurrentRiskLabel() }}</span>
+              </div>
+              
               <!-- 证据时间轴标记 - 只在分屏模式下显示当前卡片的证据 -->
               <div v-show="realVideoUrl && currentCardId" class="evidence-timeline-overlay">
                 <div class="timeline-progress-bar">
@@ -306,7 +312,7 @@
                     :class="[
                       `mark-type-${evidence.type}`,
                       `mark-card-${currentCardId}`,
-                      evidence.sentiment ? `mark-sentiment-${evidence.sentiment}` : '',
+                      evidence.sentimentScore !== undefined ? `mark-sentiment-${getSentimentBySentimentScore(evidence.sentimentScore)}` : '',
                       { 'mark-active': isNearCurrentTime(evidence.timestamp) },
                       { 'mark-near-start': (evidence.timestamp / videoDuration) < 0.15 },
                       { 'mark-near-end': (evidence.timestamp / videoDuration) > 0.85 }
@@ -338,9 +344,6 @@
                 >
                   <div class="detection-label-container">
                     <span class="detection-label">
-                      <span v-if="detection.metadata?.emotionIcon" class="emotion-icon">
-                        {{ detection.metadata.emotionIcon }}
-                      </span>
                       {{ detection.label }}
                       <span class="confidence-badge">{{ Math.round(detection.confidence * 100) }}%</span>
                     </span>
@@ -370,7 +373,6 @@
                 <div 
                   class="legend-header" 
                   @click="legendExpanded = !legendExpanded"
-                  title="点击展开/收起图例"
                 >
                   <div class="legend-title-row">
                     <span class="legend-title">检测类型</span>
@@ -382,7 +384,6 @@
                     class="detection-toggle" 
                     :class="{ active: showDetectionBoxes }"
                     @click.stop="showDetectionBoxes = !showDetectionBoxes"
-                    title="显示/隐藏检测框"
                   >
                     <span class="toggle-icon">{{ showDetectionBoxes ? '👁️' : '👁️‍🗨️' }}</span>
                   </div>
@@ -462,7 +463,7 @@
                     <h2 class="panel-main-value" :class="getPanelValueClass()">{{ currentCardData.value }}</h2>
                   </div>
                 </div>
-                <button class="close-evidence-btn" @click="closeEvidencePanel" title="返回台词视图">
+                <button class="close-evidence-btn" @click="closeEvidencePanel">
                   <el-icon><Close /></el-icon>
                 </button>
               </div>
@@ -680,10 +681,10 @@
                       <div class="evidence-content-inline">
                         <div class="evidence-desc-inline">
                           <!-- 情感标签（只对"对学校态度"卡片显示） -->
-                          <span v-if="currentCardId === 'attitude' && evidence.sentiment" 
+                          <span v-if="currentCardId === 'attitude' && evidence.sentimentScore !== undefined" 
                                 class="sentiment-tag-inline" 
-                                :class="'sentiment-' + evidence.sentiment">
-                            {{ evidence.sentiment === 'positive' ? '正面' : evidence.sentiment === 'neutral' ? '中性' : '负面' }}
+                                :class="'sentiment-' + getSentimentBySentimentScore(evidence.sentimentScore)">
+                            {{ getSentimentText(getSentimentBySentimentScore(evidence.sentimentScore)) }}
                           </span>
                           {{ evidence.description }}
                         </div>
@@ -714,10 +715,10 @@
                       <div class="evidence-content-inline">
                         <div class="evidence-desc-inline">
                           <!-- 情感标签（只对"对学校态度"卡片显示） -->
-                          <span v-if="currentCardId === 'attitude' && evidence.sentiment" 
+                          <span v-if="currentCardId === 'attitude' && evidence.sentimentScore !== undefined" 
                                 class="sentiment-tag-inline" 
-                                :class="'sentiment-' + evidence.sentiment">
-                            {{ evidence.sentiment === 'positive' ? '正面' : evidence.sentiment === 'neutral' ? '中性' : '负面' }}
+                                :class="'sentiment-' + getSentimentBySentimentScore(evidence.sentimentScore)">
+                            {{ getSentimentText(getSentimentBySentimentScore(evidence.sentimentScore)) }}
                           </span>
                           {{ evidence.description }}
                         </div>
@@ -748,10 +749,10 @@
                       >
                         <div class="text-keyword-inline">
                           <!-- 情感标签（只对"对学校态度"卡片显示） -->
-                          <span v-if="currentCardId === 'attitude' && evidence.sentiment" 
+                          <span v-if="currentCardId === 'attitude' && evidence.sentimentScore !== undefined" 
                                 class="sentiment-tag-inline" 
-                                :class="'sentiment-' + evidence.sentiment">
-                            {{ evidence.sentiment === 'positive' ? '正面' : evidence.sentiment === 'neutral' ? '中性' : '负面' }}
+                                :class="'sentiment-' + getSentimentBySentimentScore(evidence.sentimentScore)">
+                            {{ getSentimentText(getSentimentBySentimentScore(evidence.sentimentScore)) }}
                           </span>
                           {{ evidence.keyword }}
                         </div>
@@ -778,39 +779,69 @@
                   <el-icon :size="14"><Microphone /></el-icon>
                   全模态事件流
                 </span>
-                <div class="risk-filter-group">
-                  <!-- 新增：模态筛选器 -->
-                  <button 
-                    class="filter-btn modality-filter"
-                    :class="{ active: modalityFilter === 'all' }"
-                    @click="modalityFilter = 'all'"
-                    title="显示所有类型的事件"
-                  >
-                    <el-icon :size="12"><Menu /></el-icon>
-                    全模态
-                  </button>
-                  <button 
-                    class="filter-btn modality-filter risk"
-                    :class="{ active: modalityFilter === 'risk-only' }"
-                    @click="modalityFilter = 'risk-only'"
-                    title="只显示中高风险事件"
-                  >
-                    <el-icon :size="12"><WarningFilled /></el-icon>
-                    风险优先
-                  </button>
-                  <button 
-                    class="filter-btn modality-filter speech"
-                    :class="{ active: modalityFilter === 'speech-only' }"
-                    @click="modalityFilter = 'speech-only'"
-                    title="只显示语音台词"
-                  >
-                    <el-icon :size="12"><Microphone /></el-icon>
-                    纯字幕
-                  </button>
+                <div class="header-actions-group">
+                  <div class="risk-filter-group">
+                    <!-- 新增：模态筛选器 -->
+                    <el-tooltip content="显示所有类型的事件" placement="bottom" :show-after="300">
+                      <button 
+                        class="filter-btn modality-filter"
+                        :class="{ active: modalityFilter === 'all' }"
+                        @click="modalityFilter = 'all'"
+                      >
+                        <el-icon :size="12"><Menu /></el-icon>
+                        全模态
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip content="只显示中高风险事件" placement="bottom" :show-after="300">
+                      <button 
+                        class="filter-btn modality-filter risk"
+                        :class="{ active: modalityFilter === 'risk-only' }"
+                        @click="modalityFilter = 'risk-only'"
+                      >
+                        <el-icon :size="12"><WarningFilled /></el-icon>
+                        风险优先
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip content="只显示语音台词" placement="bottom" :show-after="300">
+                      <button 
+                        class="filter-btn modality-filter speech"
+                        :class="{ active: modalityFilter === 'speech-only' }"
+                        @click="modalityFilter = 'speech-only'"
+                      >
+                        <el-icon :size="12"><Microphone /></el-icon>
+                        纯字幕
+                      </button>
+                    </el-tooltip>
+                  </div>
+                  
+                  <!-- 同步状态按钮 -->
+                  <transition name="fade">
+                    <div v-if="!isSyncActive" style="display: inline-block;">
+                      <el-tooltip 
+                        content="点击恢复自动跟随" 
+                        placement="bottom" 
+                        :show-after="300"
+                      >
+                        <button 
+                          class="sync-control-btn"
+                          @click="resumeSync"
+                        >
+                          <el-icon :size="12"><VideoPause /></el-icon>
+                          暂停中
+                          <span class="resume-text">恢复</span>
+                        </button>
+                      </el-tooltip>
+                    </div>
+                  </transition>
                 </div>
               </div>
               
-              <div class="transcript-list timeline-events-list">
+              <div 
+                ref="timelineEventsListRef" 
+                class="transcript-list timeline-events-list"
+                @wheel="handleUserScroll"
+                @touchstart="handleUserScroll"
+              >
                 <!-- 【垂直时间线】视觉锚点 -->
                 <div class="timeline-vertical-line"></div>
                 
@@ -821,7 +852,7 @@
                   class="timeline-event-item"
                   :class="[
                     `modality-${event.modality}`,
-                    `risk-${event.riskLevel}`,
+                    `risk-${getRiskLevel(event.riskScore)}`,
                     { 
                       'is-active': currentPlayTime >= event.startTime && currentPlayTime <= event.endTime
                     }
@@ -831,7 +862,7 @@
                   <!-- 时间标签 + 图标锚点 -->
                   <div class="event-timeline-anchor">
                     <div class="event-time">{{ formatTime(event.startTime) }}</div>
-                    <div class="event-dot" :class="[`risk-${event.riskLevel}`, `modality-${event.modality}`]">
+                    <div class="event-dot" :class="[`risk-${getRiskLevel(event.riskScore)}`, `modality-${event.modality}`]">
                       <el-icon :size="12">
                         <Microphone v-if="event.modality === 'speech'" />
                         <View v-else-if="event.modality === 'visual'" />
@@ -850,11 +881,20 @@
                       <transition name="expand">
                         <div v-if="currentPlayTime >= event.startTime && currentPlayTime <= event.endTime" class="speech-meta">
                           <span v-if="event.emotion" class="meta-tag emotion" :style="{ background: event.emotion.bgColor, color: event.emotion.textColor }">
-                            {{ event.emotion.label }}
+                            {{ event.emotion.label }} ({{ Math.round(event.emotion.intensity * 100) }}%)
                           </span>
-                          <span v-if="event.riskLevel !== 'low'" class="meta-tag risk" :class="`risk-${event.riskLevel}`">
-                            {{ event.riskLevel === 'high' ? '高风险' : '中风险' }}
+                          <span v-if="getRiskLevel(event.riskScore) !== 'low'" class="meta-tag risk" :class="`risk-${getRiskLevel(event.riskScore)}`">
+                            {{ getRiskLevel(event.riskScore) === 'high' ? '高风险' : '中风险' }}
                           </span>
+                          <el-tooltip 
+                            v-if="getRiskLevel(event.riskScore) === 'high'" 
+                            :content="`置信度 ${event.confidence}%`" 
+                            placement="top"
+                          >
+                            <span class="meta-tag info">
+                              <el-icon :size="12"><InfoFilled /></el-icon>
+                            </span>
+                          </el-tooltip>
                         </div>
                       </transition>
                     </template>
@@ -878,8 +918,17 @@
                             <span v-if="event.modality === 'audio-effect'" class="detail-chip">
                               强度 {{ Math.round(event.intensity * 100) }}%
                             </span>
-                            <span v-if="event.riskLevel !== 'low'" class="detail-chip risk" :class="`risk-${event.riskLevel}`">
-                              {{ event.riskLevel === 'high' ? '高风险' : '中风险' }}
+                            <el-tooltip 
+                              v-if="event.modality === 'audio-effect'" 
+                              :content="`置信度 ${event.confidence}%`" 
+                              placement="top"
+                            >
+                              <span class="detail-chip info">
+                                <el-icon :size="12"><InfoFilled /></el-icon>
+                              </span>
+                            </el-tooltip>
+                            <span v-if="getRiskLevel(event.riskScore) !== 'low'" class="detail-chip risk" :class="`risk-${getRiskLevel(event.riskScore)}`">
+                              {{ getRiskLevel(event.riskScore) === 'high' ? '高风险' : '中风险' }}
                             </span>
                           </div>
                         </transition>
@@ -1046,7 +1095,7 @@ import ReportView from '@/components/ReportView.vue'
 import { mockAnalysisResult } from '@/data/mockAnalysisResult'
 import type { ModalityFusion, Evidence, SceneInfo, TimelineEvent, SpeechEvent, VisualEvent, AudioEffectEvent } from '@/data/mockAnalysisResult'
 // 导入Element Plus图标
-import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked, Male, Female, Menu, View, Headset } from '@element-plus/icons-vue'
+import { User, School, ChatDotRound, TrendCharts, WarningFilled, DocumentChecked, Male, Female, Menu, View, Headset, VideoPause, InfoFilled } from '@element-plus/icons-vue'
 
 // 注册ECharts组件
 use([
@@ -1088,12 +1137,12 @@ const mockVideoArchive = mockAnalysisResult.videoInfo
 const mockIdentityAnalysis = mockAnalysisResult.identity
 const mockUniversityBaseline = mockAnalysisResult.university
 
-// 计算attitude的统计数据（前端统计）
+// 计算attitude的统计数据（前端根据sentimentScore统计）
 const attitudeStatistics = computed(() => {
   const evidences = mockAnalysisResult.attitude.evidences
-  const positive = evidences.filter(e => e.sentiment === 'positive').length
-  const neutral = evidences.filter(e => e.sentiment === 'neutral').length
-  const negative = evidences.filter(e => e.sentiment === 'negative').length
+  const positive = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore < 33.3).length
+  const neutral = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore >= 33.3 && e.sentimentScore <= 66.7).length
+  const negative = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore > 66.7).length
   const total = evidences.length
   return { positive, neutral, negative, total }
 })
@@ -1105,7 +1154,10 @@ const mockContentAnalysis = {
   get schoolMentionCount() { return attitudeStatistics.value.total }
 }
 const mockOpinionRisk = {
-  riskLabel: mockAnalysisResult.opinionRisk.riskLabel,
+  get riskLabel() {
+    const riskLevel = getRiskLevelByScore(mockAnalysisResult.opinionRisk.modalityFusion.finalScore)
+    return getRiskLabel(riskLevel)
+  },
   riskReason: mockAnalysisResult.opinionRisk.riskReason,
   actionSuggestion: mockAnalysisResult.action.actionSuggestion,
   actionDetail: mockAnalysisResult.action.actionDetail
@@ -1153,7 +1205,11 @@ const cardsData = computed<CardData[]>(() => [
   {
     id: 'attitude',
     label: '对学校态度',
-    value: mockAnalysisResult.attitude.sentimentLabel,
+    get value() {
+      const negativeRatio = (attitudeStatistics.value.negative / attitudeStatistics.value.total) * 100
+      const sentiment = getSentimentByScore(negativeRatio)
+      return getSentimentLabel(sentiment)
+    },
     confidence: Math.round((attitudeStatistics.value.negative / attitudeStatistics.value.total) * 100),
     confidenceLabel: '负面占比',
     icon: TrendCharts,
@@ -1166,7 +1222,10 @@ const cardsData = computed<CardData[]>(() => [
   {
     id: 'opinionRisk',
     label: '潜在舆论风险',
-    value: mockAnalysisResult.opinionRisk.riskLabel,
+    get value() {
+      const riskLevel = getRiskLevelByScore(mockAnalysisResult.opinionRisk.modalityFusion.finalScore)
+      return getRiskLabel(riskLevel)
+    },
     confidence: mockAnalysisResult.opinionRisk.modalityFusion.finalScore,
     confidenceLabel: '风险指数',
     icon: WarningFilled,
@@ -1262,9 +1321,9 @@ const textEvidences = computed(() =>
 // 计算各模态的统计数据（用于统计类型卡片）
 const getModalityStatistics = (modalityType: 'video' | 'audio' | 'text') => {
   const evidences = currentEvidences.value.filter(e => e.type === modalityType)
-  const positive = evidences.filter(e => e.sentiment === 'positive').length
-  const neutral = evidences.filter(e => e.sentiment === 'neutral').length
-  const negative = evidences.filter(e => e.sentiment === 'negative').length
+  const positive = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore < 33.3).length
+  const neutral = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore >= 33.3 && e.sentimentScore <= 66.7).length
+  const negative = evidences.filter(e => e.sentimentScore !== undefined && e.sentimentScore > 66.7).length
   const total = evidences.length
   
   return { positive, neutral, negative, total }
@@ -1350,7 +1409,9 @@ const DETECTION_COLORS: Record<string, string> = {
   emotion: '#ff6348',   // 情绪检测 - 橙红色
   mention: '#ff4757',   // 学校提及 - 红色（重点关注）
   uniform: '#ff9500',   // 校服检测 - 橙色
-  banner: '#ff3b30'     // 横幅检测 - 红色
+  banner: '#ff3b30',    // 横幅检测 - 红色
+  gesture: '#ff1493',   // 手势检测 - 深粉红
+  object: '#7bed9f'     // 物体检测 - 薄荷绿
 }
 
 const DETECTION_LABELS: Record<string, string> = {
@@ -1361,7 +1422,21 @@ const DETECTION_LABELS: Record<string, string> = {
   emotion: '情绪检测',
   mention: '学校提及',
   uniform: '校服检测',
-  banner: '横幅检测'
+  banner: '横幅检测',
+  gesture: '手势检测',
+  object: '物体检测'
+}
+
+// ==================== 风险等级计算工具函数 ====================
+/**
+ * 根据 riskScore 计算风险等级
+ * @param riskScore 风险分数 0-100
+ * @returns 'low' | 'medium' | 'high'
+ */
+const getRiskLevel = (riskScore: number): 'low' | 'medium' | 'high' => {
+  if (riskScore < 33.3) return 'low'
+  if (riskScore > 66.7) return 'high'
+  return 'medium'
 }
 
 // 时间轴图表引用
@@ -1415,6 +1490,14 @@ const realVideoUrl = ref(mockAnalysisResult.videoInfo.videoUrl)
 // 【全模态智能事件流】导入事件流数据
 const timelineEvents = mockAnalysisResult.timelineEvents
 
+// ==================== 【智能跟随滚动】核心状态 ====================
+// 自动同步开关
+const isSyncActive = ref(true)
+// 内部滚动标记（防止误触发用户介入）
+const isInternalScrolling = ref(false)
+// 事件列表容器 ref
+const timelineEventsListRef = ref<HTMLElement | null>(null)
+
 // 【开发模式】验证事件流数据
 if (import.meta.env.DEV) {
   import('@/utils/verifyTimelineEvents').then(({ printValidationReport }) => {
@@ -1441,7 +1524,7 @@ const filteredTimelineEvents = computed(() => {
   if (modalityFilter.value === 'speech-only') {
     events = events.filter(e => e.modality === 'speech')
   } else if (modalityFilter.value === 'risk-only') {
-    events = events.filter(e => e.riskLevel === 'high' || e.riskLevel === 'medium')
+    events = events.filter(e => getRiskLevel(e.riskScore) === 'high' || getRiskLevel(e.riskScore) === 'medium')
   }
   // 'all' 模式：显示所有模态
   
@@ -1455,6 +1538,11 @@ const activeTimelineEvents = computed(() => {
   return timelineEvents.filter(event => 
     currentTime >= event.startTime && currentTime <= event.endTime
   )
+})
+
+// 【智能跟随】当前激活事件 ID 集合（用于 watch 触发）
+const activeEventIds = computed(() => {
+  return activeTimelineEvents.value.map(e => e.id).join(',')
 })
 
 // 【新逻辑】当前显示的检测框（从激活事件中提取）
@@ -1526,6 +1614,16 @@ const getRiskLevelByScore = (score: number): string => {
   return 'medium'
 }
 
+// 辅助函数：获取风险等级标签
+const getRiskLabel = (riskLevel: string): string => {
+  const labels: Record<string, string> = {
+    'low': '低风险',
+    'medium': '中等风险',
+    'high': '高风险'
+  }
+  return labels[riskLevel] || '未知'
+}
+
 // 辅助函数：获取情感标签
 const getSentimentLabel = (sentiment: string): string => {
   const labels: Record<string, string> = {
@@ -1534,6 +1632,24 @@ const getSentimentLabel = (sentiment: string): string => {
     'negative': '负面/不满'
   }
   return labels[sentiment] || '未知'
+}
+
+// 辅助函数：根据sentimentScore获取sentiment标签
+const getSentimentBySentimentScore = (sentimentScore: number | undefined): string => {
+  if (sentimentScore === undefined) return 'neutral'
+  if (sentimentScore < 33.3) return 'positive'
+  if (sentimentScore > 66.7) return 'negative'
+  return 'neutral'
+}
+
+// 辅助函数：根据sentiment标签获取中文文本
+const getSentimentText = (sentiment: string): string => {
+  const labels: Record<string, string> = {
+    'positive': '正面',
+    'neutral': '中性',
+    'negative': '负面'
+  }
+  return labels[sentiment] || '中性'
 }
 
 // 辅助函数：获取情感图标样式
@@ -1624,13 +1740,13 @@ const mockTextRisks = computed(() => mockTextRisksData)
 // 综合风险数据（直接使用统一数据源）
 const mockComprehensiveRisks = computed(() => mockComprehensiveRisksData)
 
-// 统计数据（用于模板）
+// 统计数据（用于模板）- 根据 intensity 阈值统计高强度情绪
 const angryEmotionCount = computed(() => {
-  return mockAudioEmotions.value.filter(e => e.emotion === 'angry').length
+  return mockAudioEmotions.value.filter(e => e.intensity > 0.8).length
 })
 
 const highRiskSegmentCount = computed(() => {
-  return timelineEvents.filter(e => e.riskLevel === 'high').length
+  return timelineEvents.filter(e => getRiskLevel(e.riskScore) === 'high').length
 })
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
@@ -2986,7 +3102,7 @@ const getSentimentClass = (label: SentimentLabel): string => {
   return classes[label] || 'primary'
 }
 
-const getSentimentText = (label: SentimentLabel): string => {
+const getSentimentTextForAPI = (label: SentimentLabel): string => {
   const texts: Record<SentimentLabel, string> = {
     'POSITIVE': '积极',
     'NEUTRAL': '中性',
@@ -3247,9 +3363,9 @@ const onVideoTimeUpdate = () => {
     selectedEvidenceId.value = currentEventByTime.id
   }
   
-  const detection = mockVideoRisks.value.find(
-    risk => Math.abs(currentTime - risk.time) < 3
-  )
+  // 根据索引查找当前时间对应的风险点
+  const currentIndex = Math.floor(currentTime / timeGranularity)
+  const detection = mockVideoRisks.value[currentIndex]
   currentDetection.value = detection || null
 }
 
@@ -3767,6 +3883,98 @@ watch(viewMode, () => {
   updateContainerPadding()
 })
 
+// ==================== 【智能跟随滚动】核心逻辑 ====================
+
+/**
+ * 重心居中定位算法
+ * 将当前激活的事件居中显示在列表容器中
+ */
+const scrollToActiveEvents = () => {
+  if (!isSyncActive.value) return
+  if (!timelineEventsListRef.value) return
+  
+  const container = timelineEventsListRef.value
+  const activeElements = container.querySelectorAll('.timeline-event-item.is-active')
+  
+  if (activeElements.length === 0) return
+  
+  // 标记为内部滚动（防止误触发用户介入）
+  isInternalScrolling.value = true
+  
+  // 使用 requestAnimationFrame 确保平滑滚动
+  requestAnimationFrame(() => {
+    const containerRect = container.getBoundingClientRect()
+    const containerCenter = containerRect.height / 2
+    
+    let targetScrollTop: number
+    
+    if (activeElements.length === 1) {
+      // 单项激活：将该项垂直中心与容器中心对齐
+      const activeRect = activeElements[0].getBoundingClientRect()
+      const activeCenter = activeRect.top - containerRect.top + container.scrollTop + activeRect.height / 2
+      targetScrollTop = activeCenter - containerCenter
+    } else {
+      // 多项激活：计算包围盒中心
+      const firstRect = activeElements[0].getBoundingClientRect()
+      const lastRect = activeElements[activeElements.length - 1].getBoundingClientRect()
+      
+      const boundingBoxTop = firstRect.top - containerRect.top + container.scrollTop
+      const boundingBoxBottom = lastRect.bottom - containerRect.top + container.scrollTop
+      const boundingBoxCenter = (boundingBoxTop + boundingBoxBottom) / 2
+      
+      targetScrollTop = boundingBoxCenter - containerCenter
+    }
+    
+    // 边界检查
+    const maxScroll = container.scrollHeight - container.clientHeight
+    targetScrollTop = Math.max(0, Math.min(targetScrollTop, maxScroll))
+    
+    // 执行平滑滚动
+    container.scrollTo({
+      top: targetScrollTop,
+      behavior: 'smooth'
+    })
+    
+    // 滚动结束后清除内部滚动标记（延迟500ms，等待滚动动画完成）
+    setTimeout(() => {
+      isInternalScrolling.value = false
+    }, 500)
+  })
+}
+
+/**
+ * 监听活跃事件 ID 集合变化（Efficiency First）
+ * 只有当活跃事件发生变更时才触发滚动
+ */
+watch(activeEventIds, (newIds, oldIds) => {
+  if (newIds !== oldIds && isSyncActive.value) {
+    scrollToActiveEvents()
+  }
+})
+
+/**
+ * 用户主动介入检测（Interaction Lock）
+ * 检测到用户滚轮或触摸事件时暂停自动同步
+ */
+const handleUserScroll = (event: Event) => {
+  // 如果是内部滚动触发的，忽略
+  if (isInternalScrolling.value) return
+  
+  // 判定为用户主动介入，暂停同步
+  if (isSyncActive.value) {
+    isSyncActive.value = false
+  }
+}
+
+/**
+ * 恢复自动同步
+ */
+const resumeSync = () => {
+  isSyncActive.value = true
+  // 立即执行一次居中滚动
+  scrollToActiveEvents()
+}
+
 // 字幕自动滚动函数（提取为独立函数，多处复用）
 const scrollToActiveSubtitle = () => {
   if (!selectedEvidenceId.value) return
@@ -3799,6 +4007,11 @@ const scrollToActiveSubtitle = () => {
 watch(selectedEvidenceId, () => {
   scrollToActiveSubtitle()
 })
+
+// 监听文本证据数据变化，更新tooltip位置
+watch(textEvidences, () => {
+  updateTextEvidenceTooltipPosition()
+}, { flush: 'post' })
 
 // 【废弃】旧的字幕活跃状态监听 - 已不需要
 
@@ -3838,6 +4051,52 @@ const onRadarChartFinished = () => {
   }
 }
 
+// 检测文本证据元素的边界位置，动态添加类名
+const updateTextEvidenceTooltipPosition = () => {
+  nextTick(() => {
+    const items = document.querySelectorAll('.text-evidence-item-inline')
+    if (items.length === 0) return
+    
+    // 清除所有现有的位置类名
+    items.forEach(item => {
+      item.classList.remove('tooltip-left', 'tooltip-right', 'tooltip-center')
+    })
+    
+    // 检测每一行的元素
+    let rowItems: Element[] = []
+    
+    items.forEach((item, index) => {
+      const rect = item.getBoundingClientRect()
+      
+      // 如果是新的一行（top值不同），处理上一行的元素
+      if (rowItems.length > 0 && Math.abs(rect.top - rowItems[0].getBoundingClientRect().top) > 5) {
+        // 处理上一行：第一个元素左对齐，最后一个元素右对齐
+        if (rowItems.length > 0) {
+          rowItems[0].classList.add('tooltip-left')
+        }
+        if (rowItems.length > 1) {
+          rowItems[rowItems.length - 1].classList.add('tooltip-right')
+        }
+        // 清空当前行
+        rowItems = []
+      }
+      
+      // 将当前元素加入当前行
+      rowItems.push(item)
+      
+      // 如果是最后一个元素，处理当前行
+      if (index === items.length - 1) {
+        if (rowItems.length > 0) {
+          rowItems[0].classList.add('tooltip-left')
+        }
+        if (rowItems.length > 1) {
+          rowItems[rowItems.length - 1].classList.add('tooltip-right')
+        }
+      }
+    })
+  })
+}
+
 // 图表resize处理函数
 const handleChartResize = () => {
   // 调用ECharts实例的resize方法，让图表响应尺寸变化
@@ -3847,6 +4106,9 @@ const handleChartResize = () => {
   
   // 同时重新计算视频显示区域，确保检测框位置正确
   calculateVideoDisplayArea()
+  
+  // 重新计算文本证据tooltip位置
+  updateTextEvidenceTooltipPosition()
 }
 
 onMounted(() => {
@@ -3861,15 +4123,25 @@ onMounted(() => {
   }
   
   // V1.5: 初始化默认选中第一个高风险事件
-  const firstHighRisk = timelineEvents.find(e => e.riskLevel === 'high')
+  const firstHighRisk = timelineEvents.find(e => getRiskLevel(e.riskScore) === 'high')
   if (firstHighRisk) {
     selectedEvidenceId.value = firstHighRisk.id
   } else if (timelineEvents.length > 0) {
     selectedEvidenceId.value = timelineEvents[0].id
   }
   
+  // 初始化文本证据tooltip位置
+  updateTextEvidenceTooltipPosition()
+  
   // 添加窗口resize监听（浏览器窗口大小变化）
   window.addEventListener('resize', handleChartResize)
+  
+  // 【智能跟随】监听容器高度变化，自适应重新计算
+  window.addEventListener('resize', () => {
+    if (isSyncActive.value && activeTimelineEvents.value.length > 0) {
+      scrollToActiveEvents()
+    }
+  })
   
   // 监听整个页面容器的宽度变化（捕获侧边栏收起/展开）
   if (analysisPageRef.value) {
@@ -3944,7 +4216,7 @@ $purple: #4b70e2;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     
     .page-title {
       font-size: 22px;
@@ -5012,7 +5284,7 @@ $purple: #4b70e2;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 20px;
+      padding: 8px 20px;
       background: rgba(245, 247, 250, 0.6);
       border-bottom: 1px solid rgba(0, 0, 0, 0.06);
       
@@ -5036,7 +5308,7 @@ $purple: #4b70e2;
     }
     
     .archive-header {
-      padding: 12px 24px 10px;
+      padding: 10px 24px 6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -5067,7 +5339,6 @@ $purple: #4b70e2;
           
           .file-main {
             position: relative;
-            margin-bottom: 8px;
             padding-right: 120px; // 为右上角的时长标签留出空间
             min-height: 28px; // 确保至少一行的高度
             
@@ -5659,7 +5930,6 @@ $purple: #4b70e2;
   .multi-modal-container {
     display: flex; // 改用flex布局
     gap: 20px;
-    margin-bottom: 20px;
     align-items: start; // 关键：顶部对齐，防止拉伸
     
     @media (max-width: 1200px) {
@@ -5683,10 +5953,11 @@ $purple: #4b70e2;
     &.evidence-detail-mode {
       background: linear-gradient(135deg, #f0f2f5 0%, #f5f7fa 100%);
       border-radius: 20px;
-      padding: 16px 16px 12px 16px; // 保持内边距
+      padding: 14px 16px 12px 16px; // 保持内边距
       box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
       gap: 0; // 移除间距，让证据面板占满
-      overflow: visible; // 完全允许内容可见，防止被裁剪
+      max-height: calc(806px - 15px); // 限制高度并预留底部10px间距
+      overflow: hidden; // 裁剪溢出内容
     }
   }
   
@@ -5697,7 +5968,7 @@ $purple: #4b70e2;
     height: 100%;
     min-height: 0; // 关键：允许 flex 子元素缩小
     gap: 12px;
-    overflow: visible; // 完全允许内容可见
+    overflow: hidden; // 裁剪溢出内容，让内部的 evidence-list-scroll 处理滚动
   }
   
   // ==================== 多模态融合区域 - 新拟态风格 ====================
@@ -5772,6 +6043,7 @@ $purple: #4b70e2;
       flex: 1.2 1 auto; // 允许适度伸缩
       min-width: 100px; // 减小最小宽度
       max-width: 160px; // 添加最大宽度限制，防止超出容器
+      margin-right:8px;
       
       .result-label {
         font-size: 11px;
@@ -6151,6 +6423,7 @@ $purple: #4b70e2;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    margin-right:8px;
     
     &:hover {
       color: #667eea;
@@ -6187,7 +6460,7 @@ $purple: #4b70e2;
     display: flex;
     flex-direction: column;
     min-height: 0; // 关键：允许缩小
-    overflow: visible; // 完全允许内容可见，防止被裁剪
+    overflow: hidden; // 裁剪溢出，让内部滚动
   }
   
   .section-title-inline {
@@ -6472,6 +6745,42 @@ $purple: #4b70e2;
     
     &:hover::before {
       transform: translateX(-50%) translateY(0);
+    }
+    
+    // 每行最左侧元素 - 悬浮窗左对齐
+    &.tooltip-left {
+      &::before {
+        left: 0;
+        transform: translateX(0);
+      }
+      
+      &::after {
+        left: 24px;
+        transform: translateX(0);
+      }
+      
+      &:hover::before {
+        transform: translateX(0) translateY(0);
+      }
+    }
+    
+    // 每行最右侧元素 - 悬浮窗右对齐
+    &.tooltip-right {
+      &::before {
+        left: auto;
+        right: 0;
+        transform: translateX(0);
+      }
+      
+      &::after {
+        left: auto;
+        right: 24px;
+        transform: translateX(0);
+      }
+      
+      &:hover::before {
+        transform: translateX(0) translateY(0);
+      }
     }
   }
   
@@ -6888,6 +7197,73 @@ $purple: #4b70e2;
       z-index: 1;
     }
     
+    // 实时风险状态指示器（左上角呼吸灯）
+    .risk-status-indicator {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px 5px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+      
+      .breathing-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      
+      .risk-label {
+        white-space: nowrap;
+      }
+      
+      // 低风险：绿色呼吸灯
+      &.low {
+        background: rgba(16, 185, 129, 0.95);
+        border: 1px solid rgba(16, 185, 129, 1);
+        color: #fff;
+        
+        .breathing-dot {
+          background: #fff;
+          box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+          animation: breathing-green 2s ease-in-out infinite;
+        }
+      }
+      
+      // 中风险：橙色呼吸灯
+      &.medium {
+        background: rgba(245, 158, 11, 0.95);
+        border: 1px solid rgba(245, 158, 11, 1);
+        color: #fff;
+        
+        .breathing-dot {
+          background: #fff;
+          box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+          animation: breathing-orange 1.5s ease-in-out infinite;
+        }
+      }
+      
+      // 高风险：红色呼吸灯
+      &.high {
+        background: rgba(239, 68, 68, 0.95);
+        border: 1px solid rgba(239, 68, 68, 1);
+        color: #fff;
+        
+        .breathing-dot {
+          background: #fff;
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+          animation: breathing-red 1s ease-in-out infinite;
+        }
+      }
+    }
+    
     // CV视觉模态：场景标签容器（右上角）
     .scene-badge-overlay {
       position: absolute;
@@ -6948,7 +7324,7 @@ $purple: #4b70e2;
       
       /* 分屏模式：移到顶部，有平滑过渡动画 */
       &.evidence-mode-shift {
-        top: 48px; /* 移动到顶部位置 */
+        top: 52px; /* 移动到顶部位置 */
         
         /* 分屏模式下，展开内容向下 */
         .legend-items {
@@ -7226,6 +7602,42 @@ $purple: #4b70e2;
     }
   }
   
+  // 呼吸灯动画 - 绿色（低风险）
+  @keyframes breathing-green {
+    0%, 100% {
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+      opacity: 1;
+    }
+    50% {
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.9), 0 0 20px rgba(16, 185, 129, 0.4);
+      opacity: 0.7;
+    }
+  }
+  
+  // 呼吸灯动画 - 橙色（中风险）
+  @keyframes breathing-orange {
+    0%, 100% {
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+      opacity: 1;
+    }
+    50% {
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.9), 0 0 24px rgba(245, 158, 11, 0.5);
+      opacity: 0.6;
+    }
+  }
+  
+  // 呼吸灯动画 - 红色（高风险）
+  @keyframes breathing-red {
+    0%, 100% {
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+      opacity: 1;
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(239, 68, 68, 1), 0 0 30px rgba(239, 68, 68, 0.6);
+      opacity: 0.5;
+    }
+  }
+  
   // CV视觉模态：检测框动画（业界标准）
   @keyframes fadeIn {
     from {
@@ -7371,9 +7783,11 @@ $purple: #4b70e2;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 16px;
+      padding: 8px 16px;
       border-bottom: 1px solid rgba($neu-2, 0.3);
       background: rgba(255, 255, 255, 0.4);
+      flex-wrap: wrap;
+      gap: 8px;
       
       .panel-title-compact {
         font-size: 13px;
@@ -7383,6 +7797,7 @@ $purple: #4b70e2;
         align-items: center;
         gap: 6px;
       }
+      
       
       .detection-badge {
         display: inline-flex;
@@ -7394,6 +7809,13 @@ $purple: #4b70e2;
         font-size: 10px;
         font-weight: 600;
         color: $purple;
+      }
+      
+      // 头部操作按钮组（包含筛选器和同步按钮）
+      .header-actions-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
       }
       
       // 风险过滤器按钮组
@@ -7444,6 +7866,44 @@ $purple: #4b70e2;
               box-shadow: 0 2px 8px rgba(82, 196, 26, 0.35);
             }
           }
+        }
+      }
+      
+      // 同步控制按钮
+      .sync-control-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        border: 1px solid rgba(250, 173, 20, 0.6);
+        border-radius: 6px;
+        background: rgba(250, 173, 20, 0.1);
+        color: #f59e0b;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        
+        &:hover {
+          border-color: #f59e0b;
+          background: rgba(250, 173, 20, 0.15);
+          transform: translateY(-1px);
+          box-shadow: 0 2px 6px rgba(250, 173, 20, 0.25);
+          
+          .resume-text {
+            opacity: 1;
+            max-width: 40px;
+            margin-left: 4px;
+          }
+        }
+        
+        .resume-text {
+          opacity: 0;
+          max-width: 0;
+          overflow: hidden;
+          transition: all 0.2s ease;
+          margin-left: 0;
         }
       }
     }
@@ -7815,6 +8275,17 @@ $purple: #4b70e2;
                 color: #faad14;
               }
             }
+            
+            &.info {
+              background: rgba(64, 158, 255, 0.15);
+              color: #409eff;
+              cursor: help;
+              padding: 2px 6px;
+              
+              &:hover {
+                background: rgba(64, 158, 255, 0.25);
+              }
+            }
           }
         }
       }
@@ -7897,6 +8368,16 @@ $purple: #4b70e2;
                   color: #faad14;
                 }
               }
+              
+              &.info {
+                background: rgba(64, 158, 255, 0.15);
+                color: #409eff;
+                cursor: help;
+                
+                &:hover {
+                  background: rgba(64, 158, 255, 0.25);
+                }
+              }
             }
           }
         }
@@ -7975,7 +8456,7 @@ $purple: #4b70e2;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 16px;
+      padding: 12px 16px 8px;
       border-bottom: 1px solid #f0f0f0;
       
       .card-title-compact {
@@ -8000,17 +8481,16 @@ $purple: #4b70e2;
     .radar-container {
       display: flex;
       flex-direction: column;
-      padding: 12px;
+      padding: 10px 12px 8px 12px;
       
       .radar-with-score {
         display: flex;
         align-items: center;
         padding-left: 30px;
-        gap: 20px;
         margin-bottom: 12px;
         
         .radar-chart-area {
-          flex: 1;
+          flex: 0 0 350px;
           max-width: 350px;
           
           .radar-chart-compact {
@@ -8020,7 +8500,9 @@ $purple: #4b70e2;
         }
         
         .score-side-panel {
+          flex: 1;
           display: flex;
+          margin-left: -40px;
           flex-direction: column;
           align-items: center;
           justify-content: center;
@@ -8309,7 +8791,7 @@ $purple: #4b70e2;
   }
 
   .video-description {
-    margin: 6px 0 10px 0;
+    margin: 0 0 10px 0;
     line-height: 1.6;
   }
 
