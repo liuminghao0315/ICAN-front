@@ -1,5 +1,9 @@
 <template>
-  <div ref="analysisPageRef" class="analysis-page">
+  <div 
+    ref="analysisPageRef" 
+    class="analysis-page"
+    :class="{ 'view-mode-interactive': viewMode === 'interactive' && (analysisData || loading) }"
+  >
     <div class="header-actions">
       <h2 class="page-title">分析结果</h2>
       <div class="header-actions-right">
@@ -2445,7 +2449,7 @@ const multiModalTimelineOption = computed(() => {
       padding: [5, 10]
     },
     grid: {
-      left: 21,
+      left: 45,
       right: 22,
       bottom:65, // 从30%改为固定50px，缩小图例与折线图的间距
       top: '5%',
@@ -2540,7 +2544,7 @@ const multiModalTimelineOption = computed(() => {
         } 
       },
       axisLabel: {
-        show: false,  // 隐藏Y轴标签（0%、20%、40%等）
+        show: true,  // 显示Y轴标签（0%、20%、40%等）
         color: '#666',
         fontSize: 11,
         formatter: '{value}%',
@@ -3263,7 +3267,7 @@ const onChartContainerClick = (event: MouseEvent) => {
   const percentage = clickX / containerWidth
   
   // 转换为视频时间（考虑grid的left/right padding）
-  const gridLeft = 21 // 对应grid.left配置
+  const gridLeft = 45 // 对应grid.left配置
   const gridRight = 22 // 对应grid.right配置
   const effectiveWidth = containerWidth - gridLeft - gridRight
   const effectiveClickX = clickX - gridLeft
@@ -3871,7 +3875,8 @@ watch(() => route.query, (query) => {
 const updateContainerPadding = () => {
   const mainContent = document.querySelector('.main-content')
   if (mainContent) {
-    if (viewMode.value === 'interactive') {
+    // 只有在交互模式且（有分析数据或正在加载）时才移除左padding
+    if (viewMode.value === 'interactive' && (analysisData.value || loading.value)) {
       mainContent.classList.add('interactive-mode-no-padding')
     } else {
       mainContent.classList.remove('interactive-mode-no-padding')
@@ -3880,6 +3885,11 @@ const updateContainerPadding = () => {
 }
 
 watch(viewMode, () => {
+  updateContainerPadding()
+})
+
+// 同时监听 analysisData 和 loading 变化
+watch([analysisData, loading], () => {
   updateContainerPadding()
 })
 
@@ -4114,6 +4124,9 @@ const handleChartResize = () => {
 onMounted(() => {
   fetchVideos()
   
+  // 立即调用一次，确保初始状态正确
+  updateContainerPadding()
+  
   // 如果有路由参数，加载对应数据
   if (route.query.videoId) {
     selectedVideoId.value = route.query.videoId as string
@@ -4217,6 +4230,7 @@ $purple: #4b70e2;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+    transition: margin-left 0.3s ease;
     
     .page-title {
       font-size: 22px;
@@ -4300,6 +4314,13 @@ $purple: #4b70e2;
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+  }
+  
+  // 交互模式专属样式
+  &.view-mode-interactive {
+    .header-actions {
+      margin-left: 20px;
     }
   }
   
@@ -5277,6 +5298,7 @@ $purple: #4b70e2;
   .video-archive-card {
     padding: 0;
     margin-bottom: 16px;
+    margin-left:20px;
     overflow: hidden;
     
     // 数据来源标识
@@ -6834,7 +6856,7 @@ $purple: #4b70e2;
   
   .video-player-wrapper {
     position: relative;
-    width: 100%;
+    width: calc(100% - 20px);
     min-height: 480px; /* 修复：增加视频高度 */
     border-radius: 20px;
     overflow: hidden; // 恢复 hidden，防止内部动画影响页面高度
@@ -6843,6 +6865,7 @@ $purple: #4b70e2;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-left: 20px;
     
     .main-video-player {
       width: 100%;
@@ -8436,7 +8459,7 @@ $purple: #4b70e2;
   
   // 内联时间轴（去背景版，优化间距和高度）
   .multi-track-timeline-inline {
-    margin: -10px 0 16px 0; // 上间距减小，与视频更紧凑
+    margin: -10px 0 16px -5px; // 上间距减小，与视频更紧凑
     padding: 0;
     
     .timeline-chart-inline {
@@ -10090,5 +10113,10 @@ $purple: #4b70e2;
 .custom-tooltip .el-popper__arrow::before {
   background: rgba(255, 255, 255, 0.98) !important;
   border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+// 交互模式下移除main标签左padding
+.interactive-mode-no-padding {
+  padding-left: 0 !important;
 }
 </style>
