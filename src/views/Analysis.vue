@@ -831,7 +831,7 @@
                   <!-- 时间标签 + 图标锚点 -->
                   <div class="event-timeline-anchor">
                     <div class="event-time">{{ formatTime(event.startTime) }}</div>
-                    <div class="event-dot" :class="`risk-${event.riskLevel}`">
+                    <div class="event-dot" :class="[`risk-${event.riskLevel}`, `modality-${event.modality}`]">
                       <el-icon :size="12">
                         <Microphone v-if="event.modality === 'speech'" />
                         <View v-else-if="event.modality === 'visual'" />
@@ -863,6 +863,7 @@
                     <template v-else>
                       <div class="system-notification" :class="`notif-${event.modality}`">
                         <div class="notif-main">
+                          <span class="notif-badge">{{ event.modality === 'visual' ? '[画面]' : '[音效]' }}</span>
                           <span class="notif-label">
                             {{ event.modality === 'visual' ? event.detectionLabel : event.description }}
                           </span>
@@ -7695,12 +7696,24 @@ $purple: #4b70e2;
       &.is-active {
         .event-timeline-anchor .event-dot {
           transform: scale(1.5);
-          box-shadow: 0 0 0 4px rgba($purple, 0.15);
         }
         
         .event-body {
-          // 激活态微动画：轻微放大
+          // 激活态微动画：轻微右移
           transform: translateX(2px);
+        }
+        
+        // 【双轨编码】激活态外发光 = 风险色
+        &.risk-high .event-timeline-anchor .event-dot {
+          box-shadow: 0 0 0 4px rgba(245, 108, 108, 0.25); // 红色外发光
+        }
+        
+        &.risk-medium .event-timeline-anchor .event-dot {
+          box-shadow: 0 0 0 4px rgba(250, 173, 20, 0.25); // 橙色外发光
+        }
+        
+        &.risk-low .event-timeline-anchor .event-dot {
+          box-shadow: 0 0 0 4px rgba(82, 196, 26, 0.25); // 绿色外发光
         }
       }
       
@@ -7730,24 +7743,25 @@ $purple: #4b70e2;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: white;
-          border: 2px solid;
+          border: 2px solid transparent;
           transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           box-shadow: 0 2px 4px rgba($neu-2, 0.3);
+          color: white; // 【统一】图标颜色为白色
           
+          // 【双轨编码】圆点背景色 = 风险等级（所有模态统一）
           &.risk-high {
+            background: #f56c6c; // 红色背景
             border-color: #f56c6c;
-            color: #f56c6c;
           }
           
           &.risk-medium {
+            background: #faad14; // 橙色背景
             border-color: #faad14;
-            color: #faad14;
           }
           
           &.risk-low {
+            background: #52c41a; // 绿色背景
             border-color: #52c41a;
-            color: #52c41a;
           }
         }
       }
@@ -7813,25 +7827,47 @@ $purple: #4b70e2;
           max-width: 85%;
           padding: 6px 12px; // 紧凑内边距
           border-radius: 6px;
-          background: rgba($neu-2, 0.08); // 淡色背景
           border-left: 3px solid;
           transition: all 0.2s ease;
           
+          // 【模态色标系统】蓝色系 - Visual
           &.notif-visual {
-            border-color: rgba(75, 112, 226, 0.6);
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05); // 5%透明度蓝色背景
           }
           
+          // 【模态色标系统】琥珀色系 - AudioEffect
           &.notif-audio-effect {
-            border-color: rgba(250, 173, 20, 0.6);
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05); // 5%透明度琥珀色背景
           }
           
           .notif-main {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            
+            .notif-badge {
+              font-size: 11px;
+              font-weight: 700;
+              flex-shrink: 0;
+            }
+            
             .notif-label {
               font-size: 12px; // 小字号
               line-height: 1.5;
               color: rgba($black, 0.85);
               font-weight: 500;
             }
+          }
+          
+          // 【模态色标】显式标签颜色
+          &.notif-visual .notif-badge {
+            color: #3b82f6; // 蓝色
+          }
+          
+          &.notif-audio-effect .notif-badge {
+            color: #f59e0b; // 琥珀色
           }
           
           .notif-detail {
