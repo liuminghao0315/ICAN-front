@@ -1,5 +1,13 @@
 <template>
   <div class="report-view">
+    <!-- 导出报告按钮 -->
+    <div class="report-export-btn-wrapper">
+      <button class="neu-btn primary-btn" @click="$emit('export-pdf')">
+        <el-icon><Download /></el-icon>
+        导出报告
+      </button>
+    </div>
+    
     <div class="report-container">
       
       <!-- 1. 报告头部 -->
@@ -446,7 +454,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import { Download } from '@element-plus/icons-vue'
 import type { AnalysisResult } from '@/data/mockAnalysisResult'
+
+// Emits
+defineEmits<{
+  'export-pdf': []
+}>()
 
 // Props
 const props = defineProps<{
@@ -792,6 +806,69 @@ onMounted(() => {
   background: #f5f5f5;
   min-height: 100vh;
   padding: 20px;
+  position: relative;
+}
+
+.report-export-btn-wrapper {
+  position: sticky;
+  top: 1px;
+  right: 30px;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -56px; // 负边距，让按钮不占用文档流空间
+  pointer-events: none; // 让包装器不阻挡下方内容
+  
+  .neu-btn {
+    pointer-events: auto; // 恢复按钮本身的交互
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #ecf0f3;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #a0a5a8;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 
+      2px 2px 5px rgba(163, 177, 198, 0.3),
+      -2px -2px 5px rgba(255, 255, 255, 0.8);
+    
+    &:hover {
+      box-shadow: 
+        3px 3px 6px rgba(163, 177, 198, 0.4),
+        -3px -3px 6px rgba(255, 255, 255, 0.9);
+    }
+    
+    &:active {
+      box-shadow: 
+        inset 2px 2px 4px rgba(163, 177, 198, 0.4),
+        inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+    }
+    
+    &.primary-btn {
+      background: #4b70e2;
+      color: white;
+      box-shadow: 
+        3px 3px 8px rgba(75, 112, 226, 0.3),
+        -2px -2px 6px rgba(255, 255, 255, 0.5);
+      
+      &:hover {
+        box-shadow: 
+          4px 4px 10px rgba(75, 112, 226, 0.4),
+          -2px -2px 6px rgba(255, 255, 255, 0.6);
+      }
+      
+      &:active {
+        box-shadow: 
+          inset 2px 2px 5px rgba(75, 112, 226, 0.5),
+          inset -1px -1px 3px rgba(255, 255, 255, 0.3);
+      }
+    }
+  }
 }
 
 .report-container {
@@ -799,7 +876,7 @@ onMounted(() => {
   margin: 0 auto;
   background: white;
   box-shadow: 0 0 20px rgba(0,0,0,0.1);
-  padding: 30mm 20mm; /* A4 margins */
+  padding: 20mm 20mm; /* A4 margins: 上下20mm, 左右20mm */
 }
 
 /* ===== 1. 报告头部 ===== */
@@ -1754,6 +1831,10 @@ onMounted(() => {
 
 /* ===== 打印样式 ===== */
 @media print {
+  .report-export-btn-wrapper {
+    display: none !important;
+  }
+  
   .report-view {
     padding: 0;
     background: white;
@@ -1763,7 +1844,7 @@ onMounted(() => {
     max-width: 100%;
     box-shadow: none;
     margin: 0;
-    padding: 15mm 15mm;
+    padding: 20mm 15mm; /* 打印时上下20mm，左右15mm */
   }
   
   /* 防止关键区块被截断 */

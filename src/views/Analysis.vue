@@ -25,14 +25,6 @@
             报告视图
           </button>
         </div>
-        <button 
-          v-if="viewMode === 'report' && analysisData" 
-          class="neu-btn primary-btn" 
-          @click="handleExportPdf"
-        >
-          <el-icon><Download /></el-icon>
-          导出报告
-        </button>
         <button class="neu-btn primary-btn video-selector-btn" @click="showVideoDrawer = true">
           <el-icon><VideoPlay /></el-icon>
           选择视频
@@ -112,6 +104,7 @@
       :analysis-result="analysisData"
       :view-mode="viewMode"
       @update:view-mode="viewMode = $event"
+      @export-pdf="handleExportPdf"
     />
   </div>
 </template>
@@ -333,11 +326,11 @@ $purple: #4b70e2;
         box-shadow: none;
         
         &.active {
-          background: $white;
-          color: $purple;
+          background: $purple;
+          color: white;
           box-shadow: 
-            2px 2px 4px rgba(163, 177, 198, 0.3),
-            -2px -2px 4px rgba(255, 255, 255, 0.8);
+            3px 3px 8px rgba(75, 112, 226, 0.3),
+            -2px -2px 6px rgba(255, 255, 255, 0.5);
         }
       }
     }
@@ -545,54 +538,39 @@ $purple: #4b70e2;
 
   // 通用按钮样式
   .neu-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: $neu-1;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: $gray;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 
-      2px 2px 5px rgba(163, 177, 198, 0.3),
-      -2px -2px 5px rgba(255, 255, 255, 0.8);
+  background: $neu-1;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s;
+  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+  color: $gray;
+  font-family: 'Montserrat', sans-serif;
+  padding: 12px 24px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  &:hover {
+    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    color: $purple;
+  }
+  
+  &:active {
+    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+  }
+  
+  &.primary-btn {
+    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+    color: #fff;
     
     &:hover {
-      box-shadow: 
-        3px 3px 6px rgba(163, 177, 198, 0.4),
-        -3px -3px 6px rgba(255, 255, 255, 0.9);
-    }
-    
-    &:active {
-      box-shadow: 
-        inset 2px 2px 4px rgba(163, 177, 198, 0.4),
-        inset -2px -2px 4px rgba(255, 255, 255, 0.8);
-    }
-    
-    &.primary-btn {
-      background: $purple;
-      color: white;
-      box-shadow: 
-        3px 3px 8px rgba(75, 112, 226, 0.3),
-        -2px -2px 6px rgba(255, 255, 255, 0.5);
-      
-      &:hover {
-        box-shadow: 
-          4px 4px 10px rgba(75, 112, 226, 0.4),
-          -2px -2px 6px rgba(255, 255, 255, 0.6);
-      }
-      
-      &:active {
-        box-shadow: 
-          inset 2px 2px 5px rgba(75, 112, 226, 0.5),
-          inset -1px -1px 3px rgba(255, 255, 255, 0.3);
-      }
+      box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+      color: #fff;
     }
   }
+}
 
   // 通用卡片样式
   .neu-card {
