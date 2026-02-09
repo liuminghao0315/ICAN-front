@@ -544,7 +544,7 @@ const currentDateTime = computed(() => {
 // 格式化时长
 const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
+  const secs = Math.floor(seconds % 60)
   return `${mins}分${secs}秒`
 }
 

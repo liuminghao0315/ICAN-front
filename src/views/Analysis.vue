@@ -3,7 +3,7 @@
     ref="analysisPageRef" 
     class="analysis-page"
   >
-    <div class="header-actions">
+    <div class="header-actions" :class="{ 'interactive-mode': viewMode === 'interactive' && analysisData }">
       <h2 class="page-title">分析结果</h2>
       <div class="header-actions-right">
         <!-- 视图切换按钮 -->
@@ -122,18 +122,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { ElMessage } from 'element-plus'
 import { VideoPlay, DataAnalysis, Close, Document, Download } from '@element-plus/icons-vue'
-import axios from 'axios'
-import { getVideoList, type VideoInfo } from '@/api'
+import { getVideoList, getResultById, getResultByVideoId, type VideoInfo } from '@/api'
 import AnalysisContent from '@/components/AnalysisContent.vue'
-
-// 创建专门用于分析结果的axios实例（指向mock服务器3000端口）
-const analysisApi = axios.create({
-  baseURL: 'http://localhost:3000',
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
 
 const route = useRoute()
 const router = useRouter()
@@ -182,11 +172,11 @@ const loadAnalysisByVideo = async () => {
   loading.value = true
   
   try {
-    // 请求API获取分析结果（必须从网络获取）
-    const response = await analysisApi.get(`/api/analysis/result/video/${selectedVideoId.value}`)
+    // 使用统一的API调用（指向8080后端）
+    const response = await getResultByVideoId(selectedVideoId.value)
     
-    if (response.data.code === 200 && response.data.data) {
-      analysisData.value = response.data.data
+    if (response.code === 200 && response.data) {
+      analysisData.value = response.data
       emptyMessage.value = ''
     } else {
       analysisData.value = null
@@ -205,12 +195,12 @@ const loadAnalysisById = async (resultId: string) => {
   loading.value = true
   
   try {
-    // 请求API获取分析结果（必须从网络获取）
-    const response = await analysisApi.get(`/api/analysis/result/${resultId}`)
+    // 使用统一的API调用（指向8080后端）
+    const response = await getResultById(resultId)
     
-    if (response.data.code === 200 && response.data.data) {
-      analysisData.value = response.data.data
-      selectedVideoId.value = response.data.data.videoId
+    if (response.code === 200 && response.data) {
+      analysisData.value = response.data
+      selectedVideoId.value = response.data.videoId
       emptyMessage.value = ''
     } else {
       analysisData.value = null
@@ -307,7 +297,12 @@ $purple: #4b70e2;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+    margin-left: 0;
     transition: margin-left 0.3s ease;
+    
+    &.interactive-mode {
+      margin-left: 20px;
+    }
     
     .page-title {
       font-size: 22px;
