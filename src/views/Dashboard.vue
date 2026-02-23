@@ -46,22 +46,22 @@
       
       <div class="banner-charts">
         <div class="mini-chart-item">
-          <div class="chart-ring" :style="{ '--progress': completionRate }">
-            <span class="chart-value">{{ completionRate }}%</span>
+          <div class="chart-ring risk-high" :style="{ '--progress': highRiskRate }">
+            <span class="chart-value">{{ highRiskRate }}%</span>
           </div>
-          <span class="chart-label">完成率</span>
+          <span class="chart-label">高风险</span>
         </div>
         <div class="mini-chart-item">
-          <div class="chart-ring analysis" :style="{ '--progress': analysisRate }">
-            <span class="chart-value">{{ analysisRate }}%</span>
+          <div class="chart-ring risk-medium" :style="{ '--progress': mediumRiskRate }">
+            <span class="chart-value">{{ mediumRiskRate }}%</span>
           </div>
-          <span class="chart-label">分析中</span>
+          <span class="chart-label">中风险</span>
         </div>
         <div class="mini-chart-item">
-          <div class="chart-ring pending" :style="{ '--progress': pendingRate }">
-            <span class="chart-value">{{ pendingRate }}%</span>
+          <div class="chart-ring risk-low" :style="{ '--progress': lowRiskRate }">
+            <span class="chart-value">{{ lowRiskRate }}%</span>
           </div>
-          <span class="chart-label">待处理</span>
+          <span class="chart-label">低风险</span>
         </div>
       </div>
     </div>
@@ -302,7 +302,29 @@ const stats = ref({
   analysisCount: 0  // 累计分析次数（只增不减）
 })
 
-// 计算属性
+// 计算属性 - 圆环显示风险分布占比
+const highRiskRate = computed(() => {
+  if (!analysisStats.value) return 0
+  const total = (analysisStats.value.highRiskCount ?? 0) + (analysisStats.value.mediumRiskCount ?? 0) + (analysisStats.value.lowRiskCount ?? 0)
+  if (total === 0) return 0
+  return Math.round(((analysisStats.value.highRiskCount ?? 0) / total) * 100)
+})
+
+const mediumRiskRate = computed(() => {
+  if (!analysisStats.value) return 0
+  const total = (analysisStats.value.highRiskCount ?? 0) + (analysisStats.value.mediumRiskCount ?? 0) + (analysisStats.value.lowRiskCount ?? 0)
+  if (total === 0) return 0
+  return Math.round(((analysisStats.value.mediumRiskCount ?? 0) / total) * 100)
+})
+
+const lowRiskRate = computed(() => {
+  if (!analysisStats.value) return 0
+  const total = (analysisStats.value.highRiskCount ?? 0) + (analysisStats.value.mediumRiskCount ?? 0) + (analysisStats.value.lowRiskCount ?? 0)
+  if (total === 0) return 0
+  return Math.round(((analysisStats.value.lowRiskCount ?? 0) / total) * 100)
+})
+
+// 兼容旧变量名（视频状态统计，仍用于 statusChartOption）
 const completionRate = computed(() => {
   if (stats.value.totalVideos === 0) return 0
   return Math.round((stats.value.analyzedCount / stats.value.totalVideos) * 100)
@@ -842,39 +864,48 @@ $purple: #4b70e2;
       align-items: center;
       gap: 8px;
       
-      .chart-ring {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background: conic-gradient(
-          $purple 0deg,
-          $purple calc(var(--progress) * 3.6deg),
-          $neu-1 calc(var(--progress) * 3.6deg),
-          $neu-1 360deg
-        );
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-        box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-        
-        &.analysis {
+        .chart-ring {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
           background: conic-gradient(
-            #e6a23c 0deg,
-            #e6a23c calc(var(--progress) * 3.6deg),
+            #f56c6c 0deg,
+            #f56c6c calc(var(--progress) * 3.6deg),
             $neu-1 calc(var(--progress) * 3.6deg),
             $neu-1 360deg
           );
-        }
-        
-        &.pending {
-          background: conic-gradient(
-            #909399 0deg,
-            #909399 calc(var(--progress) * 3.6deg),
-            $neu-1 calc(var(--progress) * 3.6deg),
-            $neu-1 360deg
-          );
-        }
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+          
+          &.risk-high {
+            background: conic-gradient(
+              #f56c6c 0deg,
+              #f56c6c calc(var(--progress) * 3.6deg),
+              $neu-1 calc(var(--progress) * 3.6deg),
+              $neu-1 360deg
+            );
+          }
+          
+          &.risk-medium {
+            background: conic-gradient(
+              #e6a23c 0deg,
+              #e6a23c calc(var(--progress) * 3.6deg),
+              $neu-1 calc(var(--progress) * 3.6deg),
+              $neu-1 360deg
+            );
+          }
+          
+          &.risk-low {
+            background: conic-gradient(
+              #52c41a 0deg,
+              #52c41a calc(var(--progress) * 3.6deg),
+              $neu-1 calc(var(--progress) * 3.6deg),
+              $neu-1 360deg
+            );
+          }
         
         &::before {
           content: '';

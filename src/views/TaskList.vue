@@ -166,6 +166,25 @@
       </div>
     </div>
     
+    <!-- 自定义取消确认弹框 -->
+    <Transition name="modal-fade">
+      <div class="neu-modal-overlay" v-if="showCancelModal" @click.self="showCancelModal = false">
+        <div class="neu-modal">
+          <div class="neu-modal-icon warning">
+            <el-icon :size="28"><Warning /></el-icon>
+          </div>
+          <div class="neu-modal-body">
+            <h3 class="neu-modal-title">确认取消</h3>
+            <p class="neu-modal-desc">确定要取消这个分析任务吗？</p>
+          </div>
+          <div class="neu-modal-actions">
+            <button class="neu-btn" @click="showCancelModal = false">再想想</button>
+            <button class="neu-btn danger-btn" @click="confirmCancel">确认取消</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- 任务列表 -->
     <div class="neu-card">
       <div class="card-header">
@@ -298,7 +317,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { 
   getTaskList, 
   getTaskById,
@@ -335,29 +354,37 @@ subscribeProgress((data) => {
 
 // 订阅任务完成通知
 subscribeCompleted(async (data) => {
-  const task = taskList.value.find(t => t.id === data.taskId)
-  if (task) {
-    task.status = 'COMPLETED'
-    task.progress = 100
-    task.resultId = data.resultId
-    task.hasResult = true
-    
-    // 重新获取任务详情，更新风险等级等完整信息
-    try {
-      const response = await getTaskById(data.taskId)
-      if (response.code === 200 && response.data) {
-        // 更新任务的完整信息，包括风险等级、情感标签等
-        Object.assign(task, {
-          riskScore: response.data.riskScore,
-          riskLevel: response.data.riskLevel,
-          sentimentLabel: response.data.sentimentLabel,
-          videoDuration: response.data.videoDuration
-        })
+  const idx = taskList.value.findIndex(t => t.id === data.taskId)
+  if (idx === -1) {
+    ElMessage.success('分析任务已完成！')
+    return
+  }
+
+  // 直接从后端拉取完整任务数据，整体替换列表中的对象，确保 Vue 响应式正确触发
+  try {
+    const response = await getTaskById(data.taskId)
+    if (response.code === 200 && response.data) {
+      taskList.value[idx] = response.data
+    } else {
+      // 接口异常时至少更新状态字段
+      taskList.value[idx] = {
+        ...taskList.value[idx],
+        status: 'COMPLETED',
+        progress: 100,
+        resultId: data.resultId,
+        hasResult: true
       }
-    } catch (error) {
-      // 静默失败，不影响用户体验
+    }
+  } catch {
+    taskList.value[idx] = {
+      ...taskList.value[idx],
+      status: 'COMPLETED',
+      progress: 100,
+      resultId: data.resultId,
+      hasResult: true
     }
   }
+
   ElMessage.success('分析任务已完成！')
 })
 
@@ -426,18 +453,20 @@ const viewResult = (task: AnalysisTaskVO) => {
 }
 
 // 取消任务
-const handleCancel = async (task: AnalysisTaskVO) => {
+const showCancelModal = ref(false)
+const pendingCancelTask = ref<AnalysisTaskVO | null>(null)
+
+const handleCancel = (task: AnalysisTaskVO) => {
+  pendingCancelTask.value = task
+  showCancelModal.value = true
+}
+
+const confirmCancel = async () => {
+  if (!pendingCancelTask.value) return
+  showCancelModal.value = false
+  const task = pendingCancelTask.value
+  pendingCancelTask.value = null
   try {
-    await ElMessageBox.confirm(
-      '确定要取消这个分析任务吗？',
-      '确认取消',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
     const response = await cancelTask(task.id)
     if (response.code === 200) {
       ElMessage.success('任务已取消')
@@ -446,7 +475,7 @@ const handleCancel = async (task: AnalysisTaskVO) => {
       ElMessage.error(response.message || '取消失败')
     }
   } catch {
-    // 用户取消
+    // 静默处理
   }
 }
 
@@ -1310,6 +1339,114 @@ $purple: #4b70e2;
       color: $black;
       font-weight: 500;
     }
+  }
+}
+
+// 自定义新拟态弹框
+.neu-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neu-modal {
+  background: $neu-1;
+  border-radius: 20px;
+  padding: 32px 28px 24px;
+  width: 320px;
+  box-shadow:
+    12px 12px 24px rgba(163, 177, 198, 0.5),
+    -12px -12px 24px rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+
+  .neu-modal-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      4px 4px 10px rgba(163, 177, 198, 0.4),
+      -4px -4px 10px rgba(255, 255, 255, 0.9);
+
+    &.warning {
+      background: rgba(#e6a23c, 0.12);
+      color: #e6a23c;
+    }
+  }
+
+  .neu-modal-body {
+    text-align: center;
+
+    .neu-modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: $black;
+      margin: 0 0 8px;
+    }
+
+    .neu-modal-desc {
+      font-size: 14px;
+      color: $gray;
+      margin: 0;
+      line-height: 1.6;
+    }
+  }
+
+  .neu-modal-actions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    margin-top: 4px;
+
+    .neu-btn {
+      flex: 1;
+      justify-content: center;
+      padding: 10px 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .danger-btn {
+      background: linear-gradient(135deg, #e6a23c 0%, #f5a55c 100%);
+      color: #fff;
+      box-shadow: 4px 4px 8px rgba(230, 162, 60, 0.3), -2px -2px 6px $white;
+
+      &:hover {
+        box-shadow: 4px 4px 12px rgba(230, 162, 60, 0.45), -2px -2px 6px $white;
+        color: #fff;
+      }
+    }
+  }
+}
+
+// 弹框过渡动画
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+
+  .neu-modal {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+  }
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+
+  .neu-modal {
+    transform: scale(0.88);
+    opacity: 0;
   }
 }
 </style>
