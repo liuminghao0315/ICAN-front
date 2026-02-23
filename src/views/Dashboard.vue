@@ -544,9 +544,9 @@ const riskChartOption = computed(() => {
     series: [
       {
         type: 'pie',
-        radius: ['35%', '55%'],
+        radius: ['30%', '50%'],
         center: ['50%', '40%'],
-        avoidLabelOverlap: false,
+        avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 8,
           borderColor: '#ecf0f3',
@@ -746,6 +746,7 @@ $purple: #4b70e2;
   align-items: center;
   gap: 40px;
   box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  overflow: visible;
   
   .banner-left {
     display: flex;
@@ -857,12 +858,15 @@ $purple: #4b70e2;
     display: flex;
     gap: 24px;
     flex-shrink: 0;
+    overflow: visible;
     
     .mini-chart-item {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 8px;
+      padding: 4px 6px;
+      overflow: visible;
       
         .chart-ring {
           width: 64px;
@@ -879,6 +883,7 @@ $purple: #4b70e2;
           justify-content: center;
           position: relative;
           box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+          overflow: visible;
           
           &.risk-high {
             background: conic-gradient(
@@ -979,9 +984,10 @@ $purple: #4b70e2;
   }
   
   .chart {
-    height: 260px;
+    height: 270px;
     width: 100%;
     padding: 16px;
+    overflow: visible;
   }
 }
 
