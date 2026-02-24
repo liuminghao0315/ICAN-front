@@ -637,8 +637,14 @@ export const createUrlImportTask = async (params: UrlImportParams): Promise<ApiR
 }
 
 // URL预校验（在弹窗内调用，校验失败直接拦截，不创建任务）
-export const validateImportUrl = async (url: string): Promise<ApiResponse<{ title: string }>> => {
-  const response = await api.post<ApiResponse<{ title: string }>>('/api/analysis/task/url-validate', { url })
+export const validateImportUrl = async (url: string): Promise<ApiResponse<{ title?: string; errorType?: string; errorMessage?: string }>> => {
+  const response = await api.post<ApiResponse<{ title?: string; errorType?: string; errorMessage?: string }>>('/api/analysis/task/url-validate', { url })
+  return response.data
+}
+
+// 保存 Cookies（供抖音等需要登录的平台使用）
+export const savePlatformCookies = async (cookies: string): Promise<ApiResponse<void>> => {
+  const response = await api.post<ApiResponse<void>>('/api/analysis/task/save-cookies', { cookies })
   return response.data
 }
 

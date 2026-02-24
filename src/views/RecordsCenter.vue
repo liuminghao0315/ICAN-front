@@ -16,6 +16,18 @@
             </span>
             <div class="batch-inline-divider"></div>
             <button
+              class="ctrl-btn sm select-all"
+              :class="{ 'is-all': isAllSelected, 'is-indeterminate': isIndeterminate }"
+              @click="toggleSelectAll"
+              :aria-label="isAllSelected ? '取消全选' : '全选'"
+            >
+              <span class="select-all-box">
+                <svg v-if="isAllSelected" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.8 7L9 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span v-else-if="isIndeterminate" class="indeterminate-dash"></span>
+              </span>
+              {{ isAllSelected ? '取消全选' : '全选' }}
+            </button>
+            <button
               class="ctrl-btn sm"
               :disabled="selectedIds.size === 0"
               @click="handleBatchExport"
@@ -35,6 +47,36 @@
           <el-icon><Grid /></el-icon>
           {{ batchMode ? '退出批量' : '批量管理' }}
         </button>
+        <!-- 视图切换 -->
+        <div class="view-switcher" ref="viewSwitcherRef">
+          <button class="ctrl-btn" :class="{ active: viewMenuOpen }" @click.stop="viewMenuOpen = !viewMenuOpen">
+            <el-icon v-if="viewMode === 'card'"><Grid /></el-icon>
+            <el-icon v-else><List /></el-icon>
+            视图
+          </button>
+          <Transition name="dropdown">
+            <div class="view-dropdown" v-if="viewMenuOpen" @click.stop>
+              <button
+                class="view-option"
+                :class="{ active: viewMode === 'card' }"
+                @click="setViewMode('card')"
+              >
+                <el-icon><Grid /></el-icon>
+                <span>卡片模式</span>
+                <el-icon class="check-icon" v-if="viewMode === 'card'"><Check /></el-icon>
+              </button>
+              <button
+                class="view-option"
+                :class="{ active: viewMode === 'list' }"
+                @click="setViewMode('list')"
+              >
+                <el-icon><List /></el-icon>
+                <span>列表模式</span>
+                <el-icon class="check-icon" v-if="viewMode === 'list'"><Check /></el-icon>
+              </button>
+            </div>
+          </Transition>
+        </div>
         <button class="ctrl-btn primary" @click="showNewTaskModal = true">
           <el-icon><Plus /></el-icon>
           新建分析任务
@@ -87,132 +129,55 @@
       </div>
     </div>
 
-    <!-- ── 卡片网格 ── -->
-    <div class="records-grid" v-if="!loading && records.length > 0">
-      <div
-        class="record-card"
-        v-for="record in records" :key="record.id"
-        :class="{
-          'is-selected': selectedIds.has(record.id),
-          'is-failed': record.status === 'FAILED'
-        }"
-        @click="handleCardClick(record)"
-      >
-        <!-- 批量勾选 -->
-        <div class="card-checkbox" v-if="batchMode" @click.stop="toggleSelect(record.id)">
-          <div class="checkbox-inner" :class="{ checked: selectedIds.has(record.id) }">
-            <el-icon v-if="selectedIds.has(record.id)"><Check /></el-icon>
-          </div>
-        </div>
-
-        <!-- ① 封面区 16:9 -->
-        <div class="card-cover">
-          <!-- 优先展示服务端缩略图 -->
-          <img
-            v-if="record.thumbnailUrl"
-            :src="record.thumbnailUrl"
-            class="cover-img"
-            alt="封面"
-            @error="(e) => { (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style') }"
-          />
-          <!-- 降级：用 video 标签截取第一帧作为封面 -->
-          <video
-            v-else-if="record.videoUrl"
-            :src="record.videoUrl + '#t=1'"
-            class="cover-img"
-            preload="metadata"
-            muted
-          />
-          <!-- 兜底：静态占位 -->
-          <div class="cover-placeholder" v-if="!record.thumbnailUrl && !record.videoUrl">
-            <el-icon :size="28"><VideoPlay /></el-icon>
-            <span>暂无封面</span>
-          </div>
-          <!-- 时长角标 -->
-          <span class="cover-duration" v-if="record.videoDuration">{{ formatDuration(record.videoDuration) }}</span>
-          <!-- 来源角标 -->
-          <span class="cover-source" :class="record.sourceType === 'URL_IMPORT' ? 'url' : 'local'">
-            <el-icon><Link v-if="record.sourceType === 'URL_IMPORT'" /><Upload v-else /></el-icon>
-          </span>
-          <!-- 进行中遮罩 -->
-          <div class="cover-progress-mask" v-if="['DOWNLOADING','PENDING','PROCESSING'].includes(record.status)">
-            <div class="mask-progress-bar" :style="{ width: record.status === 'PENDING' ? '100%' : record.progress + '%' }"></div>
-            <span class="mask-label">
-              {{ getStatusText(record.status) }}
-              <template v-if="record.status !== 'PENDING'"> {{ record.progress }}%</template>
-            </span>
-          </div>
-        </div>
-
-        <!-- ② 卡片主体 -->
-        <div class="card-body">
-          <!-- 标题行 + 风险 Badge -->
-          <div class="card-title-row">
-            <h3 class="card-title" :title="record.videoTitle">{{ record.videoTitle || '未命名' }}</h3>
-            <span
-              v-if="record.status === 'COMPLETED' && record.riskLevel"
-              class="risk-badge"
-              :class="'risk-' + record.riskLevel.toLowerCase()"
-            >{{ getRiskText(record.riskLevel) }}</span>
-            <span v-else class="status-pill" :class="getStatusClass(record.status)">
-              {{ getStatusText(record.status) }}
-            </span>
-          </div>
-
-          <!-- 关键词 + 高校标签 -->
-          <div class="card-tags" v-if="record.status === 'COMPLETED'">
-            <span v-for="kw in (record.keywords || []).slice(0, 3)" :key="kw" class="tag kw">{{ kw }}</span>
-            <span v-if="record.universityName" class="tag uni">
-              <el-icon><School /></el-icon>{{ record.universityName }}
-            </span>
-            <span v-if="record.topicCategory" class="tag topic">{{ record.topicCategory }}</span>
-          </div>
-          <div class="card-tags" v-else-if="record.errorMessage">
-            <span class="tag error">{{ record.errorMessage.slice(0, 40) }}</span>
-          </div>
-          <div class="card-tags-placeholder" v-else></div>
-        </div>
-
-        <!-- ③ 卡片底部：元信息均布 + 操作 -->
-        <div class="card-footer">
-          <div class="footer-meta">
-            <span class="meta-item">
-              <el-icon><Calendar /></el-icon>{{ formatDate(record.gmtCreated) }}
-            </span>
-            <span class="meta-divider"></span>
-            <span class="meta-item" v-if="record.sourceType === 'URL_IMPORT' && record.sourceUrl">
-              <el-icon><Link /></el-icon>{{ truncateUrl(record.sourceUrl) }}
-            </span>
-            <span class="meta-item" v-else>
-              <el-icon><Document /></el-icon>本地文件
-            </span>
-          </div>
-          <div class="footer-actions" @click.stop>
-            <button
-              v-if="record.status === 'COMPLETED' && record.hasResult"
-              class="icon-btn primary" title="查看分析"
-              @click.stop="router.push({ path: '/analysis', query: { resultId: record.resultId } })"
-            ><el-icon><View /></el-icon></button>
-            <div class="more-menu">
-              <button class="icon-btn" @click.stop="toggleMenu(record.id)"><el-icon><MoreFilled /></el-icon></button>
-              <Transition name="dropdown">
-                <div class="dropdown-panel" v-if="openMenuId === record.id">
-                  <button class="dd-item" @click.stop="handleRename(record)"><el-icon><Edit /></el-icon>重命名</button>
-                  <button class="dd-item" v-if="record.status === 'COMPLETED' && record.resultId" @click.stop="openMenuId = null; exportReportById(record.resultId)">
-                    <el-icon><Download /></el-icon>
-                    {{ exportingIds.has(record.resultId) ? '导出中...' : '导出报告' }}
-                  </button>
-                  <button class="dd-item" v-if="record.status === 'FAILED' || record.status === 'CANCELLED'" @click.stop="handleReanalyze(record)"><el-icon><RefreshRight /></el-icon>重新分析</button>
-                  <button class="dd-item" v-if="['PENDING','PROCESSING','DOWNLOADING'].includes(record.status)" @click.stop="handleCancel(record)"><el-icon><Close /></el-icon>取消任务</button>
-                  <div class="dd-divider"></div>
-                  <button class="dd-item danger" @click.stop="handleDelete(record)"><el-icon><Delete /></el-icon>删除</button>
-                </div>
-              </Transition>
-            </div>
-          </div>
-        </div>
+    <!-- ── 视图内容区（带淡入淡出切换动画） ── -->
+    <Transition name="view-fade" mode="out-in">
+      <div v-if="!loading && records.length > 0" :key="viewMode">
+        <!-- 卡片模式 -->
+        <CardView
+          v-if="viewMode === 'card'"
+          :records="records"
+          :batch-mode="batchMode"
+          :selected-ids="selectedIds"
+          :open-menu-id="openMenuId"
+          :exporting-ids="exportingIds"
+          @card-click="handleCardClick"
+          @toggle-select="toggleSelect"
+          @toggle-menu="toggleMenu"
+          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId } })"
+          @preview="handlePreview"
+          @rename="handleRename"
+          @export="handleExport"
+          @retry-download="handleRetryDownload"
+          @reanalyze="handleReanalyze"
+          @cancel="handleCancel"
+          @delete="handleDelete"
+          @show-tooltip="showTooltip"
+          @hide-tooltip="scheduleHideTooltip"
+        />
+        <!-- 列表模式 -->
+        <ListView
+          v-else
+          :records="records"
+          :batch-mode="batchMode"
+          :selected-ids="selectedIds"
+          :open-menu-id="openMenuId"
+          :exporting-ids="exportingIds"
+          @card-click="handleCardClick"
+          @toggle-select="toggleSelect"
+          @toggle-menu="toggleMenu"
+          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId } })"
+          @preview="handlePreview"
+          @rename="handleRename"
+          @export="handleExport"
+          @retry-download="handleRetryDownload"
+          @reanalyze="handleReanalyze"
+          @cancel="handleCancel"
+          @delete="handleDelete"
+          @show-tooltip="showTooltip"
+          @hide-tooltip="scheduleHideTooltip"
+        />
       </div>
-    </div>
+    </Transition>
 
     <!-- 空状态 -->
     <div class="empty-state" v-if="!loading && records.length === 0">
@@ -234,13 +199,22 @@
     </div>
 
     <!-- 分页 -->
-    <div class="pagination-wrapper" v-if="totalRecords > pageSize">
-      <div class="neu-pagination">
-        <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--; loadRecords()"><el-icon><ArrowLeft /></el-icon></button>
-        <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-        <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++; loadRecords()"><el-icon><ArrowRight /></el-icon></button>
+    <Transition name="pagination-fade">
+      <div class="pagination-wrapper" v-if="totalRecords > 12">
+        <div class="neu-pagination">
+          <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--; loadRecords()"><el-icon><ArrowLeft /></el-icon></button>
+          <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+          <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++; loadRecords()"><el-icon><ArrowRight /></el-icon></button>
+        </div>
+        <div class="page-size-select">
+          <NeuSelect
+            v-model="pageSizeStr"
+            :options="pageSizeOptions"
+            placeholder="每页条数"
+          />
+        </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- 重命名弹窗 -->
     <Teleport to="body">
@@ -277,30 +251,90 @@
       </Transition>
     </Teleport>
 
+    <!-- 全局来源 Tooltip（Teleport 到 body，避免被 overflow:hidden 裁切） -->
+    <Teleport to="body">
+      <Transition name="tooltip-fade">
+        <div
+          v-if="hoveredSourceId"
+          class="source-tooltip-global"
+          :style="{ top: tooltipPos.top + 'px', left: tooltipPos.left + 'px' }"
+          @mouseenter="cancelHideTooltip"
+          @mouseleave="scheduleHideTooltip"
+        >
+          <a
+            :href="tooltipUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="tooltip-url"
+            @click.stop
+          >{{ tooltipUrl }}</a>
+          <button
+            class="tooltip-copy-btn"
+            title="复制链接"
+            @click.stop="copyUrl(tooltipUrl)"
+          ><el-icon><CopyDocument /></el-icon></button>
+        </div>
+      </Transition>
+    </Teleport>
+
     <NewTaskModal
       v-model:visible="showNewTaskModal"
+      :prefill-url="retryDownloadRecord?.sourceUrl ?? undefined"
       @success="loadRecords"
       @task-created="handleTaskCreated"
+    />
+
+    <!-- 视频快速预览 -->
+    <VideoPreviewModal
+      v-model:visible="previewVisible"
+      :video-url="previewVideoUrl"
+      :title="previewTitle"
     />
   </div>
 </template>
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getTaskList, cancelTask, deleteVideo, renameVideo, retryTask } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useExportReport } from '@/composables/useExportReport'
-import { formatDate, formatDuration, TASK_STATUS_TEXT, RISK_LEVEL_TEXT } from '@/types'
+import { formatDate } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
 import NewTaskModal from '@/components/NewTaskModal.vue'
 import NeuSelect from '@/components/NeuSelect.vue'
+import CardView from '@/components/CardView.vue'
+import ListView from '@/components/ListView.vue'
+import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
 
 const router = useRouter()
 const wsStore = useWebSocketStore()
 const { exportReportById, exportReportsByIds, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
+
+// 视频预览
+const previewVisible = ref(false)
+const previewVideoUrl = ref<string | null>(null)
+const previewTitle = ref<string | undefined>(undefined)
+
+const handlePreview = (record: AnalysisTaskVO) => {
+  previewVideoUrl.value = record.videoUrl || null
+  previewTitle.value = record.videoTitle || undefined
+  previewVisible.value = true
+}
+
+// 视图模式：card | list，持久化到 localStorage
+const VIEW_MODE_KEY = 'records_view_mode'
+const viewMode = ref<'card' | 'list'>((localStorage.getItem(VIEW_MODE_KEY) as 'card' | 'list') || 'card')
+const viewMenuOpen = ref(false)
+const viewSwitcherRef = ref<HTMLElement | null>(null)
+
+const setViewMode = (mode: 'card' | 'list') => {
+  viewMode.value = mode
+  viewMenuOpen.value = false
+  localStorage.setItem(VIEW_MODE_KEY, mode)
+}
 
 // 列表数据
 const records = ref<AnalysisTaskVO[]>([])
@@ -313,7 +347,67 @@ const sourceFilter = ref<string>('')
 const riskFilter = ref<string>('')
 const sortOrder = ref<string>('newest')
 const searchKeyword = ref('')
+
+// 每页条数选择器（NeuSelect 需要 string 类型）
+const pageSizeOptions = [
+  { label: '每页 12 条', value: '12' },
+  { label: '每页 24 条', value: '24' },
+  { label: '每页 48 条', value: '48' },
+]
+const pageSizeStr = ref('12')
+watch(pageSizeStr, (val) => {
+  pageSize.value = Number(val)
+  currentPage.value = 1
+  loadRecords()
+})
 const openMenuId = ref<string | null>(null)
+
+// 来源 Tooltip 交互式显隐
+const hoveredSourceId = ref<string | null>(null)
+const tooltipPos = ref({ top: 0, left: 0 })
+const tooltipUrl = ref('')
+let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
+
+const showTooltip = (event: MouseEvent, recordId: string, url: string) => {
+  cancelHideTooltip()
+  const el = event.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  const TOOLTIP_WIDTH = 340  // 与 max-width 一致
+  const MARGIN = 12           // 距视口边缘最小留白
+
+  // fixed 定位直接用视口坐标，不加 scrollY
+  let left = rect.left
+  // 右边界保护：如果超出视口右侧，向左偏移
+  if (left + TOOLTIP_WIDTH > window.innerWidth - MARGIN) {
+    left = window.innerWidth - TOOLTIP_WIDTH - MARGIN
+  }
+  // 左边界保护
+  if (left < MARGIN) left = MARGIN
+
+  tooltipPos.value = {
+    top: rect.top - 8,   // 气泡底部贴近触发元素顶部，再留 8px 间距
+    left
+  }
+  tooltipUrl.value = url
+  hoveredSourceId.value = recordId
+}
+const scheduleHideTooltip = () => {
+  tooltipHideTimer = setTimeout(() => { hoveredSourceId.value = null }, 120)
+}
+const cancelHideTooltip = () => {
+  if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null }
+}
+
+// 复制链接到剪贴板
+const copyUrl = async (url: string | null | undefined) => {
+  if (!url) return
+  try {
+    await navigator.clipboard.writeText(url)
+    ElMessage.success('链接已复制')
+  } catch {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
 
 // 批量管理
 const batchMode = ref(false)
@@ -389,7 +483,7 @@ const fetchAndApplyRecords = async () => {
   const res = await getTaskList(
     currentPage.value, pageSize.value,
     status as TaskStatus | undefined,
-    riskFilter.value || undefined,
+    riskFilter.value as RiskLevel | undefined || undefined,
     sortField, sortDir
   )
   if (res.code === 200) {
@@ -431,24 +525,6 @@ const debouncedSearch = () => {
 
 watch([activeStatus, sourceFilter, riskFilter, sortOrder], () => { currentPage.value = 1; loadRecords() })
 
-const getStatusClass = (status: string) => ({
-  DOWNLOADING: 'status-downloading', PENDING: 'status-pending',
-  PROCESSING: 'status-processing', COMPLETED: 'status-completed',
-  FAILED: 'status-failed', CANCELLED: 'status-cancelled'
-}[status] || 'status-pending')
-
-const getStatusText = (status: string) => TASK_STATUS_TEXT[status as TaskStatus] || status
-const getRiskText = (level: string | null | undefined) => level ? (RISK_LEVEL_TEXT[level as RiskLevel] || level) : ''
-
-const truncateUrl = (url: string | null | undefined) => {
-  if (!url) return ''
-  try {
-    const u = new URL(url)
-    const path = u.pathname.length > 18 ? u.pathname.substring(0, 18) + '…' : u.pathname
-    return u.hostname + path
-  } catch { return url.length > 30 ? url.substring(0, 30) + '…' : url }
-}
-
 // 批量管理
 const toggleBatchMode = () => {
   batchMode.value = !batchMode.value
@@ -457,6 +533,21 @@ const toggleBatchMode = () => {
 const toggleSelect = (id: string) => {
   if (selectedIds.has(id)) selectedIds.delete(id)
   else selectedIds.add(id)
+}
+
+// 全选逻辑
+const isAllSelected = computed(() =>
+  records.value.length > 0 && records.value.every(r => selectedIds.has(r.id))
+)
+const isIndeterminate = computed(() =>
+  selectedIds.size > 0 && !isAllSelected.value
+)
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    records.value.forEach(r => selectedIds.delete(r.id))
+  } else {
+    records.value.forEach(r => selectedIds.add(r.id))
+  }
 }
 
 const handleCardClick = (record: AnalysisTaskVO) => {
@@ -471,7 +562,16 @@ const handleCardClick = (record: AnalysisTaskVO) => {
 }
 
 const toggleMenu = (id: string) => { openMenuId.value = openMenuId.value === id ? null : id }
-const handleClickOutside = () => { openMenuId.value = null }
+const handleExport = (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+  if (record.resultId) exportReportById(record.resultId)
+}
+const handleClickOutside = (e: MouseEvent) => {
+  openMenuId.value = null
+  if (viewSwitcherRef.value && !viewSwitcherRef.value.contains(e.target as Node)) {
+    viewMenuOpen.value = false
+  }
+}
 
 const handleRename = (record: AnalysisTaskVO) => {
   openMenuId.value = null
@@ -496,6 +596,21 @@ const handleReanalyze = async (record: AnalysisTaskVO) => {
     else ElMessage.error(res.message || '提交失败')
   } catch (e: any) { ElMessage.error(e.message || '提交失败') }
 }
+
+// 重试下载：打开新建任务弹窗并预填 URL（下载失败场景，文件不存在）
+const retryDownloadRecord = ref<AnalysisTaskVO | null>(null)
+const handleRetryDownload = (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+  if (!record.sourceUrl) {
+    ElMessage.warning('无法获取原始链接，请手动新建任务')
+    return
+  }
+  retryDownloadRecord.value = record
+  showNewTaskModal.value = true
+}
+
+// 弹窗关闭时清除预填记录
+watch(showNewTaskModal, (v) => { if (!v) retryDownloadRecord.value = null })
 
 const handleCancel = async (record: AnalysisTaskVO) => {
   openMenuId.value = null
@@ -649,7 +764,7 @@ subscribeCompleted((data) => {
   loadRecordsSilent()
 })
 
-// 任务失败：原地更新状态 + 错误信息，立即切换卡片为失败模式
+// 任务失败：原地更新状态 + 错误信息 + 失败类型，立即切换卡片为失败模式
 subscribeFailed((data) => {
   const record = records.value.find(r => r.id === data.taskId)
   if (record) {
@@ -658,6 +773,8 @@ subscribeFailed((data) => {
     if (data.errorMessage) {
       record.errorMessage = data.errorMessage
     }
+    // 记录失败类型，用于按钮逻辑区分
+    record.failureType = data.failureType ?? 'ANALYSIS_FAILED'
   }
 })
 
@@ -682,7 +799,7 @@ $shadow-lg:  12px 12px 28px darken($neu-2, 8%), -12px -12px 28px $white;
 $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 // ── 布局 ──────────────────────────────────────────
-.records-center { max-width: 1280px; margin: 0 auto; }
+.records-center { width: 100%; }
 
 // ── 页面头部 ──────────────────────────────────────
 .page-header {
@@ -696,8 +813,8 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 // ── 批量操作内联区 ────────────────────────────────
 .batch-inline {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 12px 5px 14px;
+  display: inline-flex; align-items: center; gap: 0;
+  padding: 0 4px 0 14px;
   height: 40px; box-sizing: border-box; align-self: center;
   background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(6px);
@@ -706,29 +823,64 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   box-shadow: 2px 2px 6px rgba($neu-2, 0.5), -2px -2px 6px rgba(255,255,255,0.8);
   white-space: nowrap;
 
+  // 状态提示文字
   .batch-inline-count {
     font-size: 12px; font-weight: 600; color: $purple; letter-spacing: 0.3px;
+    line-height: 1; flex-shrink: 0;
     &.empty { color: $gray; font-weight: 500; }
   }
+
+  // 垂直分割线
   .batch-inline-divider {
-    width: 1px; height: 14px; background: rgba($neu-2, 0.9); flex-shrink: 0;
+    width: 1px; height: 14px; background: rgba($neu-2, 0.9);
+    flex-shrink: 0; margin: 0 8px;
   }
-  // 内联区内的 sm 按钮去掉外层阴影，更轻量
+
+  // 内联区内所有 sm 按钮：轻量透明风格，严格垂直居中
   .ctrl-btn.sm {
-    background: transparent;
-    box-shadow: none;
-    border-color: transparent;
-    color: #4d5d7d;
-    padding: 5px 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 5px; height: 28px; padding: 0 10px;
+    background: transparent; box-shadow: none; border-color: transparent;
+    border-radius: 8px; font-size: 12px; font-weight: 500;
+    color: #4d5d7d; line-height: 1; white-space: nowrap;
+    transition: background .15s, color .15s;
     &:hover:not(:disabled) {
-      background: rgba($purple, 0.08);
-      color: $purple;
-      box-shadow: none;
-      transform: none;
+      background: rgba($purple, 0.08); color: $purple;
     }
-    &:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
-    &.danger {
-      &:hover:not(:disabled) { background: rgba(#e74c3c, 0.08); color: #e74c3c; }
+    &:disabled { opacity: 0.38; cursor: not-allowed; }
+    &.danger:hover:not(:disabled) { background: rgba(#e74c3c, 0.08); color: #e74c3c; }
+
+    // 全选按钮：带复选框图标
+    &.select-all {
+      color: $gray; font-weight: 500; gap: 6px;
+      &:hover:not(:disabled) { background: rgba($purple, 0.08); color: $purple; }
+
+      .select-all-box {
+        width: 15px; height: 15px; flex-shrink: 0;
+        border-radius: 4px;
+        border: 1.5px solid rgba($neu-2, 1.4);
+        background: linear-gradient(145deg, #f5f7fa, #ffffff);
+        box-shadow: inset 1px 1px 3px rgba($neu-2, 0.55), inset -1px -1px 2px rgba(255,255,255,0.9);
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: all .15s ease;
+        color: #fff;
+        .indeterminate-dash {
+          width: 7px; height: 2px; border-radius: 1px; background: $purple; display: block;
+        }
+      }
+
+      &.is-indeterminate {
+        color: $purple;
+        .select-all-box { border-color: $purple; }
+      }
+
+      &.is-all {
+        color: $purple; font-weight: 600;
+        .select-all-box {
+          background: $purple; border-color: $purple;
+          box-shadow: 0 2px 5px rgba($purple, 0.3);
+        }
+      }
     }
   }
 }
@@ -846,178 +998,58 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   }
 }
 
-// ── 卡片网格 ──────────────────────────────────────
-.records-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
+// ── 空/加载状态 ───────────────────────────────────
 
-.record-card {
-  background: $neu-1; border-radius: 18px; overflow: visible;
-  display: flex; flex-direction: column; cursor: pointer; position: relative;
-  // 深度三层阴影
-  box-shadow:
-    10px 10px 22px darken($neu-2, 6%),
-    -10px -10px 22px $white,
-    0 2px 6px rgba(0,0,0,.06);
-  transition:
-    box-shadow .35s cubic-bezier(.4,0,.2,1),
-    transform .35s cubic-bezier(.34,1.56,.64,1);
+.source-tooltip-global {
+  position: fixed;
+  transform: translateY(-100%) translateY(-6px);  // 上移自身高度 + 6px 间距
+  z-index: 9999;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba($purple, 0.15);
+  box-shadow: 0 4px 20px rgba($neu-2, 0.7), 0 1px 6px rgba($purple, 0.1);
+  white-space: nowrap; max-width: 340px;
+  pointer-events: auto;
+  // 关键：不参与文档流，不触发任何 reflow
+  will-change: transform, opacity;
 
-  &:hover {
-    box-shadow:
-      16px 16px 36px darken($neu-2, 10%),
-      -16px -16px 36px $white,
-      0 12px 28px rgba($purple,.1);
-    transform: translateY(-6px);
-    .footer-actions { opacity: 1; }
+  // 小三角
+  &::after {
+    content: ''; position: absolute; top: 100%; left: 16px;
+    border: 5px solid transparent;
+    border-top-color: rgba(255, 255, 255, 0.92);
+  }
+  &::before {
+    content: ''; position: absolute; top: 100%; left: 15px;
+    border: 6px solid transparent;
+    border-top-color: rgba($purple, 0.15);
   }
 
-  &.is-selected {
-    box-shadow: $shadow-in, 0 0 0 2.5px rgba($purple,.4);
-    transform: none;
+  .tooltip-url {
+    font-size: 11px; color: $purple; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
+    max-width: 280px; display: block;
+    &:hover { text-decoration: underline; }
   }
-  &.is-failed { opacity: .8; }
-}
 
-// 批量勾选
-.card-checkbox {
-  position: absolute; top: 10px; left: 10px; z-index: 10;
-  .checkbox-inner {
-    width: 22px; height: 22px; border-radius: 7px;
-    background: $neu-1; box-shadow: $shadow-sm;
+  .tooltip-copy-btn {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px;
+    border: none; background: transparent; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all .2s; cursor: pointer;
-    &.checked {
-      background: linear-gradient(135deg, $purple, $purple-light);
-      box-shadow: 3px 3px 8px rgba($purple,.35);
-      color: #fff; font-size: 12px;
-    }
+    color: $gray; transition: background .15s, color .15s; padding: 0;
+    .el-icon { font-size: 12px; }
+    &:hover { background: rgba($purple, 0.1); color: $purple; }
   }
 }
 
-// ① 封面区 16:9
-.card-cover {
-  position: relative; width: 100%; padding-top: 56.25%; // 16:9
-  border-radius: 18px 18px 0 0; overflow: hidden;
-  background: linear-gradient(135deg, #dde3ec, #c8d0e0);
-  // 内凹感
-  box-shadow: inset 0 2px 8px rgba(0,0,0,.08);
-
-  .cover-img {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
-  }
-  .cover-placeholder {
-    position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 6px;
-    color: $gray; font-size: 11px; font-weight: 500;
-    background: linear-gradient(145deg, #d8dfe8, #e8edf4);
-    box-shadow: inset 4px 4px 10px rgba(0,0,0,.1), inset -4px -4px 10px rgba(255,255,255,.7);
-    .el-icon { opacity: .4; }
-  }
-  .cover-duration {
-    position: absolute; bottom: 8px; right: 8px;
-    background: rgba(0,0,0,.7); color: #fff;
-    font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 5px;
-  }
-  .cover-source {
-    position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center; font-size: 11px;
-    &.local { background: rgba($purple,.85); color: #fff; }
-    &.url { background: rgba(#1890ff,.85); color: #fff; }
-  }
-  .cover-progress-mask {
-    position: absolute; inset: 0; background: rgba(0,0,0,.55);
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    padding-bottom: 14px; gap: 6px;
-    .mask-progress-bar {
-      position: absolute; bottom: 0; left: 0; height: 3px;
-      background: linear-gradient(90deg, $purple, $purple-light);
-      transition: width .5s ease;
-    }
-    .mask-label { font-size: 11px; color: rgba(255,255,255,.9); font-weight: 600; }
-  }
-}
-
-// ② 卡片主体
-.card-body {
-  padding: 14px 16px 10px; flex: 1; display: flex; flex-direction: column; gap: 8px;
-}
-
-.card-title-row {
-  display: flex; align-items: flex-start; gap: 8px;
-  .card-title {
-    flex: 1; font-size: 14px; font-weight: 700; color: $black; margin: 0; line-height: 1.4;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  }
-}
-
-// 风险 Badge（回归小按钮样式）
-.risk-badge {
-  flex-shrink: 0; padding: 3px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 700; white-space: nowrap;
-  &.risk-high {
-    background: linear-gradient(135deg, #ff6b6b, #e74c3c);
-    color: #fff; box-shadow: 2px 2px 6px rgba(#e74c3c,.35);
-  }
-  &.risk-medium {
-    background: linear-gradient(135deg, #ffa94d, #e67e22);
-    color: #fff; box-shadow: 2px 2px 6px rgba(#e67e22,.35);
-  }
-  &.risk-low {
-    background: linear-gradient(135deg, #69db7c, #2ecc71);
-    color: #fff; box-shadow: 2px 2px 6px rgba(#2ecc71,.35);
-  }
-}
-
-// 状态 Pill（非完成状态）
-.status-pill {
-  flex-shrink: 0; padding: 3px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 600; white-space: nowrap;
-  &.status-downloading { background: rgba(#1890ff,.12); color: #1890ff; }
-  &.status-pending { background: rgba(#1890ff,.12); color: #1890ff; }
-  &.status-processing { background: rgba(#e6a23c,.12); color: #c87d00; }
-  &.status-failed { background: rgba(#e74c3c,.12); color: #e74c3c; }
-  &.status-cancelled { background: rgba($gray,.12); color: $gray; }
-}
-
-// 内容标签
-.card-tags {
-  display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-height: 22px;
-  .tag {
-    padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;
-    &.kw { background: rgba($purple,.08); color: darken($purple,5%); border: 1px solid rgba($purple,.15); }
-    &.uni { display: inline-flex; align-items: center; gap: 3px; background: rgba(#e6a23c,.1); color: #9a6200; border: 1px solid rgba(#e6a23c,.2); .el-icon { font-size: 11px; } }
-    &.topic { background: rgba(#2ecc71,.08); color: #1a7a40; border: 1px solid rgba(#2ecc71,.2); }
-    &.error { background: rgba(#e74c3c,.08); color: #c0392b; border: 1px solid rgba(#e74c3c,.15); font-size: 10px; }
-  }
-}
-.card-tags-placeholder { min-height: 22px; }
-
-// ③ 卡片底部
-.card-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px 14px;
-  border-top: 1px solid rgba($neu-2,.6);
-  margin-top: auto;
-}
-
-.footer-meta {
-  display: flex; align-items: center; gap: 0; flex: 1; min-width: 0;
-  .meta-item {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 11px; color: $gray; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    .el-icon { font-size: 11px; flex-shrink: 0; }
-  }
-  .meta-divider {
-    width: 1px; height: 12px; background: rgba($neu-2,.8); margin: 0 8px; flex-shrink: 0;
-  }
-}
-
-.footer-actions {
-  display: flex; align-items: center; gap: 6px; opacity: 0; transition: opacity .25s; flex-shrink: 0;
-}
+// Tooltip 淡入淡出
+// tooltip 只做 opacity 淡入淡出，不叠加 translateY（避免与 fixed 定位的 transform 冲突）
+.tooltip-fade-enter-active { transition: opacity .15s ease; }
+.tooltip-fade-leave-active { transition: opacity .12s ease; }
+.tooltip-fade-enter-from, .tooltip-fade-leave-to { opacity: 0; }
 
 .icon-btn {
   width: 30px; height: 30px; border: none; border-radius: 8px; background: $neu-1;
@@ -1066,7 +1098,47 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 }
 
 // ── 分页 ──────────────────────────────────────────
-.pagination-wrapper { display: flex; justify-content: center; margin-top: 28px; }
+.pagination-wrapper {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin-top: 28px;
+
+  // 每页条数选择器：克隆分页按钮风格，胶囊化
+  .page-size-select {
+    :deep(.neu-select) { display: inline-flex; }
+
+    :deep(.neu-select-trigger) {
+      // 完全克隆 .page-btn 的背景 + 阴影
+      height: 38px; padding: 0 14px;
+      border-radius: 11px;
+      background: $neu-1;
+      box-shadow: $shadow-sm;
+      border: none;
+      // 字体与 .page-info 完全一致
+      font-size: 13px; font-weight: 600; color: $black;
+      gap: 8px; white-space: nowrap;
+      transition: all .25s;
+      // 去掉 NeuSelect 默认的金黄/蓝色边框
+      outline: none;
+
+      &:hover {
+        color: $purple;
+        box-shadow: 3px 3px 7px $neu-2, -3px -3px 7px $white;
+      }
+
+      // 箭头图标颜色跟随
+      .trigger-arrow { color: $gray; transition: color .25s; }
+      &:hover .trigger-arrow { color: $purple; }
+
+      // 无图标插槽时隐藏 icon 占位
+      .trigger-icon { display: none; }
+    }
+  }
+}
+// 底部工具栏淡入淡出
+.pagination-fade-enter-active { transition: opacity .25s ease, transform .25s ease; }
+.pagination-fade-leave-active { transition: opacity .2s ease, transform .2s ease; }
+.pagination-fade-enter-from, .pagination-fade-leave-to { opacity: 0; transform: translateY(6px); }
+
 .neu-pagination {
   display: flex; align-items: center; gap: 16px;
   .page-btn {
@@ -1106,6 +1178,46 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   }
 }
 .confirm-desc { font-size: 13px; color: $gray; margin: 0; line-height: 1.6; }
+
+// ── 视图切换器 ────────────────────────────────────
+.view-switcher {
+  position: relative;
+
+  .view-dropdown {
+    position: absolute; right: 0; top: calc(100% + 8px); min-width: 160px;
+    background: $neu-1; border-radius: 14px; padding: 6px;
+    box-shadow:
+      10px 10px 24px darken($neu-2, 8%),
+      -10px -10px 24px $white,
+      0 4px 16px rgba(0,0,0,.1);
+    z-index: 300;
+  }
+
+  .view-option {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 13px;
+    border: none; border-radius: 9px; background: transparent; color: $black;
+    font-size: 13px; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: all .2s;
+    .el-icon { font-size: 14px; color: $gray; }
+    .check-icon { margin-left: auto; color: $purple; font-size: 13px; }
+    span { flex: 1; text-align: left; }
+
+    &:hover {
+      background: $neu-1;
+      box-shadow: $shadow-in;
+      .el-icon { color: $purple; }
+    }
+    &.active {
+      color: $purple; font-weight: 600;
+      .el-icon { color: $purple; }
+    }
+  }
+}
+
+// ── 视图切换淡入淡出 ──────────────────────────────
+.view-fade-enter-active { transition: opacity .2s ease, transform .2s ease; }
+.view-fade-leave-active { transition: opacity .15s ease, transform .15s ease; }
+.view-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.view-fade-leave-to { opacity: 0; transform: translateY(-4px); }
 
 // ── 动画 ──────────────────────────────────────────
 .rotating { animation: rotate 1s linear infinite; }

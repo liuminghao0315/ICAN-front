@@ -152,6 +152,8 @@ export interface AnalysisTaskVO {
   keywords?: string[] | null
   universityName?: string | null
   topicCategory?: string | null
+  /** 失败类型（仅 status=FAILED 时有值）：DOWNLOAD_FAILED / ANALYSIS_FAILED */
+  failureType?: 'DOWNLOAD_FAILED' | 'ANALYSIS_FAILED' | null
 }
 
 // ==================== 分析结果模块 ====================
@@ -460,6 +462,8 @@ export interface TaskFailedData {
   taskId: string
   videoId: string
   errorMessage: string
+  /** 失败类型：DOWNLOAD_FAILED（下载失败，无文件）/ ANALYSIS_FAILED（分析失败，有文件） */
+  failureType?: 'DOWNLOAD_FAILED' | 'ANALYSIS_FAILED'
 }
 
 // ==================== 常量映射 ====================

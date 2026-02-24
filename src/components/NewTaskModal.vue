@@ -97,7 +97,11 @@
                 <input
                   v-model="urlState.url"
                   class="neu-input"
-                  :class="{ 'has-error': urlState.validateError, 'is-valid': urlState.validatedTitle }"
+                  :class="{
+                    'has-error': urlState.validateError,
+                    'has-warn': urlState.errorType === 'LOGIN_REQUIRED' || urlState.errorType === 'PLATFORM_RESTRICTED',
+                    'is-valid': urlState.validatedTitle
+                  }"
                   placeholder="粘贴平台链接或直接视频 URL（.mp4 / .flv 等）"
                   :disabled="urlState.status === 'validating' || urlState.status === 'submitting'"
                   @input="onUrlInput"
@@ -111,16 +115,106 @@
                 <span class="url-status-icon valid" v-else-if="urlState.validatedTitle">
                   <el-icon><CircleCheck /></el-icon>
                 </span>
+                <!-- 警告（需要 Cookie / 受限） -->
+                <span class="url-status-icon warn" v-else-if="urlState.errorType === 'LOGIN_REQUIRED' || urlState.errorType === 'PLATFORM_RESTRICTED'">
+                  <el-icon><Warning /></el-icon>
+                </span>
+                <!-- 错误 -->
+                <span class="url-status-icon error" v-else-if="urlState.validateError">
+                  <el-icon><CircleClose /></el-icon>
+                </span>
               </div>
-              <!-- 校验错误提示 -->
-              <p class="field-error" v-if="urlState.validateError">{{ urlState.validateError }}</p>
+
+              <!-- ① 链接非法 / 不存在 -->
+              <div class="field-error-block" v-if="urlState.validateError && urlState.errorType === 'INVALID_URL'">
+                <el-icon><CircleClose /></el-icon>
+                <span>{{ urlState.validateError }}</span>
+              </div>
+
+              <!-- ② 平台不支持 -->
+              <div class="field-error-block" v-else-if="urlState.validateError && urlState.errorType === 'UNSUPPORTED'">
+                <el-icon><CircleClose /></el-icon>
+                <span>{{ urlState.validateError }}</span>
+                <a class="inline-link" href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md" target="_blank">查看支持平台列表 →</a>
+              </div>
+
+              <!-- ③ 平台受限（403 / 地区限制） -->
+              <div class="field-warn-block" v-else-if="urlState.validateError && urlState.errorType === 'PLATFORM_RESTRICTED'">
+                <el-icon><Warning /></el-icon>
+                <div class="warn-content">
+                  <span>{{ urlState.validateError }}</span>
+                  <p class="warn-tip">尝试配置该平台的 Cookies 可能解决此问题</p>
+                  <button class="cookie-trigger-btn" @click="cookiePanel.visible = !cookiePanel.visible">
+                    <el-icon><Key /></el-icon>
+                    {{ cookiePanel.visible ? '收起 Cookies 配置' : '配置 Cookies' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- ④ 需要登录 -->
+              <div class="field-warn-block login-required" v-else-if="urlState.validateError && urlState.errorType === 'LOGIN_REQUIRED'">
+                <el-icon><Lock /></el-icon>
+                <div class="warn-content">
+                  <span>{{ urlState.validateError }}</span>
+                  <p class="warn-tip">该平台（如抖音）需要登录 Cookie 才能访问。请用浏览器插件导出 Cookies 后粘贴到下方。</p>
+                  <button class="cookie-trigger-btn" @click="cookiePanel.visible = !cookiePanel.visible">
+                    <el-icon><Key /></el-icon>
+                    {{ cookiePanel.visible ? '收起 Cookies 配置' : '立即配置 Cookies' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Cookie 配置面板（内嵌展开） -->
+              <Transition name="panel-slide">
+                <div class="cookie-panel" v-if="cookiePanel.visible">
+                  <div class="cookie-panel-header">
+                    <el-icon><Key /></el-icon>
+                    <span>配置平台 Cookies</span>
+                  </div>
+                  <div class="cookie-steps">
+                    <div class="step">
+                      <span class="step-num">1</span>
+                      <span>安装浏览器插件 <a class="inline-link" href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Get cookies.txt LOCALLY</a></span>
+                    </div>
+                    <div class="step">
+                      <span class="step-num">2</span>
+                      <span>在浏览器中登录目标平台（如抖音），然后点击插件图标导出 cookies</span>
+                    </div>
+                    <div class="step">
+                      <span class="step-num">3</span>
+                      <span>将导出的文本内容粘贴到下方，点击保存</span>
+                    </div>
+                  </div>
+                  <textarea
+                    v-model="cookiePanel.content"
+                    class="cookie-textarea"
+                    placeholder="# Netscape HTTP Cookie File&#10;# 粘贴从插件导出的 cookies 内容..."
+                    rows="6"
+                    spellcheck="false"
+                  />
+                  <div class="cookie-panel-footer">
+                    <span class="cookie-saved-tip" v-if="cookiePanel.saved">
+                      <el-icon><CircleCheck /></el-icon> 已保存，重新验证中...
+                    </span>
+                    <button
+                      class="neu-btn primary cookie-save-btn"
+                      :disabled="cookiePanel.saving || !cookiePanel.content.trim()"
+                      @click="handleSaveCookies"
+                    >
+                      <el-icon v-if="cookiePanel.saving"><Loading class="rotating" /></el-icon>
+                      {{ cookiePanel.saving ? '保存中...' : '保存并重新验证' }}
+                    </button>
+                  </div>
+                </div>
+              </Transition>
+
               <!-- 校验通过：显示识别到的标题 -->
-              <p class="field-hint valid" v-else-if="urlState.validatedTitle">
+              <p class="field-hint valid" v-if="urlState.validatedTitle">
                 <el-icon><VideoPlay /></el-icon>
                 识别到：{{ urlState.validatedTitle }}
               </p>
               <!-- 默认提示 -->
-              <p class="field-hint" v-else>支持抖音、B站、YouTube 等主流平台，或直接粘贴 .mp4 / .flv 等视频地址</p>
+              <p class="field-hint" v-else-if="!urlState.validateError">支持抖音、B站、YouTube 等主流平台，或直接粘贴 .mp4 / .flv 等视频地址（抖音每日限 20 条）</p>
             </div>
             <div class="form-field" v-if="urlState.validatedTitle">
               <label>标题（可选）</label>
@@ -161,12 +255,14 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage, type UploadFile } from 'element-plus'
-import { createUrlImportTask, validateImportUrl } from '@/api'
+import { createUrlImportTask, validateImportUrl, savePlatformCookies } from '@/api'
 import { useUploadStore } from '@/stores/upload'
 import { formatFileSize } from '@/types'
 
 const props = defineProps<{
   visible: boolean
+  /** 预填 URL（重试下载场景传入，弹窗打开后自动填入并触发校验） */
+  prefillUrl?: string
 }>()
 
 const emit = defineEmits<{
@@ -197,13 +293,30 @@ const urlState = reactive({
   validatedTitle: '' as string,
   /** 校验失败的错误信息 */
   validateError: '' as string,
+  /**
+   * 错误类型：INVALID_URL | UNSUPPORTED | PLATFORM_RESTRICTED | LOGIN_REQUIRED
+   * 用于前端分级展示不同的引导 UI
+   */
+  errorType: '' as string,
+})
+
+// Cookie 配置面板状态
+const cookiePanel = reactive({
+  visible: false,
+  content: '',
+  saving: false,
+  saved: false,
 })
 
 // 防抖 timer
 let validateTimer: ReturnType<typeof setTimeout> | null = null
+// 标记本次 input 事件是由粘贴触发的，避免 paste+input 双触发
+let isPasting = false
 
 // URL 输入时重置校验状态，并触发防抖校验
 const onUrlInput = () => {
+  // 粘贴触发的 input 事件由 onUrlPaste 统一处理，这里直接跳过
+  if (isPasting) { isPasting = false; return }
   urlState.validatedTitle = ''
   urlState.validateError = ''
   if (validateTimer) clearTimeout(validateTimer)
@@ -216,7 +329,10 @@ const onUrlInput = () => {
 
 // 粘贴时立即触发校验（不等防抖）
 const onUrlPaste = () => {
+  isPasting = true
   if (validateTimer) clearTimeout(validateTimer)
+  urlState.validatedTitle = ''
+  urlState.validateError = ''
   // nextTick 后 v-model 才更新
   setTimeout(() => triggerValidate(), 50)
 }
@@ -227,15 +343,19 @@ const triggerValidate = async () => {
   urlState.status = 'validating'
   urlState.validatedTitle = ''
   urlState.validateError = ''
+  urlState.errorType = ''
   try {
     const res = await validateImportUrl(url)
     if (res.code === 200 && res.data?.title) {
       urlState.validatedTitle = res.data.title
     } else {
-      urlState.validateError = res.message || '无法解析该链接'
+      urlState.errorType = res.data?.errorType || 'INVALID_URL'
+      urlState.validateError = res.data?.errorMessage || res.message || '无法解析该链接'
     }
   } catch (e: any) {
-    urlState.validateError = e.response?.data?.message || e.message || '链接验证失败，请检查网络'
+    const data = e.response?.data
+    urlState.errorType = data?.data?.errorType || 'INVALID_URL'
+    urlState.validateError = data?.data?.errorMessage || data?.message || e.message || '链接验证失败，请检查网络或链接是否有效'
   } finally {
     urlState.status = 'idle'
   }
@@ -274,6 +394,12 @@ watch(() => props.visible, (val) => {
     if (!activeTask) {
       resetForm()
     }
+    // 预填 URL：切换到 URL tab 并自动触发校验
+    if (props.prefillUrl) {
+      activeTab.value = 'url'
+      urlState.url = props.prefillUrl
+      setTimeout(() => triggerValidate(), 50)
+    }
   } else {
     // 关闭时：非上传中则重置（上传中的任务已转入后台）
     if (localState.status !== 'uploading') {
@@ -294,14 +420,23 @@ function resetForm() {
   urlState.status = 'idle'
   urlState.validatedTitle = ''
   urlState.validateError = ''
+  urlState.errorType = ''
+  cookiePanel.visible = false
+  cookiePanel.content = ''
+  cookiePanel.saving = false
+  cookiePanel.saved = false
   if (validateTimer) { clearTimeout(validateTimer); validateTimer = null }
   uploadRef.value?.clearFiles?.()
 }
 
-// 关闭模态框：上传中时允许后台继续，不硬控
+// 关闭模态框：上传中时允许后台继续，不硬控；URL校验/提交中禁止关闭
 const handleClose = () => {
   if (localState.status === 'uploading') {
     ElMessage.info('上传任务已转入后台，可在顶部指示器查看进度')
+  }
+  // URL 校验中或提交中，禁止关闭弹窗
+  if (urlState.status === 'validating' || urlState.status === 'submitting') {
+    return
   }
   emit('update:visible', false)
 }
@@ -411,6 +546,33 @@ const handleLocalUpload = async () => {
   }
 }
 
+// 保存 Cookie 并重新校验
+const handleSaveCookies = async () => {
+  if (!cookiePanel.content.trim()) {
+    ElMessage.warning('请先粘贴 Cookies 内容')
+    return
+  }
+  cookiePanel.saving = true
+  try {
+    const res = await savePlatformCookies(cookiePanel.content.trim())
+    if (res.code === 200) {
+      cookiePanel.saved = true
+      ElMessage.success('Cookies 保存成功，正在重新验证链接...')
+      cookiePanel.visible = false
+      // 重新触发校验
+      urlState.validateError = ''
+      urlState.errorType = ''
+      await triggerValidate()
+    } else {
+      ElMessage.error(res.message || '保存失败')
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存失败，请重试')
+  } finally {
+    cookiePanel.saving = false
+  }
+}
+
 // URL导入：先确保校验通过，再提交
 const handleUrlImport = async () => {
   const url = urlState.url.trim()
@@ -449,7 +611,8 @@ const handleUrlImport = async () => {
       throw new Error(res.message || '创建失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '创建失败，请重试')
+    const msg = error.response?.data?.message || error.message || '创建失败，请重试'
+    ElMessage.error(msg)
   } finally {
     urlState.status = 'idle'
   }
@@ -749,6 +912,196 @@ $purple: #4b70e2;
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+// 分级错误块：链接非法 / 不支持
+.field-error-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(#e74c3c, 0.06);
+  border-left: 3px solid #e74c3c;
+  font-size: 12px;
+  color: #c0392b;
+  line-height: 1.5;
+
+  .el-icon { flex-shrink: 0; margin-top: 1px; font-size: 13px; }
+  .inline-link {
+    color: $purple;
+    text-decoration: none;
+    margin-left: 4px;
+    &:hover { text-decoration: underline; }
+  }
+}
+
+// 分级警告块：受限 / 需要登录
+.field-warn-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(#f39c12, 0.07);
+  border-left: 3px solid #f39c12;
+  font-size: 12px;
+  color: #856404;
+  line-height: 1.5;
+
+  &.login-required {
+    background: rgba(#e67e22, 0.07);
+    border-left-color: #e67e22;
+    color: #7d4e00;
+  }
+
+  > .el-icon { flex-shrink: 0; margin-top: 2px; font-size: 14px; color: #f39c12; }
+  &.login-required > .el-icon { color: #e67e22; }
+
+  .warn-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .warn-tip {
+    margin: 2px 0 6px;
+    color: #6c5a00;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .cookie-trigger-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border: none;
+    border-radius: 7px;
+    background: $neu-1;
+    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
+    color: $purple;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    align-self: flex-start;
+
+    &:hover {
+      box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    }
+  }
+}
+
+// Cookie 配置面板
+.cookie-panel {
+  margin-top: 10px;
+  padding: 16px;
+  border-radius: 12px;
+  background: $neu-1;
+  box-shadow: inset 3px 3px 6px $neu-2, inset -3px -3px 6px $white;
+
+  .cookie-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $black;
+    margin-bottom: 12px;
+    .el-icon { color: $purple; }
+  }
+
+  .cookie-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      color: #555;
+      line-height: 1.5;
+
+      .step-num {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+      }
+    }
+  }
+
+  .cookie-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    color: $black;
+    background: $neu-1;
+    border: none;
+    border-radius: 8px;
+    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    outline: none;
+    resize: vertical;
+    line-height: 1.6;
+    box-sizing: border-box;
+
+    &::placeholder { color: $gray; font-family: 'Montserrat', sans-serif; }
+  }
+
+  .cookie-panel-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+
+    .cookie-saved-tip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: #27ae60;
+      .el-icon { font-size: 13px; }
+    }
+
+    .cookie-save-btn {
+      padding: 8px 16px;
+      font-size: 12px;
+    }
+  }
+}
+
+// Cookie 面板展开动画
+.panel-slide-enter-active { transition: all 0.25s ease; }
+.panel-slide-leave-active { transition: all 0.2s ease; }
+.panel-slide-enter-from { opacity: 0; transform: translateY(-8px); }
+.panel-slide-leave-to { opacity: 0; transform: translateY(-4px); }
+
+// URL 输入框 warn 状态
+.neu-input.has-warn {
+  box-shadow: inset 2px 2px 4px rgba(#f39c12, 0.2), inset -2px -2px 4px $white;
+}
+
+.inline-link {
+  color: $purple;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
 }
 .field-hint {
   margin: 5px 0 0;
