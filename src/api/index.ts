@@ -636,6 +636,12 @@ export const createUrlImportTask = async (params: UrlImportParams): Promise<ApiR
   return response.data
 }
 
+// URL预校验（在弹窗内调用，校验失败直接拦截，不创建任务）
+export const validateImportUrl = async (url: string): Promise<ApiResponse<{ title: string }>> => {
+  const response = await api.post<ApiResponse<{ title: string }>>('/api/analysis/task/url-validate', { url })
+  return response.data
+}
+
 // ==================== 视频管理扩展接口 ====================
 
 // 重命名视频

@@ -93,26 +93,44 @@
           <div class="tab-content" v-if="activeTab === 'url'">
             <div class="form-field">
               <label>视频链接</label>
-              <input
-                v-model="urlState.url"
-                class="neu-input"
-                placeholder="粘贴视频链接（支持主流平台）"
-                :disabled="urlState.status === 'submitting'"
-              />
+              <div class="url-input-wrap">
+                <input
+                  v-model="urlState.url"
+                  class="neu-input"
+                  :class="{ 'has-error': urlState.validateError, 'is-valid': urlState.validatedTitle }"
+                  placeholder="粘贴视频链接（支持主流平台）"
+                  :disabled="urlState.status === 'validating' || urlState.status === 'submitting'"
+                  @input="onUrlInput"
+                  @paste="onUrlPaste"
+                />
+                <!-- 校验中 spinner -->
+                <span class="url-status-icon validating" v-if="urlState.status === 'validating'">
+                  <el-icon class="rotating"><Loading /></el-icon>
+                </span>
+                <!-- 校验通过 -->
+                <span class="url-status-icon valid" v-else-if="urlState.validatedTitle">
+                  <el-icon><CircleCheck /></el-icon>
+                </span>
+              </div>
+              <!-- 校验错误提示 -->
+              <p class="field-error" v-if="urlState.validateError">{{ urlState.validateError }}</p>
+              <!-- 校验通过：显示识别到的标题 -->
+              <p class="field-hint valid" v-else-if="urlState.validatedTitle">
+                <el-icon><VideoPlay /></el-icon>
+                识别到：{{ urlState.validatedTitle }}
+              </p>
+              <!-- 默认提示 -->
+              <p class="field-hint" v-else>支持抖音、B站、YouTube 等主流平台</p>
             </div>
-            <div class="form-field">
+            <div class="form-field" v-if="urlState.validatedTitle">
               <label>标题（可选）</label>
               <input
                 v-model="urlState.title"
                 class="neu-input"
-                placeholder="不填则自动提取"
+                :placeholder="urlState.validatedTitle || '不填则自动提取'"
                 maxlength="100"
                 :disabled="urlState.status === 'submitting'"
               />
-            </div>
-            <div class="url-tips">
-              <el-icon><InfoFilled /></el-icon>
-              <span>支持抖音、B站、YouTube 等主流平台链接</span>
             </div>
           </div>
 
@@ -143,7 +161,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage, type UploadFile } from 'element-plus'
-import { createUrlImportTask } from '@/api'
+import { createUrlImportTask, validateImportUrl } from '@/api'
 import { useUploadStore } from '@/stores/upload'
 import { formatFileSize } from '@/types'
 
@@ -154,6 +172,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:visible', val: boolean): void
   (e: 'success'): void
+  (e: 'task-created', task: import('@/types').AnalysisTaskVO): void
 }>()
 
 const activeTab = ref<'local' | 'url'>('local')
@@ -173,18 +192,65 @@ const localState = reactive({
 const urlState = reactive({
   url: '',
   title: '',
-  status: 'idle' as 'idle' | 'submitting'
+  status: 'idle' as 'idle' | 'validating' | 'submitting',
+  /** 校验通过后识别到的真实标题 */
+  validatedTitle: '' as string,
+  /** 校验失败的错误信息 */
+  validateError: '' as string,
 })
 
+// 防抖 timer
+let validateTimer: ReturnType<typeof setTimeout> | null = null
+
+// URL 输入时重置校验状态，并触发防抖校验
+const onUrlInput = () => {
+  urlState.validatedTitle = ''
+  urlState.validateError = ''
+  if (validateTimer) clearTimeout(validateTimer)
+  const url = urlState.url.trim()
+  if (!url) return
+  // 简单格式检查，避免对明显非 URL 的输入发请求
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return
+  validateTimer = setTimeout(() => triggerValidate(), 800)
+}
+
+// 粘贴时立即触发校验（不等防抖）
+const onUrlPaste = () => {
+  if (validateTimer) clearTimeout(validateTimer)
+  // nextTick 后 v-model 才更新
+  setTimeout(() => triggerValidate(), 50)
+}
+
+const triggerValidate = async () => {
+  const url = urlState.url.trim()
+  if (!url || urlState.status === 'validating') return
+  urlState.status = 'validating'
+  urlState.validatedTitle = ''
+  urlState.validateError = ''
+  try {
+    const res = await validateImportUrl(url)
+    if (res.code === 200 && res.data?.title) {
+      urlState.validatedTitle = res.data.title
+    } else {
+      urlState.validateError = res.message || '无法解析该链接'
+    }
+  } catch (e: any) {
+    urlState.validateError = e.response?.data?.message || e.message || '链接验证失败，请检查网络'
+  } finally {
+    urlState.status = 'idle'
+  }
+}
+
 const isSubmitting = computed(() =>
-  localState.status === 'uploading' || urlState.status === 'submitting'
+  localState.status === 'uploading' || urlState.status === 'submitting' || urlState.status === 'validating'
 )
 
 const canSubmit = computed(() => {
   if (activeTab.value === 'local') {
     return localState.file && localState.title.trim() && localState.status !== 'uploading'
   }
-  return urlState.url.trim() && urlState.status !== 'submitting'
+  // URL 模式：有 URL 且不在提交/校验中即可点击（点击后若未校验则先校验）
+  return urlState.url.trim() && urlState.status === 'idle'
 })
 
 const submitText = computed(() => {
@@ -192,8 +258,10 @@ const submitText = computed(() => {
     if (localState.status === 'uploading') return `上传中 ${localState.progress}%`
     return '上传并分析'
   }
+  if (urlState.status === 'validating') return '正在验证链接...'
   if (urlState.status === 'submitting') return '提交中...'
-  return '开始采集分析'
+  if (urlState.validatedTitle) return '开始采集分析'
+  return '验证并采集'
 })
 
 // 每次打开模态框时强制重置为纯净初始态
@@ -224,7 +292,9 @@ function resetForm() {
   urlState.url = ''
   urlState.title = ''
   urlState.status = 'idle'
-  // 清空 el-upload 组件的文件列表
+  urlState.validatedTitle = ''
+  urlState.validateError = ''
+  if (validateTimer) { clearTimeout(validateTimer); validateTimer = null }
   uploadRef.value?.clearFiles?.()
 }
 
@@ -341,19 +411,38 @@ const handleLocalUpload = async () => {
   }
 }
 
-// URL导入
+// URL导入：先确保校验通过，再提交
 const handleUrlImport = async () => {
-  if (!urlState.url.trim()) return
+  const url = urlState.url.trim()
+  if (!url) return
 
+  // 若尚未校验（用户直接点按钮），先触发校验
+  if (!urlState.validatedTitle && !urlState.validateError) {
+    await triggerValidate()
+  }
+
+  // 校验失败：拦截，不创建任何记录
+  if (!urlState.validatedTitle) {
+    if (!urlState.validateError) {
+      urlState.validateError = '请先等待链接验证完成'
+    }
+    return
+  }
+
+  // 校验通过：提交任务
   urlState.status = 'submitting'
   try {
+    // 优先使用用户手填标题，否则用校验阶段识别到的真实标题
+    const finalTitle = urlState.title.trim() || urlState.validatedTitle
     const res = await createUrlImportTask({
-      url: urlState.url.trim(),
-      title: urlState.title.trim() || undefined,
+      url,
+      title: finalTitle,
       taskType: 'FULL_ANALYSIS'
     })
     if (res.code === 200) {
       ElMessage.success('任务创建成功，视频正在下载中')
+      // 校验通过才插入卡片，消除无效占位卡片
+      emit('task-created', res.data)
       emit('success')
       emit('update:visible', false)
     } else {
@@ -626,6 +715,50 @@ $purple: #4b70e2;
 
   &::placeholder { color: $gray; }
   &:disabled { opacity: 0.5; }
+
+  &.has-error {
+    box-shadow: inset 2px 2px 4px rgba(#e74c3c, 0.2), inset -2px -2px 4px $white;
+  }
+  &.is-valid {
+    box-shadow: inset 2px 2px 4px rgba(#2ecc71, 0.2), inset -2px -2px 4px $white;
+  }
+}
+
+// URL 输入框包裹层（含状态图标）
+.url-input-wrap {
+  position: relative;
+  .neu-input { padding-right: 40px; }
+  .url-status-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    &.validating { color: $purple; }
+    &.valid { color: #2ecc71; }
+  }
+}
+
+// 字段提示 / 错误
+.field-error {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #e74c3c;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.field-hint {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: $gray;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  &.valid { color: #27ae60; font-weight: 500; }
+  .el-icon { font-size: 12px; }
 }
 
 .url-tips {

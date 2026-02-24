@@ -136,8 +136,11 @@
           </span>
           <!-- 进行中遮罩 -->
           <div class="cover-progress-mask" v-if="['DOWNLOADING','PENDING','PROCESSING'].includes(record.status)">
-            <div class="mask-progress-bar" :style="{ width: record.progress + '%' }"></div>
-            <span class="mask-label">{{ getStatusText(record.status) }} {{ record.progress }}%</span>
+            <div class="mask-progress-bar" :style="{ width: record.status === 'PENDING' ? '100%' : record.progress + '%' }"></div>
+            <span class="mask-label">
+              {{ getStatusText(record.status) }}
+              <template v-if="record.status !== 'PENDING'"> {{ record.progress }}%</template>
+            </span>
           </div>
         </div>
 
@@ -274,7 +277,11 @@
       </Transition>
     </Teleport>
 
-    <NewTaskModal v-model:visible="showNewTaskModal" @success="loadRecords" />
+    <NewTaskModal
+      v-model:visible="showNewTaskModal"
+      @success="loadRecords"
+      @task-created="handleTaskCreated"
+    />
   </div>
 </template>
 <script setup lang="ts">
@@ -331,7 +338,8 @@ const statusFilters = [
   { label: '排队中', value: 'PENDING' },
   { label: '分析中', value: 'PROCESSING' },
   { label: '已完成', value: 'COMPLETED' },
-  { label: '失败', value: 'FAILED' }
+  { label: '失败', value: 'FAILED' },
+  { label: '取消', value: 'CANCELLED' }
 ]
 
 const sourceOptions = [
@@ -491,6 +499,11 @@ const handleReanalyze = async (record: AnalysisTaskVO) => {
 
 const handleCancel = async (record: AnalysisTaskVO) => {
   openMenuId.value = null
+  // 下载中的任务不支持取消，只能删除
+  if (record.status === 'DOWNLOADING') {
+    ElMessage.warning('只能取消等待中或处理中的任务')
+    return
+  }
   // 乐观更新：立即减少横幅计数 + 原地更新卡片状态，不等接口返回
   wsStore.decrementAnalyzingCount()
   const r = records.value.find(r => r.id === record.id)
@@ -499,19 +512,16 @@ const handleCancel = async (record: AnalysisTaskVO) => {
     const res = await cancelTask(record.id)
     if (res.code === 200) {
       ElMessage.success('任务已取消')
-      // API 成功后再从后端同步一次，确保计数准确
-      wsStore.notifyTaskChanged()
-      loadRecordsSilent()
+      // 乐观更新已处理 UI，无需再刷新列表
     } else {
-      // 接口失败时回滚
+      // 接口失败时回滚状态和计数，axios 拦截器已弹过错误提示
       if (r) r.status = record.status
       wsStore.notifyTaskChanged()
-      ElMessage.error(res.message || '取消失败')
     }
   } catch (e: any) {
+    // axios 拦截器已弹过错误提示，只做状态回滚
     if (r) r.status = record.status
     wsStore.notifyTaskChanged()
-    ElMessage.error(e.message || '取消失败')
   }
 }
 
@@ -591,18 +601,38 @@ const confirmDelete = async () => {
 
 const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
 
+// 新任务创建后立即插入列表首位（无需等待后端推送）
+const handleTaskCreated = (task: AnalysisTaskVO) => {
+  // 防重：如果已存在则跳过（极少情况下 @success 触发的 loadRecords 先到）
+  if (records.value.some(r => r.id === task.id)) return
+  records.value.unshift(task)
+  totalRecords.value++
+}
+
 // 监听取消/删除等主动操作，立即刷新列表（清除幽灵卡片）
 const unsubTaskChanged = wsStore.onTaskChanged(() => {
   loadRecordsSilent()
 })
 
-// 增量更新：收到进度推送时，只原地修改对应 record 的 status/progress
+// 增量更新：收到进度推送时，只原地修改对应 record 的 status/progress/title/videoUrl
 // 严禁调用 loadRecords()，避免全量请求导致闪烁
 subscribeProgress((data) => {
   const record = records.value.find(r => r.id === data.taskId)
   if (record) {
+    const prevStatus = record.status
     record.status = data.status
-    record.progress = data.progress
+    // 进度只前进不后退；但状态发生切换时允许重置（新阶段有自己的起点）
+    if (data.status !== prevStatus || data.progress > (record.progress ?? 0)) {
+      record.progress = data.progress
+    }
+    // 元数据阶段：后端获取到真实标题后立即更新卡片标题
+    if (data.stage === 'FETCHING_TITLE' && data.title) {
+      record.videoTitle = data.title
+    }
+    // 下载完成阶段：后端上传 MinIO 后推送 videoUrl，触发前端截帧生成缩略图
+    if (data.stage === 'PENDING' && data.videoUrl) {
+      record.videoUrl = data.videoUrl
+    }
   }
 })
 
@@ -619,12 +649,15 @@ subscribeCompleted((data) => {
   loadRecordsSilent()
 })
 
-// 任务失败：原地更新状态
+// 任务失败：原地更新状态 + 错误信息，立即切换卡片为失败模式
 subscribeFailed((data) => {
   const record = records.value.find(r => r.id === data.taskId)
   if (record) {
     record.status = 'FAILED'
     record.progress = 0
+    if (data.errorMessage) {
+      record.errorMessage = data.errorMessage
+    }
   }
 })
 

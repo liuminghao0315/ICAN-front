@@ -416,6 +416,12 @@ export interface TaskProgressData {
   status: TaskStatus
   progress: number
   message: string
+  /** 阶段标识：FETCHING_TITLE / DOWNLOADING / PENDING / PROCESSING / COMPLETED / FAILED */
+  stage?: string
+  /** 元数据阶段获取到的视频标题 */
+  title?: string
+  /** 下载完成后的视频可访问URL，用于前端截帧生成缩略图 */
+  videoUrl?: string
   moduleType?: string  // 模块类型：audio/video/text/integration
   resultData?: any     // 该模块的分析结果数据
 }
