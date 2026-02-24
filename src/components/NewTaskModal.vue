@@ -263,6 +263,8 @@ const props = defineProps<{
   visible: boolean
   /** 预填 URL（重试下载场景传入，弹窗打开后自动填入并触发校验） */
   prefillUrl?: string
+  /** 当前激活的文件夹 ID，新建任务时自动归入该文件夹 */
+  folderId?: string
 }>()
 
 const emit = defineEmits<{
@@ -507,7 +509,7 @@ const handleLocalUpload = async () => {
   localState.progress = 0
 
   try {
-    const videoId = await uploadStore.startUpload(file, localState.title.trim())
+    const videoId = await uploadStore.startUpload(file, localState.title.trim(), props.folderId)
     localState.videoId = videoId
 
     // 轮询 store 中该任务的进度，同步到本地 UI
@@ -599,7 +601,8 @@ const handleUrlImport = async () => {
     const res = await createUrlImportTask({
       url,
       title: finalTitle,
-      taskType: 'FULL_ANALYSIS'
+      taskType: 'FULL_ANALYSIS',
+      folderId: props.folderId
     })
     if (res.code === 200) {
       ElMessage.success('任务创建成功，视频正在下载中')

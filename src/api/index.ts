@@ -392,7 +392,7 @@ export const checkChunkUpload = async (
 }
 
 // 初始化上传（持久化先行，在分片传输前创建 UPLOADING 状态记录）
-export const initUpload = async (params: { fileName: string; title?: string; fileSize: number }): Promise<ApiResponse<VideoInfo>> => {
+export const initUpload = async (params: { fileName: string; title?: string; fileSize: number; folderId?: string }): Promise<ApiResponse<VideoInfo>> => {
   const response = await api.post<ApiResponse<VideoInfo>>('/api/video/init-upload', null, {
     params
   })
@@ -488,7 +488,8 @@ export const getTaskList = async (
   status?: TaskStatus,
   riskLevel?: RiskLevel,
   sortBy: string = 'gmtCreated',
-  sortOrder: string = 'desc'
+  sortOrder: string = 'desc',
+  folderId?: string
 ): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
   const params: Record<string, any> = { page, size, sortBy, sortOrder }
   if (status) {
@@ -496,6 +497,9 @@ export const getTaskList = async (
   }
   if (riskLevel) {
     params.riskLevel = riskLevel
+  }
+  if (folderId) {
+    params.folderId = folderId
   }
   const response = await api.get<ApiResponse<PageResult<AnalysisTaskVO>>>('/api/analysis/task/list', { params })
   return response.data
@@ -628,6 +632,7 @@ export interface UrlImportParams {
   url: string
   title?: string
   taskType?: string
+  folderId?: string
 }
 
 // URL导入创建任务
@@ -653,5 +658,45 @@ export const savePlatformCookies = async (cookies: string): Promise<ApiResponse<
 // 重命名视频
 export const renameVideo = async (videoId: string, title: string): Promise<ApiResponse<void>> => {
   const response = await api.put<ApiResponse<void>>(`/api/video/${videoId}/rename`, { title })
+  return response.data
+}
+
+// ==================== 文件夹管理接口 ====================
+
+import type { FolderVO } from '@/types'
+
+// 获取文件夹树
+export const getFolderTree = async (): Promise<ApiResponse<FolderVO[]>> => {
+  const response = await api.get<ApiResponse<FolderVO[]>>('/api/folder/tree')
+  return response.data
+}
+
+// 创建文件夹
+export const createFolder = async (name: string, parentId?: string | null): Promise<ApiResponse<FolderVO>> => {
+  const response = await api.post<ApiResponse<FolderVO>>('/api/folder', { name, parentId: parentId || null })
+  return response.data
+}
+
+// 重命名文件夹
+export const renameFolder = async (folderId: string, name: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/folder/${folderId}/rename`, { name })
+  return response.data
+}
+
+// 移动文件夹（支持拖拽排序）
+export const moveFolder = async (folderId: string, parentId: string | null, sortOrder: number = 0): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/folder/${folderId}/move`, { parentId, sortOrder })
+  return response.data
+}
+
+// 删除文件夹（视频自动移至未分类，返回被移动的视频数量）
+export const deleteFolder = async (folderId: string): Promise<ApiResponse<number>> => {
+  const response = await api.delete<ApiResponse<number>>(`/api/folder/${folderId}`)
+  return response.data
+}
+
+// 将视频移动到文件夹
+export const moveVideosToFolder = async (videoIds: string[], folderId: string | null): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>('/api/folder/move-videos', { videoIds, folderId })
   return response.data
 }

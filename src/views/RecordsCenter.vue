@@ -4,7 +4,24 @@
     <!-- ── 页面头部 ── -->
     <div class="page-header">
       <div class="header-left">
-        <h1 class="page-title">记录中心</h1>
+        <!-- 面包屑导航：在文件夹内时替换标题 -->
+        <div class="breadcrumb-nav" v-if="activeFolderBreadcrumbs.length > 0">
+          <button class="breadcrumb-item root-crumb" @click="folderStore.setActive('__ALL__')">
+            <svg class="crumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            记录中心
+          </button>
+          <template v-for="(crumb, idx) in activeFolderBreadcrumbs" :key="crumb.id">
+            <span class="crumb-sep">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </span>
+            <button
+              class="breadcrumb-item"
+              :class="{ 'is-current': idx === activeFolderBreadcrumbs.length - 1 }"
+              @click="folderStore.setActive(crumb.id)"
+            >{{ crumb.name }}</button>
+          </template>
+        </div>
+        <h1 class="page-title" v-else>记录中心</h1>
         <span class="record-count">共 {{ totalRecords }} 条记录</span>
       </div>
       <div class="header-actions">
@@ -33,6 +50,13 @@
               @click="handleBatchExport"
             >
               <el-icon><Download /></el-icon>导出报告
+            </button>
+            <button
+              class="ctrl-btn sm"
+              :disabled="selectedIds.size === 0"
+              @click="handleBatchMoveToFolder"
+            >
+              <el-icon><FolderOpened /></el-icon>移动到文件夹
             </button>
             <button
               class="ctrl-btn sm danger"
@@ -132,6 +156,11 @@
     <!-- ── 视图内容区（带淡入淡出切换动画） ── -->
     <Transition name="view-fade" mode="out-in">
       <div v-if="!loading && records.length > 0" :key="viewMode">
+        <!-- 空文件夹提示：当前目录本身无直接视频，展示的是子文件夹内容 -->
+        <div class="subfolder-hint" v-if="showSubfolderHint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+          当前目录无直接视频，以下展示来自子文件夹的内容
+        </div>
         <!-- 卡片模式 -->
         <CardView
           v-if="viewMode === 'card'"
@@ -140,12 +169,15 @@
           :selected-ids="selectedIds"
           :open-menu-id="openMenuId"
           :exporting-ids="exportingIds"
+          :active-folder-id="folderStore.activeFolderId"
+          :folder-breadcrumbs="activeFolderBreadcrumbs"
           @card-click="handleCardClick"
           @toggle-select="toggleSelect"
           @toggle-menu="toggleMenu"
           @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId } })"
           @preview="handlePreview"
           @rename="handleRename"
+          @move-to-folder="handleMoveToFolder"
           @export="handleExport"
           @retry-download="handleRetryDownload"
           @reanalyze="handleReanalyze"
@@ -153,6 +185,7 @@
           @delete="handleDelete"
           @show-tooltip="showTooltip"
           @hide-tooltip="scheduleHideTooltip"
+          @navigate-folder="handleNavigateFolder"
         />
         <!-- 列表模式 -->
         <ListView
@@ -162,12 +195,15 @@
           :selected-ids="selectedIds"
           :open-menu-id="openMenuId"
           :exporting-ids="exportingIds"
+          :active-folder-id="folderStore.activeFolderId"
+          :folder-breadcrumbs="activeFolderBreadcrumbs"
           @card-click="handleCardClick"
           @toggle-select="toggleSelect"
           @toggle-menu="toggleMenu"
           @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId } })"
           @preview="handlePreview"
           @rename="handleRename"
+          @move-to-folder="handleMoveToFolder"
           @export="handleExport"
           @retry-download="handleRetryDownload"
           @reanalyze="handleReanalyze"
@@ -175,6 +211,7 @@
           @delete="handleDelete"
           @show-tooltip="showTooltip"
           @hide-tooltip="scheduleHideTooltip"
+          @navigate-folder="handleNavigateFolder"
         />
       </div>
     </Transition>
@@ -280,7 +317,8 @@
     <NewTaskModal
       v-model:visible="showNewTaskModal"
       :prefill-url="retryDownloadRecord?.sourceUrl ?? undefined"
-      @success="loadRecords"
+      :folder-id="folderStore.activeFolderId !== '__ALL__' && folderStore.activeFolderId !== '__UNCATEGORIZED__' ? folderStore.activeFolderId : undefined"
+      @success="handleTaskSuccess"
       @task-created="handleTaskCreated"
     />
 
@@ -290,6 +328,42 @@
       :video-url="previewVideoUrl"
       :title="previewTitle"
     />
+
+    <!-- 移动到文件夹弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div class="neu-overlay" v-if="moveToFolderState.visible" @click.self="moveToFolderState.visible = false">
+          <div class="neu-modal">
+            <h3 class="modal-title">
+              {{ moveToFolderState.videoIds.length > 1
+                ? `移动 ${moveToFolderState.videoIds.length} 个视频到文件夹`
+                : '移动到文件夹' }}
+            </h3>
+            <div class="move-folder-list">
+              <button
+                class="move-folder-option"
+                :class="{ active: moveToFolderState.targetFolderId === null }"
+                @click="moveToFolderState.targetFolderId = null"
+              >📁 未分类</button>
+              <button
+                v-for="f in folderOptions"
+                :key="f.id"
+                class="move-folder-option"
+                :class="{ active: moveToFolderState.targetFolderId === f.id }"
+                :style="{ paddingLeft: (f.depth * 16 + 12) + 'px' }"
+                @click="moveToFolderState.targetFolderId = f.id"
+              >📁 {{ f.name }}</button>
+            </div>
+            <div class="modal-footer">
+              <button class="ctrl-btn" @click="moveToFolderState.visible = false">取消</button>
+              <button class="ctrl-btn primary" @click="confirmMoveToFolder" :disabled="moveToFolderState.loading">
+                {{ moveToFolderState.loading ? '移动中...' : '确定' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 <script setup lang="ts">
@@ -299,6 +373,7 @@ import { ElMessage } from 'element-plus'
 import { getTaskList, cancelTask, deleteVideo, renameVideo, retryTask } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
+import { useFolderStore } from '@/stores/folder'
 import { useExportReport } from '@/composables/useExportReport'
 import { formatDate } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
@@ -310,8 +385,28 @@ import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
 
 const router = useRouter()
 const wsStore = useWebSocketStore()
+const folderStore = useFolderStore()
 const { exportReportById, exportReportsByIds, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
+
+// 面包屑导航：当前激活文件夹的路径
+const activeFolderBreadcrumbs = computed(() => {
+  const id = folderStore.activeFolderId
+  if (!id || id === '__ALL__' || id === '__UNCATEGORIZED__') return []
+  return folderStore.getBreadcrumbs(id)
+})
+
+// 空文件夹提示：当前文件夹本身没有直接视频（所有视频来自子文件夹）
+const showSubfolderHint = computed(() => {
+  const id = folderStore.activeFolderId
+  if (!id || id === '__ALL__' || id === '__UNCATEGORIZED__') return false
+  return !folderStore.hasDirectVideos(id)
+})
+
+// 点击视频路径标签跳转到对应文件夹
+const handleNavigateFolder = (folderId: string) => {
+  folderStore.setActive(folderId)
+}
 
 // 视频预览
 const previewVisible = ref(false)
@@ -480,11 +575,13 @@ const fetchAndApplyRecords = async () => {
   // 后端支持的 sortBy: gmtCreated / riskScore / videoDuration
   const sortField = sortOrder.value === 'risk_desc' ? 'riskScore' : 'gmtCreated'
   const sortDir = sortOrder.value === 'oldest' ? 'asc' : 'desc'
+  const folderId = folderStore.activeFolderId || undefined
   const res = await getTaskList(
     currentPage.value, pageSize.value,
     status as TaskStatus | undefined,
     riskFilter.value as RiskLevel | undefined || undefined,
-    sortField, sortDir
+    sortField, sortDir,
+    folderId
   )
   if (res.code === 200) {
     let list = res.data.records || []
@@ -524,6 +621,9 @@ const debouncedSearch = () => {
 }
 
 watch([activeStatus, sourceFilter, riskFilter, sortOrder], () => { currentPage.value = 1; loadRecords() })
+
+// 监听文件夹切换
+watch(() => folderStore.activeFolderId, () => { currentPage.value = 1; loadRecords() })
 
 // 批量管理
 const toggleBatchMode = () => {
@@ -578,6 +678,54 @@ const handleRename = (record: AnalysisTaskVO) => {
   renameState.videoId = record.videoId
   renameState.title = record.videoTitle || ''
   renameState.visible = true
+}
+
+// 移动到文件夹
+const moveToFolderState = reactive({
+  visible: false,
+  videoIds: [] as string[],
+  targetFolderId: null as string | null,
+  loading: false
+})
+const folderOptions = computed(() => folderStore.flatFolders())
+
+const handleMoveToFolder = (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+  moveToFolderState.videoIds = [record.videoId]
+  moveToFolderState.targetFolderId = null
+  moveToFolderState.visible = true
+}
+
+const handleBatchMoveToFolder = () => {
+  if (selectedIds.size === 0) return
+  // 从已选记录中取出 videoId 列表
+  const videoIds = records.value
+    .filter(r => selectedIds.has(r.id))
+    .map(r => r.videoId)
+  moveToFolderState.videoIds = videoIds
+  moveToFolderState.targetFolderId = null
+  moveToFolderState.visible = true
+}
+
+const confirmMoveToFolder = async () => {
+  if (moveToFolderState.videoIds.length === 0) return
+  moveToFolderState.loading = true
+  try {
+    await folderStore.moveVideos(moveToFolderState.videoIds, moveToFolderState.targetFolderId)
+    const count = moveToFolderState.videoIds.length
+    ElMessage.success(count > 1 ? `${count} 个视频已移动` : '视频已移动')
+    moveToFolderState.visible = false
+    // 批量模式下退出并清空选中
+    if (batchMode.value) {
+      batchMode.value = false
+      selectedIds.clear()
+    }
+    loadRecords()
+  } catch (e: any) {
+    ElMessage.error(e.message || '移动失败')
+  } finally {
+    moveToFolderState.loading = false
+  }
 }
 const confirmRename = async () => {
   if (!renameState.title.trim()) return
@@ -687,6 +835,7 @@ const confirmDelete = async () => {
       await Promise.all(videoIdsToDelete.map(vid => deleteVideo(vid)))
       wsStore.notifyTaskChanged()
       loadRecords()
+      folderStore.loadTree()
     } else {
       const videoId = deleteState.videoId
       // 先关闭弹窗（同步，立即生效）
@@ -708,6 +857,7 @@ const confirmDelete = async () => {
         ElMessage.error(e.message || '删除失败')
       }
       loadRecords()
+      folderStore.loadTree()
     }
   } finally {
     deleteState.loading = false
@@ -722,6 +872,14 @@ const handleTaskCreated = (task: AnalysisTaskVO) => {
   if (records.value.some(r => r.id === task.id)) return
   records.value.unshift(task)
   totalRecords.value++
+  // 刷新侧边栏文件夹计数
+  folderStore.loadTree()
+}
+
+// 任务创建成功（本地上传走此路径）：刷新列表 + 侧边栏计数
+const handleTaskSuccess = () => {
+  loadRecords()
+  folderStore.loadTree()
 }
 
 // 监听取消/删除等主动操作，立即刷新列表（清除幽灵卡片）
@@ -800,6 +958,35 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 // ── 布局 ──────────────────────────────────────────
 .records-center { width: 100%; }
+
+// ── 面包屑导航 ────────────────────────────────────
+.breadcrumb-nav {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  .breadcrumb-item {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 8px; border: none; background: transparent; cursor: pointer;
+    font-size: 14px; font-weight: 600; color: $gray; border-radius: 8px;
+    transition: color .15s, background .15s; line-height: 1;
+    .crumb-icon { width: 14px; height: 14px; flex-shrink: 0; }
+    &:hover { color: $purple; background: rgba($purple, .07); }
+    &.root-crumb { font-size: 15px; font-weight: 700; color: $black; }
+    &.is-current { color: $black; font-weight: 700; cursor: default; pointer-events: none; }
+  }
+  .crumb-sep {
+    display: flex; align-items: center; color: $neu-2;
+    svg { width: 14px; height: 14px; }
+  }
+}
+
+// ── 子文件夹内容提示 ──────────────────────────────
+.subfolder-hint {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 14px; margin-bottom: 14px;
+  background: rgba($purple, .04); border-radius: 10px;
+  border: 1px dashed rgba($purple, .2);
+  font-size: 12px; color: $gray; line-height: 1.4;
+  svg { width: 15px; height: 15px; flex-shrink: 0; color: rgba($purple, .5); }
+}
 
 // ── 页面头部 ──────────────────────────────────────
 .page-header {
@@ -1232,4 +1419,31 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 .dropdown-leave-active { animation: dd-out .15s ease; }
 @keyframes dd-in { from { opacity: 0; transform: translateY(8px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes dd-out { from { opacity: 1; } to { opacity: 0; transform: translateY(4px); } }
+
+// 移动到文件夹弹窗
+.move-folder-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 12px 0;
+  border-radius: 10px;
+  background: $neu-1;
+  padding: 6px;
+  box-shadow: $shadow-in;
+
+  .move-folder-option {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    color: $black;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+    &:hover { background: rgba($purple, 0.08); }
+    &.active { background: linear-gradient(135deg, $purple, $purple-light); color: #fff; }
+  }
+}
 </style>

@@ -64,12 +64,12 @@ export const useUploadStore = defineStore('upload', () => {
   /**
    * 开始上传（后台运行，模态框关闭不中断）
    */
-  async function startUpload(file: File, title: string): Promise<string> {
+  async function startUpload(file: File, title: string, folderId?: string): Promise<string> {
     const wsStore = useWebSocketStore()
     const abortController = new AbortController()
 
     // 1. 持久化先行：在 DB 写入 UPLOADING 记录，拿到 videoId
-    const initRes = await initUpload({ fileName: file.name, title, fileSize: file.size })
+    const initRes = await initUpload({ fileName: file.name, title, fileSize: file.size, folderId })
     if (initRes.code !== 200) throw new Error(initRes.message || '初始化上传失败')
     const videoId = initRes.data.id
     const fileIdentifier = await calculateMD5(file)

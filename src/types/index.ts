@@ -154,6 +154,10 @@ export interface AnalysisTaskVO {
   topicCategory?: string | null
   /** 失败类型（仅 status=FAILED 时有值）：DOWNLOAD_FAILED / ANALYSIS_FAILED */
   failureType?: 'DOWNLOAD_FAILED' | 'ANALYSIS_FAILED' | null
+  /** 视频所在文件夹名称（直接归属的文件夹，非递归） */
+  folderName?: string | null
+  /** 视频所在文件夹 ID */
+  folderId?: string | null
 }
 
 // ==================== 分析结果模块 ====================
@@ -572,6 +576,22 @@ export const SPREAD_RISK_TEXT: Record<SpreadRiskLevel, string> = {
 export const VIDEO_SOURCE_TEXT: Record<VideoSource, string> = {
   local_upload: '本地上传',
   web_crawl: '网络爬取'
+}
+
+// ==================== 文件夹模块 ====================
+
+/**
+ * 文件夹视图对象
+ */
+export interface FolderVO {
+  id: string
+  parentId: string | null
+  name: string
+  sortOrder: number
+  isSystem: boolean
+  gmtCreated: string | null
+  videoCount: number
+  children: FolderVO[]
 }
 
 // ==================== 工具函数 ====================

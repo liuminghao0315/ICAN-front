@@ -78,6 +78,16 @@
 
       <!-- ③ 卡片底部 -->
       <div class="card-footer">
+        <!-- 路径标签：视频来自子文件夹时显示 -->
+        <button
+          v-if="getFolderPathTag(record)"
+          class="folder-path-tag"
+          :title="'跳转到：' + getFolderPathTag(record)"
+          @click.stop="record.folderId && emit('navigate-folder', record.folderId)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          {{ getFolderPathTag(record) }}
+        </button>
         <div class="footer-meta">
           <span class="meta-item date-item">
             <el-icon><Calendar /></el-icon>{{ formatDate(record.gmtCreated) }}
@@ -105,6 +115,7 @@
             <Transition name="dropdown">
               <div class="dropdown-panel" v-if="openMenuId === record.id">
                 <button class="dd-item" @click.stop="emit('rename', record)"><el-icon><Edit /></el-icon>重命名</button>
+                <button class="dd-item" @click.stop="emit('move-to-folder', record)"><el-icon><FolderOpened /></el-icon>移动到文件夹</button>
                 <button class="dd-item" v-if="record.status === 'COMPLETED' && record.resultId" @click.stop="emit('export', record)">
                   <el-icon><Download /></el-icon>
                   {{ exportingIds.has(getExportingId(record)) ? '导出中...' : '导出报告' }}
@@ -130,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { Check, VideoPlay, Link, Upload, Calendar, View, MoreFilled, Edit, Download, RefreshRight, Close, Delete, School } from '@element-plus/icons-vue'
+import { Check, VideoPlay, Link, Upload, Calendar, View, MoreFilled, Edit, Download, RefreshRight, Close, Delete, School, FolderOpened } from '@element-plus/icons-vue'
 import { formatDate, formatDuration, TASK_STATUS_TEXT, RISK_LEVEL_TEXT } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
 import SourceBadge from './SourceBadge.vue'
@@ -141,6 +152,8 @@ const props = defineProps<{
   selectedIds: Set<string>
   openMenuId: string | null
   exportingIds: Set<string>
+  activeFolderId?: string
+  folderBreadcrumbs?: { id: string; name: string }[]
 }>()
 
 const emit = defineEmits<{
@@ -150,6 +163,7 @@ const emit = defineEmits<{
   'view-analysis': [record: AnalysisTaskVO]
   'preview': [record: AnalysisTaskVO]
   'rename': [record: AnalysisTaskVO]
+  'move-to-folder': [record: AnalysisTaskVO]
   'export': [record: AnalysisTaskVO]
   'retry-download': [record: AnalysisTaskVO]
   'reanalyze': [record: AnalysisTaskVO]
@@ -157,7 +171,25 @@ const emit = defineEmits<{
   'delete': [record: AnalysisTaskVO]
   'show-tooltip': [event: MouseEvent, id: string, url: string]
   'hide-tooltip': []
+  'navigate-folder': [folderId: string]
 }>()
+
+/**
+ * 计算视频的路径标签
+ * 只有当视频所在文件夹与当前激活文件夹不同时才显示
+ */
+const getFolderPathTag = (record: AnalysisTaskVO): string | null => {
+  if (!record.folderId || !record.folderName) return null
+  const activeId = props.activeFolderId
+  // 全部视图或未分类视图：显示文件夹名
+  if (!activeId || activeId === '__ALL__' || activeId === '__UNCATEGORIZED__') {
+    return record.folderName
+  }
+  // 当前文件夹与视频所在文件夹相同：不显示
+  if (activeId === record.folderId) return null
+  // 视频来自子文件夹：显示文件夹名
+  return record.folderName
+}
 
 const getStatusClass = (status: string) => ({
   DOWNLOADING: 'status-downloading', PENDING: 'status-pending',
@@ -323,10 +355,22 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 .card-footer {
   position: relative;
-  display: flex; align-items: center;
-  padding: 14px 12px 18px 16px;
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 10px 12px 14px 16px;
   border-top: 1px solid rgba($neu-2,.6);
-  margin-top: auto;
+  margin-top: auto; gap: 8px;
+}
+
+// 路径标签：来自子文件夹时显示
+.folder-path-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 6px; border: none; cursor: pointer;
+  background: rgba($purple, .05); color: rgba($gray, .85);
+  font-size: 10.5px; font-weight: 500; line-height: 1.4;
+  transition: background .15s, color .15s; align-self: flex-start;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  svg { width: 11px; height: 11px; flex-shrink: 0; opacity: .6; }
+  &:hover { background: rgba($purple, .12); color: $purple; svg { opacity: 1; } }
 }
 
 .footer-meta {
@@ -341,7 +385,7 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 }
 
 .footer-actions {
-  position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+  position: absolute; right: 7px; bottom: 14px;
   display: flex; align-items: center; gap: 4px;
   opacity: 0; transition: opacity .25s;
   pointer-events: none;

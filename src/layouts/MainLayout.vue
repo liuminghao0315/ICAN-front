@@ -1,7 +1,7 @@
 <template>
   <el-container class="main-layout">
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapse ? '64px' : '220px'" class="sidebar" :class="{ 'is-collapsed': isCollapse }"
+    <el-aside :width="isCollapse ? '64px' : '240px'" class="sidebar" :class="{ 'is-collapsed': isCollapse }"
       @transitionend="handleSidebarTransitionEnd">
       <div class="logo" @click="router.push('/')">
         <div class="logo-icon">
@@ -27,6 +27,29 @@
           <template #title>记录中心</template>
         </el-menu-item>
       </el-menu>
+
+      <!-- 文件夹树（仅展开状态显示） -->
+      <div v-show="!isCollapse" class="folder-section">
+        <!-- 全部记录 / 未分类 快捷入口 -->
+        <div class="folder-quick-nav">
+          <div
+            v-for="node in folderStore.tree.filter(n => n.id.startsWith('__'))"
+            :key="node.id"
+            class="quick-nav-item"
+            :class="{ active: folderStore.activeFolderId === node.id }"
+            @click="handleFolderSelect(node.id)"
+          >
+            <svg class="qn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path v-if="node.id === '__ALL__'" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+              <path v-else d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+            </svg>
+            <span class="qn-name">{{ node.name }}</span>
+            <span class="qn-badge" v-if="node.videoCount > 0">{{ node.videoCount }}</span>
+          </div>
+        </div>
+        <!-- 自定义文件夹树 -->
+        <FolderTree />
+      </div>
 
       <!-- 折叠按钮 -->
       <div class="collapse-btn" @click="isCollapse = !isCollapse">
@@ -167,14 +190,23 @@
   import { useUserStore } from '@/stores'
   import { useWebSocketStore } from '@/stores/websocket'
   import { useUploadStore } from '@/stores/upload'
+  import { useFolderStore } from '@/stores/folder'
   import { getTaskList } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
+  import FolderTree from '@/components/FolderTree.vue'
 
   const router = useRouter()
   const route = useRoute()
   const userStore = useUserStore()
   const wsStore = useWebSocketStore()
   const uploadStore = useUploadStore()
+  const folderStore = useFolderStore()
+
+  // 侧边栏文件夹快捷导航
+  const handleFolderSelect = (folderId: string) => {
+    folderStore.setActive(folderId)
+    router.push('/records')
+  }
 
   const isCollapse = ref(false)
   const isDropdownOpen = ref(false)
@@ -289,6 +321,10 @@
     }
     // 检查分析中的任务
     checkAnalyzingTasks()
+    // 加载文件夹树
+    if (userStore.isLoggedIn) {
+      folderStore.loadTree()
+    }
     // 定期检查任务状态（每30秒）
     taskCheckInterval = setInterval(checkAnalyzingTasks, 30000)
     // 监听点击外部关闭下拉菜单
@@ -429,7 +465,6 @@ $purple: #4b70e2;
   }
 
   .sidebar-menu {
-    flex: 1;
     border-right: none;
     background-color: transparent;
     padding: 10px;
@@ -489,6 +524,76 @@ $purple: #4b70e2;
     }
   }
 
+  .folder-section {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-top: 1px solid rgba($neu-2, 0.5);
+    margin-top: 4px;
+
+    &::-webkit-scrollbar { width: 4px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { background: rgba($neu-2, 0.5); border-radius: 2px; }
+  }
+
+  // 全部记录 / 未分类 快捷入口
+  .folder-quick-nav {
+    padding: 8px 10px 4px;
+
+    .quick-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 2px;
+      transition: all 0.2s;
+
+      .qn-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        color: $gray;
+        transition: color 0.2s;
+      }
+
+      .qn-name {
+        flex: 1;
+        font-size: 13px;
+        color: $black;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .qn-badge {
+        font-size: 11px;
+        min-width: 20px;
+        height: 18px;
+        line-height: 18px;
+        text-align: center;
+        border-radius: 9px;
+        background: $neu-2;
+        color: $gray;
+        padding: 0 6px;
+        flex-shrink: 0;
+      }
+
+      &:hover {
+        background: rgba($purple, 0.06);
+        .qn-icon { color: $purple; }
+      }
+
+      &.active {
+        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+        box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+        .qn-icon, .qn-name { color: #fff; }
+        .qn-badge { background: rgba(255,255,255,0.25); color: #fff; }
+      }
+    }
+  }
+
   .collapse-btn {
     height: 48px;
     display: flex;
@@ -497,6 +602,7 @@ $purple: #4b70e2;
     color: $gray;
     cursor: pointer;
     margin: 10px;
+    margin-top: auto;
     border-radius: 12px;
     background-color: $neu-1;
     box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
