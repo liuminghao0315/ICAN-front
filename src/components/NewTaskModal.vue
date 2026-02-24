@@ -240,15 +240,16 @@ const handleClose = () => {
 const handleAbortUpload = async () => {
   if (!localState.videoId) return
   const videoId = localState.videoId
+
+  // 立即停止轮询 timer，防止 abort 期间 timer 触发 success 回调
+  localState.status = 'pending'
+  localState.progress = 0
+  localState.videoId = ''
+
   try {
     await uploadStore.abortUpload(videoId)
   } catch {
     // 忽略中止过程中的错误
-  } finally {
-    // 无论如何恢复按钮状态，允许模态框关闭
-    localState.status = 'pending'
-    localState.progress = 0
-    localState.videoId = ''
   }
   ElMessage.warning('上传已中止')
 }
@@ -306,17 +307,22 @@ const handleLocalUpload = async () => {
 
     // 轮询 store 中该任务的进度，同步到本地 UI
     const timer = setInterval(() => {
+      // 如果 localState.videoId 已被清空（用户点了中止），立即停止轮询
+      if (!localState.videoId) { clearInterval(timer); return }
       const task = uploadStore.tasks.find(t => t.videoId === videoId)
       if (!task) { clearInterval(timer); return }
       localState.progress = task.progress
       if (task.status === 'success') {
         clearInterval(timer)
+        // 再次检查：如果在 success 触发前用户已点中止，不弹成功提示
+        if (!localState.videoId || localState.status !== 'uploading') return
         localState.status = 'success'
         ElMessage.success('上传成功，分析任务已创建')
         emit('success')
         emit('update:visible', false)
       } else if (task.status === 'failed') {
         clearInterval(timer)
+        if (localState.status !== 'uploading') return
         localState.status = 'pending'
         ElMessage.error(task.errorMessage || '上传失败，请重试')
       } else if (task.status === 'cancelled') {

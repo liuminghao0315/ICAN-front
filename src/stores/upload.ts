@@ -95,6 +95,9 @@ export const useUploadStore = defineStore('upload', () => {
   async function _doUpload(task: UploadTask, file: File, title: string, wsStore: ReturnType<typeof useWebSocketStore>) {
     const { abortController, fileIdentifier, videoId } = task
 
+    // 辅助函数：检查任务是否已被中止
+    const isCancelled = () => abortController.signal.aborted || task.status === 'cancelled'
+
     try {
       let finalVideoId = videoId
 
@@ -105,13 +108,17 @@ export const useUploadStore = defineStore('upload', () => {
         formData.append('title', title)
         formData.append('videoId', videoId)
         const res = await uploadVideoSimple(formData, abortController.signal)
+        if (isCancelled()) return // 请求返回后再次检查
         if (res.code !== 200) throw new Error(res.message || '上传失败')
+        // data 为 null 表示后端检测到任务已被取消，已自动清理
+        if (!res.data) return
         finalVideoId = res.data.id || videoId
         _updateProgress(videoId, 100)
       } else {
         // 分片上传
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
         const checkRes = await checkChunkUpload(fileIdentifier, file.name, totalChunks)
+        if (isCancelled()) return
         if (checkRes.code !== 200) throw new Error(checkRes.message || '检查上传状态失败')
 
         if (checkRes.data.finished && checkRes.data.videoId) {
@@ -122,7 +129,7 @@ export const useUploadStore = defineStore('upload', () => {
           const uploaded = new Set(checkRes.data.uploadedChunks || [])
           for (let i = 0; i < totalChunks; i++) {
             // 检查是否已中止
-            if (abortController.signal.aborted) return
+            if (isCancelled()) return
 
             if (uploaded.has(i)) {
               _updateProgress(videoId, Math.round(((i + 1) / totalChunks) * 100))
@@ -144,6 +151,8 @@ export const useUploadStore = defineStore('upload', () => {
             formData.append('videoId', videoId)
 
             const res = await uploadChunk(formData, abortController.signal)
+            // 关键：每个分片返回后都检查是否已被中止
+            if (isCancelled()) return
             if (res.code !== 200) throw new Error(res.message || `分片 ${i + 1} 上传失败`)
             _updateProgress(videoId, Math.round(((i + 1) / totalChunks) * 100))
             if (res.data.finished && res.data.videoId) finalVideoId = res.data.videoId
@@ -151,14 +160,19 @@ export const useUploadStore = defineStore('upload', () => {
         }
       }
 
-      // 4. 上传完成，创建分析任务
+      // 4. 上传完成前最终检查：防止临界点竞态
+      //    即使所有分片都成功返回，如果用户在最后一刻点了中止，也不创建分析任务
+      if (isCancelled()) return
+
+      // 5. 创建分析任务
       if (finalVideoId) {
-        // 写保护：上传完成后再次确认任务未被中止
         const currentTask = tasks.value.find(t => t.videoId === videoId)
         if (!currentTask || currentTask.status === 'cancelled') {
           return // 已被中止，放弃创建分析任务
         }
         await createAnalysisTask({ videoId: finalVideoId, taskType: 'FULL_ANALYSIS' })
+        // 创建任务后再次检查（极端情况：createAnalysisTask 期间被中止）
+        if (isCancelled()) return
       }
 
       _setStatus(videoId, 'success')
@@ -168,7 +182,7 @@ export const useUploadStore = defineStore('upload', () => {
       setTimeout(() => removeTask(videoId), 3000)
 
     } catch (err: any) {
-      if (abortController.signal.aborted || task.status === 'cancelled') {
+      if (isCancelled()) {
         // 用户主动中止，状态已在 abortUpload 中设置，静默处理
         return
       }
@@ -183,7 +197,7 @@ export const useUploadStore = defineStore('upload', () => {
   }
 
   /**
-   * 中止上传（物理切断网络 + 并发清理 DB，防止临界点竞态）
+   * 中止上传（物理切断网络 + 等待后端清理完成，防止临界点竞态）
    */
   async function abortUpload(videoId: string) {
     const task = tasks.value.find(t => t.videoId === videoId)
@@ -195,12 +209,13 @@ export const useUploadStore = defineStore('upload', () => {
     // 2. 物理切断网络请求（abort 信号）
     task.abortController.abort()
 
-    // 3. 并发调用后端清理（不等待，防止 UI 卡顿）
-    //    即使最后一个分片已触发合并，cancelUpload 会删除 video 记录
-    //    后端 mergeChunks 完成后会发现 videoId 已不存在，放弃写库
-    cancelUploadApi(videoId, task.fileIdentifier).catch(() => {
+    // 3. 调用后端清理（等待完成，确保 MinIO 文件被删除）
+    //    cancelUpload 现在会清理 DB + MinIO + 分析任务 + Redis
+    try {
+      await cancelUploadApi(videoId, task.fileIdentifier)
+    } catch {
       // 忽略清理失败，不影响用户体验
-    })
+    }
 
     // 4. 通知全局横幅立即刷新计数
     const wsStore = useWebSocketStore()

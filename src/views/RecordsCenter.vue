@@ -463,18 +463,19 @@ const handleReanalyze = async (record: AnalysisTaskVO) => {
 
 const handleCancel = async (record: AnalysisTaskVO) => {
   openMenuId.value = null
-  // 乐观更新：立即通知顶部横幅减计数，不等接口返回
-  wsStore.notifyTaskChanged()
-  // 原地更新卡片状态，避免闪烁
+  // 乐观更新：立即减少横幅计数 + 原地更新卡片状态，不等接口返回
+  wsStore.decrementAnalyzingCount()
   const r = records.value.find(r => r.id === record.id)
   if (r) r.status = 'CANCELLED' as any
   try {
     const res = await cancelTask(record.id)
     if (res.code === 200) {
       ElMessage.success('任务已取消')
+      // API 成功后再从后端同步一次，确保计数准确
+      wsStore.notifyTaskChanged()
       loadRecordsSilent()
     } else {
-      // 接口失败时回滚状态
+      // 接口失败时回滚
       if (r) r.status = record.status
       wsStore.notifyTaskChanged()
       ElMessage.error(res.message || '取消失败')
@@ -550,6 +551,11 @@ const confirmDelete = async () => {
 
 const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
 
+// 监听取消/删除等主动操作，立即刷新列表（清除幽灵卡片）
+const unsubTaskChanged = wsStore.onTaskChanged(() => {
+  loadRecordsSilent()
+})
+
 // 增量更新：收到进度推送时，只原地修改对应 record 的 status/progress
 // 严禁调用 loadRecords()，避免全量请求导致闪烁
 subscribeProgress((data) => {
@@ -583,7 +589,7 @@ subscribeFailed((data) => {
 })
 
 onMounted(() => { loadRecords(); document.addEventListener('click', handleClickOutside) })
-onUnmounted(() => { document.removeEventListener('click', handleClickOutside); if (searchTimer) clearTimeout(searchTimer) })
+onUnmounted(() => { document.removeEventListener('click', handleClickOutside); if (searchTimer) clearTimeout(searchTimer); unsubTaskChanged() })
 </script>
 
 <style scoped lang="scss">

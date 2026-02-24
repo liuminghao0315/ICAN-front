@@ -34,6 +34,18 @@ export const useWebSocketStore = defineStore('websocket', () => {
   // ── 全局任务计数（乐观更新，无需等待 HTTP 轮询）──
   // MainLayout 直接绑定此值，取消/删除时立即减量，后端推送时覆盖校正
   const analyzingCount = ref(0)
+
+  // 直接设置计数（由 MainLayout 的 checkAnalyzingTasks 调用）
+  function setAnalyzingCount(count: number) {
+    analyzingCount.value = count
+  }
+
+  // 乐观减量（取消任务时立即调用，不等后端确认）
+  function decrementAnalyzingCount() {
+    if (analyzingCount.value > 0) {
+      analyzingCount.value--
+    }
+  }
   
   // 获取用户ID - 优先从 userStore 获取
   function getUserId(): string | null {
@@ -301,6 +313,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
   return {
     isConnected,
     reconnectCount,
+    analyzingCount,
     connect,
     disconnect,
     send,
@@ -308,6 +321,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
     onTaskCompleted,
     onTaskFailed,
     notifyTaskChanged,
-    onTaskChanged
+    onTaskChanged,
+    setAnalyzingCount,
+    decrementAnalyzingCount
   }
 })

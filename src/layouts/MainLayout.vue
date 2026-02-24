@@ -177,11 +177,13 @@
   const uploadStore = useUploadStore()
 
   const isCollapse = ref(false)
-  const hasAnalyzingTasks = ref(false)
-  const analyzingTaskCount = ref(0)
   const isDropdownOpen = ref(false)
   const showLogoutConfirm = ref(false)
   const userDropdownRef = ref<HTMLElement | null>(null)
+
+  // 直接使用 store 中的计数，支持乐观更新
+  const analyzingTaskCount = computed(() => wsStore.analyzingCount)
+  const hasAnalyzingTasks = computed(() => wsStore.analyzingCount > 0)
   const userInfoRef = ref<HTMLElement | null>(null)
   const dropdownPosition = ref({ top: 0, right: 0 })
 
@@ -219,8 +221,7 @@
   // 检查分析中的任务
   const checkAnalyzingTasks = async () => {
     if (!userStore.isLoggedIn) {
-      hasAnalyzingTasks.value = false
-      analyzingTaskCount.value = 0
+      wsStore.setAnalyzingCount(0)
       return
     }
 
@@ -233,10 +234,7 @@
 
       const processingCount = processingResponse.code === 200 ? (processingResponse.data.total || 0) : 0
       const pendingCount = pendingResponse.code === 200 ? (pendingResponse.data.total || 0) : 0
-      const totalCount = processingCount + pendingCount
-
-      hasAnalyzingTasks.value = totalCount > 0
-      analyzingTaskCount.value = totalCount
+      wsStore.setAnalyzingCount(processingCount + pendingCount)
     } catch (error) {
       // 静默失败，不影响用户体验
     }
@@ -275,8 +273,7 @@
         checkAnalyzingTasks()
       } else {
         // 登出时清除任务状态
-        hasAnalyzingTasks.value = false
-        analyzingTaskCount.value = 0
+        wsStore.setAnalyzingCount(0)
       }
     },
     { immediate: true }
