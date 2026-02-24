@@ -20,32 +20,11 @@
           <template #title>工作台</template>
         </el-menu-item>
 
-        <el-menu-item index="/videos">
-          <el-icon>
-            <VideoPlay />
-          </el-icon>
-          <template #title>我的视频</template>
-        </el-menu-item>
-
-        <el-menu-item index="/upload">
-          <el-icon>
-            <Upload />
-          </el-icon>
-          <template #title>上传视频</template>
-        </el-menu-item>
-
-        <el-menu-item index="/tasks">
+        <el-menu-item index="/records">
           <el-icon>
             <List />
           </el-icon>
-          <template #title>分析任务</template>
-        </el-menu-item>
-
-        <el-menu-item index="/analysis">
-          <el-icon>
-            <TrendCharts />
-          </el-icon>
-          <template #title>分析结果</template>
+          <template #title>记录中心</template>
         </el-menu-item>
       </el-menu>
 
@@ -73,12 +52,30 @@
               <span class="broadcast-title">正在分析中</span>
               <span class="broadcast-desc">您有 {{ analyzingTaskCount }} 个任务正在处理，请稍候...</span>
             </div>
-            <button class="broadcast-link" @click="router.push('/tasks')">
+            <button class="broadcast-link" @click="router.push('/records')">
               查看任务
               <el-icon>
                 <ArrowRight />
               </el-icon>
             </button>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- 上传中指示器 -->
+      <Transition name="broadcast">
+        <div class="upload-broadcast" v-if="uploadStore.activeCount > 0">
+          <div class="broadcast-content">
+            <div class="broadcast-icon">
+              <el-icon><Upload class="rotating" /></el-icon>
+            </div>
+            <div class="broadcast-text">
+              <span class="broadcast-title">正在上传</span>
+              <span class="broadcast-desc">{{ uploadStore.activeCount }} 个文件上传中（{{ uploadStore.overallProgress }}%）</span>
+            </div>
+            <div class="upload-mini-bar">
+              <div class="upload-mini-fill" :style="{ width: uploadStore.overallProgress + '%' }"></div>
+            </div>
           </div>
         </div>
       </Transition>
@@ -169,6 +166,7 @@
   import { useRouter, useRoute } from 'vue-router'
   import { useUserStore } from '@/stores'
   import { useWebSocketStore } from '@/stores/websocket'
+  import { useUploadStore } from '@/stores/upload'
   import { getTaskList } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
 
@@ -176,6 +174,7 @@
   const route = useRoute()
   const userStore = useUserStore()
   const wsStore = useWebSocketStore()
+  const uploadStore = useUploadStore()
 
   const isCollapse = ref(false)
   const hasAnalyzingTasks = ref(false)
@@ -258,6 +257,11 @@
 
   // 监听任务失败
   subscribeFailed(() => {
+    checkAnalyzingTasks()
+  })
+
+  // 监听取消/删除等主动操作，立即刷新横幅计数
+  wsStore.onTaskChanged(() => {
     checkAnalyzingTasks()
   })
 
@@ -649,6 +653,41 @@ $purple: #4b70e2;
 
     &:active {
       transform: translateX(1px) scale(0.98);
+    }
+  }
+}
+
+// 上传中指示器（绿色调）
+.upload-broadcast {
+  width: 100%;
+  background: linear-gradient(135deg, #36a85a, #52c97a);
+  color: white;
+  padding: 10px 24px;
+  box-shadow: 0 2px 8px rgba(54, 168, 90, 0.3);
+  z-index: 100;
+
+  .broadcast-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .upload-mini-bar {
+    flex: 1;
+    max-width: 200px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-left: auto;
+
+    .upload-mini-fill {
+      height: 100%;
+      background: white;
+      border-radius: 2px;
+      transition: width 0.5s ease;
     }
   }
 }

@@ -86,17 +86,13 @@
             <span class="card-title">快捷操作</span>
           </div>
           <div class="action-buttons">
-            <button class="action-btn primary" @click="router.push('/upload')">
-              <el-icon><Upload /></el-icon>
-              <span>上传视频</span>
+            <button class="action-btn primary" @click="router.push('/records')">
+              <el-icon><Plus /></el-icon>
+              <span>新建任务</span>
             </button>
-            <button class="action-btn" @click="router.push('/videos')">
-              <el-icon><VideoPlay /></el-icon>
-              <span>视频列表</span>
-            </button>
-            <button class="action-btn" @click="router.push('/analysis')">
-              <el-icon><DataAnalysis /></el-icon>
-              <span>分析报告</span>
+            <button class="action-btn" @click="router.push('/records')">
+              <el-icon><List /></el-icon>
+              <span>记录中心</span>
             </button>
           </div>
         </div>
@@ -132,7 +128,7 @@
         <div class="neu-card">
           <div class="card-header">
             <span class="card-title">最近上传 <span class="count">{{ recentVideos.length }} 条</span></span>
-            <button class="neu-btn text-btn" @click="router.push('/videos')">查看全部</button>
+            <button class="neu-btn text-btn" @click="router.push('/records')">查看全部</button>
           </div>
           
           <div class="video-list" v-loading="loading">
@@ -161,7 +157,7 @@
             <div v-if="!loading && recentVideos.length === 0" class="empty-state">
               <el-icon :size="48"><VideoPlay /></el-icon>
               <p>暂无视频</p>
-              <button class="neu-btn primary-btn" @click="router.push('/upload')">上传视频</button>
+              <button class="neu-btn primary-btn" @click="router.push('/records')">新建任务</button>
             </div>
           </div>
         </div>
@@ -170,7 +166,7 @@
         <div class="neu-card">
           <div class="card-header">
             <span class="card-title">最近任务 <span class="count">{{ recentTasks.length }} 条</span></span>
-            <button class="neu-btn text-btn" @click="router.push('/tasks')">查看全部</button>
+            <button class="neu-btn text-btn" @click="router.push('/records')">查看全部</button>
           </div>
           
           <div class="task-list" v-loading="tasksLoading">
@@ -429,7 +425,7 @@ const handleVideoClick = (video: VideoInfo) => {
   if (video.status === 'COMPLETED') {
     router.push(`/analysis?videoId=${video.id}`)
   } else {
-    router.push('/videos')
+    router.push('/records')
   }
 }
 

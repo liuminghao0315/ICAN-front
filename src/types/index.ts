@@ -58,7 +58,12 @@ export interface UserInfo {
 /**
  * 视频状态枚举
  */
-export type VideoStatus = 'UPLOADED' | 'ANALYZING' | 'COMPLETED' | 'FAILED'
+export type VideoStatus = 'DOWNLOADING' | 'UPLOADED' | 'ANALYZING' | 'COMPLETED' | 'FAILED'
+
+/**
+ * 视频来源类型枚举
+ */
+export type SourceType = 'LOCAL_UPLOAD' | 'URL_IMPORT'
 
 /**
  * 视频信息
@@ -76,6 +81,8 @@ export interface VideoVO {
   thumbnailUrl: string | null
   videoUrl: string
   status: VideoStatus
+  sourceType: SourceType
+  sourceUrl: string | null
   gmtCreated: string
 }
 
@@ -101,7 +108,7 @@ export type TaskType = 'FULL_ANALYSIS' | 'VIDEO_ONLY' | 'AUDIO_ONLY' | 'TEXT_ONL
 /**
  * 任务状态枚举
  */
-export type TaskStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+export type TaskStatus = 'DOWNLOADING' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
 /**
  * 创建分析任务请求
@@ -131,11 +138,20 @@ export interface AnalysisTaskVO {
   gmtCreated: string
   hasResult: boolean
   resultId: string | null
-  // 分析结果摘要信息（已完成任务显示）
+  // 来源信息
+  sourceType?: SourceType
+  sourceUrl?: string | null
+  // 媒体信息
+  thumbnailUrl?: string | null
+  videoDuration?: number | null
+  // 分析结果摘要
   riskScore?: number | null
   riskLevel?: RiskLevel | null
   sentimentLabel?: SentimentLabel | null
-  videoDuration?: number | null
+  // 内容标签
+  keywords?: string[] | null
+  universityName?: string | null
+  topicCategory?: string | null
 }
 
 // ==================== 分析结果模块 ====================
@@ -464,6 +480,7 @@ export const RISK_LEVEL_TEXT: Record<RiskLevel, string> = {
  * 任务状态颜色映射
  */
 export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
+  DOWNLOADING: '#1890ff',
   PENDING: '#1890ff',
   PROCESSING: '#faad14',
   COMPLETED: '#52c41a',
@@ -475,6 +492,7 @@ export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
  * 任务状态中文映射
  */
 export const TASK_STATUS_TEXT: Record<TaskStatus, string> = {
+  DOWNLOADING: '下载中',
   PENDING: '排队中',
   PROCESSING: '处理中',
   COMPLETED: '已完成',
@@ -504,10 +522,19 @@ export const SENTIMENT_TEXT: Record<SentimentLabel, string> = {
  * 视频状态中文映射
  */
 export const VIDEO_STATUS_TEXT: Record<VideoStatus, string> = {
+  DOWNLOADING: '下载中',
   UPLOADED: '已上传',
   ANALYZING: '分析中',
   COMPLETED: '已完成',
   FAILED: '分析失败'
+}
+
+/**
+ * 来源类型中文映射
+ */
+export const SOURCE_TYPE_TEXT: Record<SourceType, string> = {
+  LOCAL_UPLOAD: '本地导入',
+  URL_IMPORT: '链接采集'
 }
 
 /**

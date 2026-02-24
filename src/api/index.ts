@@ -14,7 +14,8 @@ import type {
   UploadTrendItem,
   TotalStats,
   TaskStatus,
-  RiskLevel
+  RiskLevel,
+  SourceType
 } from '@/types'
 
 // ==================== 基础配置 ====================
@@ -105,6 +106,11 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
+
+    // 用户主动中止（AbortController.abort()）：静默处理，不弹任何错误通知
+    if (axios.isCancel(error) || error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+      return Promise.reject(error)
+    }
 
     if (error.response) {
       const status = error.response.status
@@ -246,7 +252,7 @@ api.interceptors.response.use(
         status: status
       })
     } else if (error.request) {
-      // 请求已发出但没有收到响应
+      // 请求已发出但没有收到响应（排除主动中止的情况）
       ElMessage.error('网络错误，请检查网络连接')
       return Promise.reject({
         ...error,
@@ -385,20 +391,38 @@ export const checkChunkUpload = async (
   return response.data
 }
 
+// 初始化上传（持久化先行，在分片传输前创建 UPLOADING 状态记录）
+export const initUpload = async (params: { fileName: string; title?: string; fileSize: number }): Promise<ApiResponse<VideoInfo>> => {
+  const response = await api.post<ApiResponse<VideoInfo>>('/api/video/init-upload', null, {
+    params
+  })
+  return response.data
+}
+
+// 取消上传（清理 DB 记录和临时分片文件）
+export const cancelUpload = async (videoId: string, fileIdentifier?: string): Promise<ApiResponse<void>> => {
+  const response = await api.delete<ApiResponse<void>>(`/api/video/${videoId}/cancel-upload`, {
+    params: fileIdentifier ? { fileIdentifier } : {}
+  })
+  return response.data
+}
+
 // 上传分片
-export const uploadChunk = async (formData: FormData): Promise<ApiResponse<ChunkUploadResponse>> => {
+export const uploadChunk = async (formData: FormData, signal?: AbortSignal): Promise<ApiResponse<ChunkUploadResponse>> => {
   const response = await api.post<ApiResponse<ChunkUploadResponse>>('/api/video/upload-chunk', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000
+    timeout: 60000,
+    signal
   })
   return response.data
 }
 
 // 简单上传视频
-export const uploadVideoSimple = async (formData: FormData): Promise<ApiResponse<VideoInfo>> => {
+export const uploadVideoSimple = async (formData: FormData, signal?: AbortSignal): Promise<ApiResponse<VideoInfo>> => {
   const response = await api.post<ApiResponse<VideoInfo>>('/api/video/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 300000
+    timeout: 300000,
+    signal
   })
   return response.data
 }
@@ -593,5 +617,29 @@ export type {
   UploadTrendItem,
   TotalStats,
   TaskStatus,
-  RiskLevel
+  RiskLevel,
+  SourceType
+}
+
+// ==================== URL导入接口 ====================
+
+// URL导入请求
+export interface UrlImportParams {
+  url: string
+  title?: string
+  taskType?: string
+}
+
+// URL导入创建任务
+export const createUrlImportTask = async (params: UrlImportParams): Promise<ApiResponse<AnalysisTaskVO>> => {
+  const response = await api.post<ApiResponse<AnalysisTaskVO>>('/api/analysis/task/url-import', params)
+  return response.data
+}
+
+// ==================== 视频管理扩展接口 ====================
+
+// 重命名视频
+export const renameVideo = async (videoId: string, title: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/video/${videoId}/rename`, { title })
+  return response.data
 }

@@ -40,28 +40,29 @@ const router = createRouter({
           meta: { title: '工作台' }
         },
         {
+          path: 'records',
+          name: 'Records',
+          component: () => import('@/views/RecordsCenter.vue'),
+          meta: { title: '记录中心' }
+        },
+        // 保留旧路由兼容（重定向到记录中心）
+        {
           path: 'videos',
-          name: 'Videos',
-          component: () => import('@/views/VideoList.vue'),
-          meta: { title: '我的视频' }
+          redirect: '/records'
         },
         {
           path: 'upload',
-          name: 'Upload',
-          component: () => import('@/views/VideoUpload.vue'),
-          meta: { title: '上传视频' }
+          redirect: '/records'
+        },
+        {
+          path: 'tasks',
+          redirect: '/records'
         },
         {
           path: 'analysis',
           name: 'Analysis',
           component: () => import('@/views/Analysis.vue'),
           meta: { title: '分析结果' }
-        },
-        {
-          path: 'tasks',
-          name: 'Tasks',
-          component: () => import('@/views/TaskList.vue'),
-          meta: { title: '分析任务' }
         }
       ]
     },

@@ -28,6 +28,12 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const taskProgressHandlers = ref<Array<(data: TaskProgressData) => void>>([])
   const taskCompletedHandlers = ref<Array<(data: TaskCompletedData) => void>>([])
   const taskFailedHandlers = ref<Array<(data: TaskFailedData) => void>>([])
+  // 任务列表变更通知（取消/删除等操作后触发，用于同步顶部横幅计数）
+  const taskChangedHandlers = ref<Array<() => void>>([])
+  
+  // ── 全局任务计数（乐观更新，无需等待 HTTP 轮询）──
+  // MainLayout 直接绑定此值，取消/删除时立即减量，后端推送时覆盖校正
+  const analyzingCount = ref(0)
   
   // 获取用户ID - 优先从 userStore 获取
   function getUserId(): string | null {
@@ -266,6 +272,24 @@ export const useWebSocketStore = defineStore('websocket', () => {
     }
   }
   
+  // 主动通知任务列表已变更（取消/删除后调用，触发顶部横幅立即刷新）
+  function notifyTaskChanged() {
+    taskChangedHandlers.value.forEach(handler => {
+      try { handler() } catch { /* 忽略 */ }
+    })
+  }
+  
+  // 订阅任务变更通知
+  function onTaskChanged(handler: () => void) {
+    taskChangedHandlers.value.push(handler)
+    return () => {
+      const index = taskChangedHandlers.value.indexOf(handler)
+      if (index > -1) {
+        taskChangedHandlers.value.splice(index, 1)
+      }
+    }
+  }
+  
   // 发送消息
   function send(data: string | object) {
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -282,6 +306,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
     send,
     onTaskProgress,
     onTaskCompleted,
-    onTaskFailed
+    onTaskFailed,
+    notifyTaskChanged,
+    onTaskChanged
   }
 })

@@ -115,7 +115,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { ElMessage } from 'element-plus'
 import { VideoPlay, DataAnalysis, Close, Document, Download } from '@element-plus/icons-vue'
-import { getVideoList, getResultById, getResultByVideoId, type VideoInfo } from '@/api'
+import { getVideoList, getResultById, getResultByVideoId, getResultByTaskId, type VideoInfo } from '@/api'
 import AnalysisContent from '@/components/AnalysisContent.vue'
 
 const route = useRoute()
@@ -208,6 +208,29 @@ const loadAnalysisById = async (resultId: string) => {
   }
 }
 
+const loadAnalysisByTaskId = async (taskId: string) => {
+  loading.value = true
+  
+  try {
+    const response = await getResultByTaskId(taskId)
+    
+    if (response.code === 200 && response.data) {
+      analysisData.value = response.data
+      selectedVideoId.value = response.data.videoId
+      emptyMessage.value = ''
+    } else {
+      analysisData.value = null
+      emptyMessage.value = '该任务尚未生成分析结果'
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.message || '加载分析结果失败')
+    analysisData.value = null
+    emptyMessage.value = '加载失败，请稍后重试'
+  } finally {
+    loading.value = false
+  }
+}
+
 // ==================== 工具方法 ====================
 const formatFileSize = (bytes: number) => {
   if (bytes < 1024) return bytes + ' B'
@@ -255,12 +278,12 @@ subscribeCompleted((data) => {
 onMounted(() => {
   fetchVideos()
   
-  // 如果有路由参数，加载对应数据
-  if (route.query.videoId) {
+  // 优先使用 resultId 直接加载
+  if (route.query.resultId) {
+    loadAnalysisById(route.query.resultId as string)
+  } else if (route.query.videoId) {
     selectedVideoId.value = route.query.videoId as string
     loadAnalysisByVideo()
-  } else if (route.query.resultId) {
-    loadAnalysisById(route.query.resultId as string)
   }
 })
 </script>
