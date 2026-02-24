@@ -119,7 +119,7 @@
       <!-- 操作列（固定，始终可见） -->
       <div class="col-actions" @click.stop>
         <button
-          v-if="record.status === 'COMPLETED' && record.hasResult"
+          v-if="record.videoUrl && record.status !== 'DOWNLOADING'"
           class="action-btn" title="快速预览"
           @click.stop="emit('preview', record)"
         >

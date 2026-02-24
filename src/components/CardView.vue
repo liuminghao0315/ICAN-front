@@ -106,7 +106,7 @@
         </div>
         <div class="footer-actions" @click.stop>
           <button
-            v-if="record.status === 'COMPLETED' && record.hasResult"
+            v-if="record.videoUrl && record.status !== 'DOWNLOADING'"
             class="icon-btn" title="快速预览"
             @click.stop="emit('preview', record)"
           ><el-icon><View /></el-icon></button>
