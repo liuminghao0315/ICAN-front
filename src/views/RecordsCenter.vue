@@ -8,6 +8,29 @@
         <span class="record-count">共 {{ totalRecords }} 条记录</span>
       </div>
       <div class="header-actions">
+        <!-- 批量操作内联区（仅批量模式下显示） -->
+        <Transition name="batch-inline">
+          <div class="batch-inline" v-if="batchMode">
+            <span class="batch-inline-count" :class="{ empty: selectedIds.size === 0 }">
+              {{ selectedIds.size === 0 ? '请选择视频' : `已选 ${selectedIds.size} 条` }}
+            </span>
+            <div class="batch-inline-divider"></div>
+            <button
+              class="ctrl-btn sm"
+              :disabled="selectedIds.size === 0"
+              @click="handleBatchExport"
+            >
+              <el-icon><Download /></el-icon>导出报告
+            </button>
+            <button
+              class="ctrl-btn sm danger"
+              :disabled="selectedIds.size === 0"
+              @click="handleBatchDelete"
+            >
+              <el-icon><Delete /></el-icon>批量删除
+            </button>
+          </div>
+        </Transition>
         <button class="ctrl-btn" :class="{ active: batchMode }" @click="toggleBatchMode">
           <el-icon><Grid /></el-icon>
           {{ batchMode ? '退出批量' : '批量管理' }}
@@ -18,22 +41,6 @@
         </button>
       </div>
     </div>
-
-    <!-- ── 批量操作栏 ── -->
-    <Transition name="slide-down">
-      <div class="batch-bar" v-if="batchMode && selectedIds.size > 0">
-        <span class="batch-count">已选 <strong>{{ selectedIds.size }}</strong> 条</span>
-        <div class="batch-actions">
-          <button class="ctrl-btn sm" @click="handleBatchExport">
-            <el-icon><Download /></el-icon>导出报告
-          </button>
-          <button class="ctrl-btn sm danger" @click="handleBatchDelete">
-            <el-icon><Delete /></el-icon>批量删除
-          </button>
-        </div>
-        <button class="batch-clear" @click="selectedIds.clear()">清空选择</button>
-      </div>
-    </Transition>
 
     <!-- ── 筛选工具栏 ── -->
     <div class="filter-bar">
@@ -61,6 +68,14 @@
         >
           <template #icon><el-icon><Warning /></el-icon></template>
         </NeuSelect>
+        <!-- 排序下拉 -->
+        <NeuSelect
+          v-model="sortOrder"
+          :options="sortOptions"
+          placeholder="排序"
+        >
+          <template #icon><el-icon><DCaret /></el-icon></template>
+        </NeuSelect>
         <!-- 搜索 -->
         <div class="search-box">
           <el-icon class="search-icon"><Search /></el-icon>
@@ -76,7 +91,7 @@
     <div class="records-grid" v-if="!loading && records.length > 0">
       <div
         class="record-card"
-        v-for="record in records" :key="record.videoId"
+        v-for="record in records" :key="record.id"
         :class="{
           'is-selected': selectedIds.has(record.id),
           'is-failed': record.status === 'FAILED'
@@ -90,8 +105,8 @@
           </div>
         </div>
 
-        <!-- ① 封面区 16:9 — v-memo 锁定封面，仅 status/progress 变化时重绘遮罩 -->
-        <div class="card-cover" v-memo="[record.thumbnailUrl, record.videoUrl, record.videoDuration, record.sourceType, record.status, record.progress]">
+        <!-- ① 封面区 16:9 -->
+        <div class="card-cover">
           <!-- 优先展示服务端缩略图 -->
           <img
             v-if="record.thumbnailUrl"
@@ -128,8 +143,8 @@
 
         <!-- ② 卡片主体 -->
         <div class="card-body">
-          <!-- 标题行 + 风险 Badge — v-memo 锁定标题，仅状态/风险变化时重绘 -->
-          <div class="card-title-row" v-memo="[record.videoTitle, record.status, record.riskLevel]">
+          <!-- 标题行 + 风险 Badge -->
+          <div class="card-title-row">
             <h3 class="card-title" :title="record.videoTitle">{{ record.videoTitle || '未命名' }}</h3>
             <span
               v-if="record.status === 'COMPLETED' && record.riskLevel"
@@ -173,13 +188,17 @@
             <button
               v-if="record.status === 'COMPLETED' && record.hasResult"
               class="icon-btn primary" title="查看分析"
-              @click.stop="viewResult(record)"
+              @click.stop="router.push({ path: '/analysis', query: { resultId: record.resultId } })"
             ><el-icon><View /></el-icon></button>
             <div class="more-menu">
               <button class="icon-btn" @click.stop="toggleMenu(record.id)"><el-icon><MoreFilled /></el-icon></button>
               <Transition name="dropdown">
                 <div class="dropdown-panel" v-if="openMenuId === record.id">
                   <button class="dd-item" @click.stop="handleRename(record)"><el-icon><Edit /></el-icon>重命名</button>
+                  <button class="dd-item" v-if="record.status === 'COMPLETED' && record.resultId" @click.stop="openMenuId = null; exportReportById(record.resultId)">
+                    <el-icon><Download /></el-icon>
+                    {{ exportingIds.has(record.resultId) ? '导出中...' : '导出报告' }}
+                  </button>
                   <button class="dd-item" v-if="record.status === 'FAILED' || record.status === 'CANCELLED'" @click.stop="handleReanalyze(record)"><el-icon><RefreshRight /></el-icon>重新分析</button>
                   <button class="dd-item" v-if="['PENDING','PROCESSING','DOWNLOADING'].includes(record.status)" @click.stop="handleCancel(record)"><el-icon><Close /></el-icon>取消任务</button>
                   <div class="dd-divider"></div>
@@ -261,10 +280,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTaskList, cancelTask, deleteVideo, renameVideo, createAnalysisTask, retryTask } from '@/api'
+import { ElMessage } from 'element-plus'
+import { getTaskList, cancelTask, deleteVideo, renameVideo, retryTask } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
+import { useExportReport } from '@/composables/useExportReport'
 import { formatDate, formatDuration, TASK_STATUS_TEXT, RISK_LEVEL_TEXT } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
 import NewTaskModal from '@/components/NewTaskModal.vue'
@@ -272,6 +292,7 @@ import NeuSelect from '@/components/NeuSelect.vue'
 
 const router = useRouter()
 const wsStore = useWebSocketStore()
+const { exportReportById, exportReportsByIds, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
 
 // 列表数据
@@ -283,6 +304,7 @@ const pageSize = ref(12)
 const activeStatus = ref<string>('')
 const sourceFilter = ref<string>('')
 const riskFilter = ref<string>('')
+const sortOrder = ref<string>('newest')
 const searchKeyword = ref('')
 const openMenuId = ref<string | null>(null)
 
@@ -291,12 +313,13 @@ const batchMode = ref(false)
 const selectedIds = reactive(new Set<string>())
 
 const totalPages = computed(() => Math.ceil(totalRecords.value / pageSize.value))
-const hasActiveFilters = computed(() => !!(activeStatus.value || sourceFilter.value || riskFilter.value || searchKeyword.value.trim()))
+const hasActiveFilters = computed(() => !!(activeStatus.value || sourceFilter.value || riskFilter.value || searchKeyword.value.trim() || sortOrder.value !== 'newest'))
 
 const clearAllFilters = () => {
   activeStatus.value = ''
   sourceFilter.value = ''
   riskFilter.value = ''
+  sortOrder.value = 'newest'
   searchKeyword.value = ''
   currentPage.value = 1
   loadRecords()
@@ -324,6 +347,12 @@ const riskOptions = [
   { label: '低风险', value: 'LOW' }
 ]
 
+const sortOptions = [
+  { label: '最新发布', value: 'newest' },
+  { label: '最早发布', value: 'oldest' },
+  { label: '风险最高', value: 'risk_desc' }
+]
+
 const renameState = reactive({ visible: false, videoId: '', title: '' })
 const deleteState = reactive({ visible: false, videoId: '', title: '', isBatch: false, count: 0, ids: [] as string[], loading: false })
 
@@ -345,11 +374,15 @@ const loadRecordsSilent = async () => {
 
 const fetchAndApplyRecords = async () => {
   const status = activeStatus.value || undefined
+  // 根据排序选项决定后端排序参数
+  // 后端支持的 sortBy: gmtCreated / riskScore / videoDuration
+  const sortField = sortOrder.value === 'risk_desc' ? 'riskScore' : 'gmtCreated'
+  const sortDir = sortOrder.value === 'oldest' ? 'asc' : 'desc'
   const res = await getTaskList(
     currentPage.value, pageSize.value,
     status as TaskStatus | undefined,
     riskFilter.value || undefined,
-    'gmtCreated', 'desc'
+    sortField, sortDir
   )
   if (res.code === 200) {
     let list = res.data.records || []
@@ -370,11 +403,12 @@ const fetchAndApplyRecords = async () => {
       )
       total = list.length
     }
-    // 防御性去重：按 videoId 去重，保留最新一条（列表已按 gmtCreated desc 排序）
+    // 风险最高：后端已按 riskScore DESC 排序，前端无需重复处理
+    // 防御性去重：按 id 去重（同一任务不重复展示）
     const seen = new Set<string>()
     records.value = list.filter((r: AnalysisTaskVO) => {
-      if (seen.has(r.videoId)) return false
-      seen.add(r.videoId)
+      if (seen.has(r.id)) return false
+      seen.add(r.id)
       return true
     })
     totalRecords.value = total
@@ -387,7 +421,7 @@ const debouncedSearch = () => {
   searchTimer = setTimeout(() => { currentPage.value = 1; loadRecords() }, 300)
 }
 
-watch([activeStatus, sourceFilter, riskFilter], () => { currentPage.value = 1; loadRecords() })
+watch([activeStatus, sourceFilter, riskFilter, sortOrder], () => { currentPage.value = 1; loadRecords() })
 
 const getStatusClass = (status: string) => ({
   DOWNLOADING: 'status-downloading', PENDING: 'status-pending',
@@ -425,12 +459,6 @@ const handleCardClick = (record: AnalysisTaskVO) => {
     ElMessage.info('视频正在下载中，请稍候...')
   } else if (record.status === 'CANCELLED') {
     ElMessage.warning('该任务已取消，可点击"更多操作"重新分析')
-  }
-}
-
-const viewResult = (record: AnalysisTaskVO) => {
-  if (record.resultId) {
-    router.push({ path: '/analysis', query: { resultId: record.resultId } })
   }
 }
 
@@ -499,7 +527,19 @@ const handleBatchDelete = () => {
 
 const handleBatchExport = () => {
   if (selectedIds.size === 0) return
-  ElMessage.info(`导出 ${selectedIds.size} 条记录的报告（功能开发中）`)
+  // 从当前列表中找到已选中且有 resultId 的记录
+  const resultIds = [...selectedIds]
+    .map(id => records.value.find(r => r.id === id))
+    .filter(r => r?.status === 'COMPLETED' && r?.resultId)
+    .map(r => r!.resultId as string)
+  if (resultIds.length === 0) {
+    ElMessage.warning('所选记录中没有已完成且有分析结果的任务')
+    return
+  }
+  if (resultIds.length < selectedIds.size) {
+    ElMessage.info(`${selectedIds.size - resultIds.length} 条未完成的记录将被跳过`)
+  }
+  exportReportsByIds(resultIds)
 }
 
 const confirmDelete = async () => {
@@ -559,7 +599,7 @@ const unsubTaskChanged = wsStore.onTaskChanged(() => {
 // 增量更新：收到进度推送时，只原地修改对应 record 的 status/progress
 // 严禁调用 loadRecords()，避免全量请求导致闪烁
 subscribeProgress((data) => {
-  const record = records.value.find(r => r.videoId === data.videoId)
+  const record = records.value.find(r => r.id === data.taskId)
   if (record) {
     record.status = data.status
     record.progress = data.progress
@@ -568,7 +608,7 @@ subscribeProgress((data) => {
 
 // 任务完成：原地更新状态，然后做一次轻量刷新（需要拿到 resultId/hasResult）
 subscribeCompleted((data) => {
-  const record = records.value.find(r => r.videoId === data.videoId)
+  const record = records.value.find(r => r.id === data.taskId)
   if (record) {
     record.status = 'COMPLETED'
     record.progress = 100
@@ -581,7 +621,7 @@ subscribeCompleted((data) => {
 
 // 任务失败：原地更新状态
 subscribeFailed((data) => {
-  const record = records.value.find(r => r.videoId === data.videoId)
+  const record = records.value.find(r => r.id === data.taskId)
   if (record) {
     record.status = 'FAILED'
     record.progress = 0
@@ -594,7 +634,6 @@ onUnmounted(() => { document.removeEventListener('click', handleClickOutside); i
 
 <style scoped lang="scss">
 // ── 设计令牌 ──────────────────────────────────────
-$bg:     #edf2f0;
 $neu-1:  #ecf0f3;
 $neu-2:  #c8d0e7;   // 加深阴影色，增强对比
 $white:  #ffffff;
@@ -615,11 +654,57 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 // ── 页面头部 ──────────────────────────────────────
 .page-header {
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px;
-  .header-left { display: flex; align-items: baseline; gap: 12px; }
+  flex-wrap: wrap; gap: 12px;
+  .header-left { display: flex; align-items: baseline; gap: 12px; flex-shrink: 0; }
   .page-title { font-size: 22px; font-weight: 700; color: $black; margin: 0; letter-spacing: -.3px; }
   .record-count { font-size: 13px; color: $gray; }
-  .header-actions { display: flex; gap: 10px; align-items: center; }
+  .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; height: 38px; overflow: visible; }
 }
+
+// ── 批量操作内联区 ────────────────────────────────
+.batch-inline {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 14px;
+  height: 40px; box-sizing: border-box; align-self: center;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  border-radius: 22px;
+  border: 1.5px solid rgba($neu-2, 0.7);
+  box-shadow: 2px 2px 6px rgba($neu-2, 0.5), -2px -2px 6px rgba(255,255,255,0.8);
+  white-space: nowrap;
+
+  .batch-inline-count {
+    font-size: 12px; font-weight: 600; color: $purple; letter-spacing: 0.3px;
+    &.empty { color: $gray; font-weight: 500; }
+  }
+  .batch-inline-divider {
+    width: 1px; height: 14px; background: rgba($neu-2, 0.9); flex-shrink: 0;
+  }
+  // 内联区内的 sm 按钮去掉外层阴影，更轻量
+  .ctrl-btn.sm {
+    background: transparent;
+    box-shadow: none;
+    border-color: transparent;
+    color: #4d5d7d;
+    padding: 5px 10px;
+    &:hover:not(:disabled) {
+      background: rgba($purple, 0.08);
+      color: $purple;
+      box-shadow: none;
+      transform: none;
+    }
+    &:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
+    &.danger {
+      &:hover:not(:disabled) { background: rgba(#e74c3c, 0.08); color: #e74c3c; }
+    }
+  }
+}
+
+// 批量内联入场动画
+.batch-inline-enter-active { animation: batch-in .22s cubic-bezier(.34,1.56,.64,1); }
+.batch-inline-leave-active { animation: batch-out .15s ease; }
+@keyframes batch-in { from { opacity: 0; transform: translateX(12px) scale(.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes batch-out { from { opacity: 1; } to { opacity: 0; transform: translateX(8px) scale(.97); } }
 
 // ── 通用控件按钮（高对比度） ──────────────────────
 .ctrl-btn {
@@ -664,19 +749,6 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   }
   &.danger { color: #e74c3c; &:hover { background: linear-gradient(145deg, #fff5f5, #f5d5d5); } }
   &.sm { padding: 7px 14px; font-size: 12px; border-radius: 9px; }
-}
-
-// ── 批量操作栏 ────────────────────────────────────
-.batch-bar {
-  display: flex; align-items: center; gap: 14px; padding: 12px 20px;
-  // 淡蓝白渐变，区别于普通筛选区
-  background: linear-gradient(145deg, #f0f4ff, #dce5f8);
-  border-radius: 14px; margin-bottom: 16px;
-  box-shadow: 4px 4px 8px #c8d0e7, -4px -4px 8px #ffffff;
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
-  .batch-count { font-size: 13px; color: #4d5d7d; letter-spacing: 0.3px; strong { color: $purple; } }
-  .batch-actions { display: flex; gap: 10px; margin-left: auto; }
-  .batch-clear { background: none; border: none; font-size: 12px; color: $gray; cursor: pointer; font-family: 'Montserrat', sans-serif; &:hover { color: $black; } }
 }
 
 // ── 筛选工具栏 ────────────────────────────────────
@@ -1005,11 +1077,6 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 // ── 动画 ──────────────────────────────────────────
 .rotating { animation: rotate 1s linear infinite; }
 @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-.slide-down-enter-active { animation: slide-down-in .25s cubic-bezier(.34,1.56,.64,1); }
-.slide-down-leave-active { animation: slide-down-out .15s ease; }
-@keyframes slide-down-in { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes slide-down-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
 
 .modal-fade-enter-active { transition: opacity .2s ease; .neu-modal { transition: transform .2s cubic-bezier(.34,1.56,.64,1), opacity .2s ease; } }
 .modal-fade-leave-active { transition: opacity .15s ease; .neu-modal { transition: transform .15s ease, opacity .15s ease; } }
