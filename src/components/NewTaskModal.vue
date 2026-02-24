@@ -92,13 +92,13 @@
           <!-- URL导入面板 -->
           <div class="tab-content" v-if="activeTab === 'url'">
             <div class="form-field">
-              <label>视频链接</label>
+              <label>视频平台链接 / 直接视频地址</label>
               <div class="url-input-wrap">
                 <input
                   v-model="urlState.url"
                   class="neu-input"
                   :class="{ 'has-error': urlState.validateError, 'is-valid': urlState.validatedTitle }"
-                  placeholder="粘贴视频链接（支持主流平台）"
+                  placeholder="粘贴平台链接或直接视频 URL（.mp4 / .flv 等）"
                   :disabled="urlState.status === 'validating' || urlState.status === 'submitting'"
                   @input="onUrlInput"
                   @paste="onUrlPaste"
@@ -120,7 +120,7 @@
                 识别到：{{ urlState.validatedTitle }}
               </p>
               <!-- 默认提示 -->
-              <p class="field-hint" v-else>支持抖音、B站、YouTube 等主流平台</p>
+              <p class="field-hint" v-else>支持抖音、B站、YouTube 等主流平台，或直接粘贴 .mp4 / .flv 等视频地址</p>
             </div>
             <div class="form-field" v-if="urlState.validatedTitle">
               <label>标题（可选）</label>
