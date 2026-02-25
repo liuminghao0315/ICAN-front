@@ -27,33 +27,35 @@
                 @click="handleNavClick(item.path)"
               >
                 <span class="nav-icon" v-html="item.icon"></span>
-                <span v-show="!isCollapse" class="nav-label">{{ item.label }}</span>
+                <span class="nav-label" :class="{ 'label-hidden': isCollapse }">{{ item.label }}</span>
               </div>
             </el-tooltip>
           </nav>
 
           <!-- ② 数据上下文区（仅记录中心模块展开） -->
-          <div class="context-zone-wrapper" :class="{ 'is-visible': isRecordsModule && !isCollapse }">
+          <div class="context-zone-wrapper" :class="{ 'is-visible': isRecordsModule }">
             <div class="context-divider">
-              <span v-show="!isCollapse" class="divider-label">我的文件夹</span>
+              <span class="divider-label" :class="{ 'label-hidden': isCollapse }">文件夹管理</span>
             </div>
-            <div class="folder-quick-nav">
-              <div
-                v-for="node in folderStore.tree.filter(n => n.id.startsWith('__'))"
-                :key="node.id"
-                class="quick-nav-item"
-                :class="{ active: folderStore.activeFolderId === node.id && isRecordsModule }"
-                @click="handleFolderSelect(node.id)"
-              >
-                <svg class="qn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path v-if="node.id === '__ALL__'" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-                  <path v-else d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-                </svg>
-                <span class="qn-name">{{ node.name }}</span>
-                <span class="qn-badge" v-if="node.videoCount > 0">{{ node.videoCount }}</span>
+            <div class="folder-content" :class="{ 'folder-content-hidden': isCollapse }">
+              <div class="folder-quick-nav">
+                <div
+                  v-for="node in folderStore.tree.filter(n => n.id.startsWith('__'))"
+                  :key="node.id"
+                  class="quick-nav-item"
+                  :class="{ active: folderStore.activeFolderId === node.id && isRecordsModule }"
+                  @click="handleFolderSelect(node.id)"
+                >
+                  <svg class="qn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path v-if="node.id === '__ALL__'" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                    <path v-else d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                  </svg>
+                  <span class="qn-name">{{ node.name }}</span>
+                  <span class="qn-badge" v-if="node.videoCount > 0">{{ node.videoCount }}</span>
+                </div>
               </div>
+              <FolderTree />
             </div>
-            <FolderTree />
           </div>
 
           <!-- ③ 系统基石区（绝对沉底） -->
@@ -62,7 +64,7 @@
               :content="item.label" placement="right" :disabled="!isCollapse" :show-after="300">
               <div class="system-item" @click="item.action && item.action()">
                 <span class="nav-icon" v-html="item.icon"></span>
-                <span v-show="!isCollapse" class="nav-label">{{ item.label }}</span>
+                <span class="nav-label" :class="{ 'label-hidden': isCollapse }">{{ item.label }}</span>
               </div>
             </el-tooltip>
             <!-- 折叠按钮 -->
@@ -614,7 +616,17 @@ $purple: #4b70e2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: opacity 0.25s;
+    opacity: 1;
+    // 展开时延迟 0.2s 淡入（等宽度动画接近完成），收起时立即消失
+    transition: opacity 0.15s ease 0.2s;
+
+    &.label-hidden {
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      overflow: hidden;
+      transition: opacity 0.1s ease; // 收起时无延迟，立即消失
+    }
   }
 
   // ① 主业务区
@@ -676,6 +688,20 @@ $purple: #4b70e2;
     }
   }
 
+  // 文件夹列表内容：收起时隐藏，展开时延迟显示（等宽度动画完成）
+  .folder-content {
+    overflow: hidden;
+    max-height: 600px;
+    opacity: 1;
+    transition: max-height 0.15s ease 0.2s, opacity 0.15s ease 0.2s;
+
+    &.folder-content-hidden {
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.1s ease, opacity 0.1s ease;
+    }
+  }
+
   .context-divider {
     display: flex;
     align-items: center;
@@ -696,6 +722,13 @@ $purple: #4b70e2;
       letter-spacing: 0.5px;
       white-space: nowrap;
       opacity: 0.7;
+      transition: opacity 0.15s ease 0.2s;
+
+      &.label-hidden {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.1s ease;
+      }
     }
 
     &::after {
