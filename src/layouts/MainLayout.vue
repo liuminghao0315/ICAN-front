@@ -5,51 +5,44 @@
       :width="isAnalysisDetail ? '64px' : (isCollapse ? '64px' : '240px')"
       class="sidebar"
       :class="{ 'is-collapsed': isCollapse || isAnalysisDetail, 'is-analysis-mode': isAnalysisDetail }"
-      @transitionend="handleSidebarTransitionEnd"
     >
       <!-- 普通导航模式 -->
       <Transition name="sidebar-switch" mode="out-in">
         <div v-if="!isAnalysisDetail" key="normal-nav" class="sidebar-normal">
+          <!-- Logo -->
           <div class="logo" @click="router.push('/')">
             <div class="logo-icon">
-              <el-icon :size="24">
-                <VideoCamera />
-              </el-icon>
+              <el-icon :size="24"><VideoCamera /></el-icon>
             </div>
             <span v-show="!isCollapse" class="logo-text">SynSight</span>
           </div>
 
-          <el-menu :default-active="route.path" :collapse="isCollapse" :router="true" class="sidebar-menu">
-            <el-menu-item index="/dashboard">
-              <el-icon>
-                <DataAnalysis />
-              </el-icon>
-              <template #title>工作台</template>
-            </el-menu-item>
+          <!-- ① 主业务区 -->
+          <nav class="nav-zone nav-primary">
+            <el-tooltip v-for="item in primaryNavItems" :key="item.path"
+              :content="item.label" placement="right" :disabled="!isCollapse" :show-after="300">
+              <div
+                class="nav-item"
+                :class="{ 'is-active': activeTopNav === item.path }"
+                @click="handleNavClick(item.path)"
+              >
+                <span class="nav-icon" v-html="item.icon"></span>
+                <span v-show="!isCollapse" class="nav-label">{{ item.label }}</span>
+              </div>
+            </el-tooltip>
+          </nav>
 
-            <el-menu-item index="/records">
-              <el-icon>
-                <List />
-              </el-icon>
-              <template #title>记录中心</template>
-            </el-menu-item>
-
-            <el-menu-item index="/favorites">
-              <el-icon>
-                <Star />
-              </el-icon>
-              <template #title>我的收藏</template>
-            </el-menu-item>
-          </el-menu>
-
-          <!-- 文件夹树（仅展开状态显示） -->
-          <div v-show="!isCollapse" class="folder-section">
+          <!-- ② 数据上下文区（仅记录中心模块展开） -->
+          <div class="context-zone-wrapper" :class="{ 'is-visible': isRecordsModule && !isCollapse }">
+            <div class="context-divider">
+              <span v-show="!isCollapse" class="divider-label">我的文件夹</span>
+            </div>
             <div class="folder-quick-nav">
               <div
                 v-for="node in folderStore.tree.filter(n => n.id.startsWith('__'))"
                 :key="node.id"
                 class="quick-nav-item"
-                :class="{ active: folderStore.activeFolderId === node.id }"
+                :class="{ active: folderStore.activeFolderId === node.id && isRecordsModule }"
                 @click="handleFolderSelect(node.id)"
               >
                 <svg class="qn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -63,12 +56,22 @@
             <FolderTree />
           </div>
 
-          <!-- 折叠按钮 -->
-          <div class="collapse-btn" @click="isCollapse = !isCollapse">
-            <el-icon :size="16">
-              <DArrowLeft v-if="!isCollapse" />
-              <DArrowRight v-else />
-            </el-icon>
+          <!-- ③ 系统基石区（绝对沉底） -->
+          <div class="system-zone">
+            <el-tooltip v-for="item in systemNavItems" :key="item.key"
+              :content="item.label" placement="right" :disabled="!isCollapse" :show-after="300">
+              <div class="system-item" @click="item.action && item.action()">
+                <span class="nav-icon" v-html="item.icon"></span>
+                <span v-show="!isCollapse" class="nav-label">{{ item.label }}</span>
+              </div>
+            </el-tooltip>
+            <!-- 折叠按钮 -->
+            <div class="collapse-btn" @click="isCollapse = !isCollapse">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path v-if="!isCollapse" d="M15 18l-6-6 6-6"/>
+                <path v-else d="M9 18l6-6-6-6"/>
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -251,7 +254,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
+  import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useUserStore } from '@/stores'
   import { useWebSocketStore } from '@/stores/websocket'
@@ -270,6 +273,69 @@
   const uploadStore = useUploadStore()
   const folderStore = useFolderStore()
   const favStore = useFavoritesStore()
+
+  // ===== 三段式导航配置 =====
+  const primaryNavItems = [
+    {
+      path: '/dashboard',
+      label: '工作台',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`
+    },
+    {
+      path: '/records',
+      label: '记录中心',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>`
+    },
+    {
+      path: '/favorites',
+      label: '我的收藏',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`
+    },
+    {
+      path: '/risk-dictionary',
+      label: '风险词库管理',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+    }
+  ]
+
+  const systemNavItems = [
+    {
+      key: 'settings',
+      label: '系统设置',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
+      action: () => ElMessage.info('系统设置功能即将上线')
+    },
+    {
+      key: 'help',
+      label: '帮助与文档',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+      action: () => ElMessage.info('帮助文档功能即将上线')
+    }
+  ]
+
+  // ===== 排他性激活逻辑（单一数据源） =====
+  // 顶级激活态：只看路由 path 的第一段
+  const activeTopNav = computed(() => {
+    const path = route.path
+    if (path.startsWith('/records') || path.startsWith('/analysis')) return '/records'
+    if (path.startsWith('/favorites')) return '/favorites'
+    if (path.startsWith('/risk-dictionary')) return '/risk-dictionary'
+    return '/dashboard'
+  })
+
+  // 是否处于记录中心模块（控制数据上下文区显隐）
+  const isRecordsModule = computed(() =>
+    activeTopNav.value === '/records'
+  )
+
+  // 顶级导航点击：清除文件夹激活态（非记录中心时）
+  const handleNavClick = (path: string) => {
+    if (path !== '/records') {
+      // 离开记录中心时，清除文件夹选中态，避免残留高亮
+      folderStore.setActive('')
+    }
+    router.push(path)
+  }
 
   // 侧边栏文件夹快捷导航
   const handleFolderSelect = (folderId: string) => {
@@ -426,52 +492,9 @@
     document.removeEventListener('click', handleClickOutside)
   })
 
-  // 修正收起状态下 tooltip 触发器的 padding，使图标居中（手动逐帧过渡 20px→10px）
-  const fixCollapsedTooltipPadding = () => {
-    const elemList = document.querySelectorAll<HTMLElement>('.el-menu-tooltip__trigger.el-tooltip__trigger');
-    if (elemList.length > 0) {
-      elemList.forEach(elem => {
-        let current = 20;
-        const target = 10;
-        const step = () => {
-          if (current > target) {
-            current-=0.5;
-            elem.style.setProperty('padding-left', `${current}px`, 'important');
-            requestAnimationFrame(step);
-          }
-        };
-        requestAnimationFrame(step);
-      });
-      return true;
-    }
-    return false;
-  };
-
-  const retryFixPadding = () => {
-    if (!fixCollapsedTooltipPadding()) {
-      let retryCount = 0;
-      // 间隔 50ms，最多重试 20 次（共 1s），等待 Transition 动画完成后 DOM 出现
-      const intervalId = setInterval(() => {
-        if (fixCollapsedTooltipPadding() || ++retryCount >= 20) {
-          clearInterval(intervalId);
-        }
-      }, 50);
-    }
-  };
-
-  // 处理侧边栏过渡动画完成
-  const handleSidebarTransitionEnd = (event: TransitionEvent) => {
-    if (event.propertyName !== 'width') return
-    if (isCollapse.value) {
-      retryFixPadding();
-    }
-  }
-
-  // 从分析页退出时，若仍是收起状态，重新修正 padding（DOM 已重建）
-  watch(isAnalysisDetail, (val) => {
-    if (!val && isCollapse.value) {
-      nextTick(() => retryFixPadding());
-    }
+  // 从分析页退出时，若仍是收起状态，无需额外处理
+  watch(isAnalysisDetail, (_val) => {
+    // 保留 watch 以备后续扩展
   })
 
   const handleLogout = () => {
@@ -567,95 +590,145 @@ $purple: #4b70e2;
     }
   }
 
-  .sidebar-menu {
-    border-right: none;
-    background-color: transparent;
-    padding: 10px;
+  // ===== 三段式导航样式 =====
 
-    :deep(.el-menu-item) {
-      height: 48px;
-      line-height: 48px;
-      margin-bottom: 8px;
-      border-radius: 12px;
-      color: $gray;
-      background-color: $neu-1;
-      box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-      transition: all 0.3s;
+  // 通用导航图标
+  .nav-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-      &:hover {
-        color: $purple;
-        box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
-      }
-
-      &.is-active {
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-        color: #fff;
-        box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-      }
-    }
-
-    :deep(.el-menu--collapse) {
-      .el-menu-item {
-        padding: 0 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-
-        // 确保图标居中
-        .el-icon {
-          margin: 0 !important;
-        }
-
-        // 隐藏文字
-        span {
-          display: none;
-        }
-        
-        // 收起状态下保持 active 状态的蓝色样式
-        &.is-active {
-          background: linear-gradient(135deg, $purple 0%, #7c9df7 100%) !important;
-          color: #fff !important;
-          box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white !important;
-        }
-      }
-    }
-
-    // 确保菜单项在收起状态下完全居中
-    :deep(.el-menu--collapse .el-menu-item) {
-      width: 100% !important;
-      text-align: center !important;
+    :deep(svg) {
+      width: 18px;
+      height: 18px;
+      transition: stroke 0.25s;
     }
   }
 
-  .folder-section {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    border-top: 1px solid rgba($neu-2, 0.5);
-    margin-top: 4px;
+  .nav-label {
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.25s;
+  }
 
-    &::-webkit-scrollbar { width: 4px; }
-    &::-webkit-scrollbar-track { background: transparent; }
-    &::-webkit-scrollbar-thumb { background: rgba($neu-2, 0.5); border-radius: 2px; }
+  // ① 主业务区
+  .nav-primary {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    height: 48px;
+    border-radius: 12px;
+    cursor: pointer;
+    color: $gray;
+    background-color: $neu-1;
+    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+
+    &:hover {
+      color: $purple;
+      box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+      transform: translateX(1px);
+    }
+
+    &.is-active {
+      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+      color: #fff;
+      box-shadow: 4px 4px 10px rgba($purple, 0.35), -2px -2px 6px $white;
+      transform: none;
+
+      .nav-icon :deep(svg) { stroke: #fff; }
+    }
+  }
+
+  // 收起状态下主业务区居中
+  &.is-collapsed .nav-item {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+  }
+
+  // ② 数据上下文区（平滑折叠）
+  .context-zone-wrapper {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.25s ease;
+
+    &.is-visible {
+      max-height: 600px;
+      opacity: 1;
+    }
+  }
+
+  .context-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 6px;
+
+    &::before {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba($neu-2, 0.8), transparent);
+    }
+
+    .divider-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: $gray;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      opacity: 0.7;
+    }
+
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba($neu-2, 0.8), transparent);
+    }
   }
 
   // 全部记录 / 未分类 快捷入口
   .folder-quick-nav {
-    padding: 8px 10px 4px;
+    padding: 4px 10px;
+    overflow-y: auto;
+    max-height: 200px;
+
+    &::-webkit-scrollbar { width: 3px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { background: rgba($neu-2, 0.5); border-radius: 2px; }
 
     .quick-nav-item {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 10px;
+      padding: 7px 10px;
       border-radius: 10px;
       cursor: pointer;
       margin-bottom: 2px;
       transition: all 0.2s;
 
       .qn-icon {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         flex-shrink: 0;
         color: $gray;
         transition: color 0.2s;
@@ -664,7 +737,7 @@ $purple: #4b70e2;
       .qn-name {
         flex: 1;
         font-size: 13px;
-        color: $black;
+        color: rgba($black, 0.75);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -672,48 +745,95 @@ $purple: #4b70e2;
 
       .qn-badge {
         font-size: 11px;
-        min-width: 20px;
-        height: 18px;
-        line-height: 18px;
+        min-width: 18px;
+        height: 16px;
+        line-height: 16px;
         text-align: center;
-        border-radius: 9px;
+        border-radius: 8px;
         background: $neu-2;
         color: $gray;
-        padding: 0 6px;
+        padding: 0 5px;
         flex-shrink: 0;
       }
 
       &:hover {
-        background: rgba($purple, 0.06);
+        background: rgba($purple, 0.07);
         .qn-icon { color: $purple; }
+        .qn-name { color: $purple; }
       }
 
       &.active {
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-        box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-        .qn-icon, .qn-name { color: #fff; }
-        .qn-badge { background: rgba(255,255,255,0.25); color: #fff; }
+        background: linear-gradient(135deg, rgba($purple, 0.12) 0%, rgba(#7c9df7, 0.12) 100%);
+        .qn-icon { color: $purple; }
+        .qn-name { color: $purple; font-weight: 600; }
+        .qn-badge { background: rgba($purple, 0.15); color: $purple; }
       }
     }
   }
 
+  // ③ 系统基石区（绝对沉底）
+  .system-zone {
+    margin-top: auto;
+    padding: 8px 10px 10px;
+    border-top: 1px solid rgba($neu-2, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .system-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: rgba($gray, 0.7);
+    transition: all 0.2s;
+    user-select: none;
+
+    .nav-icon :deep(svg) { stroke: rgba($gray, 0.7); }
+
+    .nav-label {
+      font-size: 12.5px;
+      font-weight: 400;
+      color: rgba($gray, 0.7);
+    }
+
+    &:hover {
+      background: rgba($neu-2, 0.4);
+      color: $gray;
+      .nav-icon :deep(svg) { stroke: $gray; }
+      .nav-label { color: $gray; }
+    }
+  }
+
+  &.is-collapsed .system-item {
+    justify-content: center;
+    padding: 8px;
+    gap: 0;
+  }
+
   .collapse-btn {
-    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: $gray;
+    height: 36px;
+    margin: 4px 2px 0;
+    border-radius: 10px;
     cursor: pointer;
-    margin: 10px;
-    margin-top: auto;
-    border-radius: 12px;
-    background-color: $neu-1;
-    box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-    transition: all 0.3s;
+    color: rgba($gray, 0.5);
+    transition: all 0.2s;
+    user-select: none;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
 
     &:hover {
+      background: rgba($neu-2, 0.4);
       color: $purple;
-      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
     }
   }
 

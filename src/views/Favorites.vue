@@ -188,7 +188,7 @@ const setViewMode = (m: 'card' | 'list') => { viewMode.value = m; viewMenuOpen.v
 
 // ── 数据 ──
 const records = ref<AnalysisTaskVO[]>([])
-const loading = ref(false)
+const loading = ref(true)
 const totalRecords = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(12)
