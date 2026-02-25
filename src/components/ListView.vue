@@ -42,10 +42,20 @@
           <div class="thumb-mask" v-if="['DOWNLOADING','PENDING','PROCESSING'].includes(record.status)">
             <div class="thumb-progress" :style="{ width: record.status === 'PENDING' ? '100%' : record.progress + '%' }"></div>
           </div>
-          <!-- 来源角标 -->
-          <span class="thumb-source" :class="record.sourceType === 'URL_IMPORT' ? 'url' : 'local'">
-            <el-icon><Link v-if="record.sourceType === 'URL_IMPORT'" /><Upload v-else /></el-icon>
-          </span>
+          <!-- 收藏按钮 -->
+          <Transition name="fav-btn">
+            <button
+              v-if="record.status === 'COMPLETED'"
+              class="thumb-favorite"
+              :class="{ 'is-favorited': favStore.isFavorited(record.id) }"
+              :title="favStore.isFavorited(record.id) ? '取消收藏' : '收藏'"
+              @click.stop="handleFavorite(record)"
+            >
+              <svg viewBox="0 0 24 24" :fill="favStore.isFavorited(record.id) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+              </svg>
+            </button>
+          </Transition>
         </div>
       </div>
 
@@ -156,11 +166,14 @@
 </template>
 
 <script setup lang="ts">
-import { Check, VideoPlay, Link, Upload, Calendar, View, MoreFilled, Edit, Download, RefreshRight, Close, Delete, School, FolderOpened } from '@element-plus/icons-vue'
+import { Check, VideoPlay, Calendar, View, MoreFilled, Edit, Download, RefreshRight, Close, Delete, School, FolderOpened } from '@element-plus/icons-vue'
 import { formatDate, formatDuration, TASK_STATUS_TEXT, RISK_LEVEL_TEXT } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
 import SourceBadge from './SourceBadge.vue'
 import { computed } from 'vue'
+import { useFavoritesStore } from '@/stores/favorites'
+
+const favStore = useFavoritesStore()
 
 const props = defineProps<{
   records: AnalysisTaskVO[]
@@ -188,7 +201,13 @@ const emit = defineEmits<{
   'show-tooltip': [event: MouseEvent, id: string, url: string]
   'hide-tooltip': []
   'navigate-folder': [folderId: string]
+  'favorite-change': [id: string, isFavorited: boolean]
 }>()
+
+const handleFavorite = async (record: AnalysisTaskVO) => {
+  const newState = await favStore.toggle(record.id)
+  emit('favorite-change', record.id, newState)
+}
 
 // 是否显示"所在位置"列：在全部视图或父文件夹视图下显示
 const showLocationCol = computed(() => {
@@ -386,15 +405,32 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
     }
   }
 
-  .thumb-source {
+  .thumb-favorite {
     position: absolute; top: 5px; right: 5px;
-    width: 18px; height: 18px; border-radius: 5px;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.35);
     display: flex; align-items: center; justify-content: center;
-    font-size: 10px;
-    backdrop-filter: blur(4px);
+    background: rgba(0,0,0,.4);
+    cursor: pointer; color: #fff; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s, background .2s;
+    svg { width: 11px; height: 11px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
 
-    &.local { background: rgba($purple, .85); color: #fff; }
-    &.url   { background: rgba(#1890ff, .85); color: #fff; }
+    &:hover {
+      background: rgba(0,0,0,.6);
+      transform: scale(1.15);
+    }
+
+    &.is-favorited {
+      opacity: 1 !important; pointer-events: auto !important;
+      color: #FADB14;
+      background: rgba(0,0,0,.5);
+      border-color: rgba(255,255,255,.3);
+    }
+  }
+
+  &:hover .thumb-favorite {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 
@@ -580,6 +616,11 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
 .dropdown-leave-active { animation: dd-out .15s ease; }
 @keyframes dd-in { from { opacity: 0; transform: translateY(8px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes dd-out { from { opacity: 1; } to { opacity: 0; transform: translateY(4px); } }
+
+.fav-btn-enter-active { transition: opacity .2s, transform .2s cubic-bezier(.34,1.56,.64,1); }
+.fav-btn-leave-active { transition: opacity .15s; }
+.fav-btn-enter-from { opacity: 0; transform: scale(.6); }
+.fav-btn-leave-to { opacity: 0; }
 
 // ── 所在位置列 ────────────────────────────────────────────
 .col-location {

@@ -64,7 +64,7 @@ export const useUploadStore = defineStore('upload', () => {
   /**
    * 开始上传（后台运行，模态框关闭不中断）
    */
-  async function startUpload(file: File, title: string, folderId?: string): Promise<string> {
+  async function startUpload(file: File, title: string, folderId?: string, selectedPackageIds?: string[]): Promise<string> {
     const wsStore = useWebSocketStore()
     const abortController = new AbortController()
 
@@ -87,12 +87,12 @@ export const useUploadStore = defineStore('upload', () => {
     tasks.value.push(task)
 
     // 3. 后台异步执行上传（不 await，让调用方立即返回 videoId）
-    _doUpload(task, file, title, wsStore).catch(() => {/* 错误已在内部处理 */})
+    _doUpload(task, file, title, wsStore, selectedPackageIds).catch(() => {/* 错误已在内部处理 */})
 
     return videoId
   }
 
-  async function _doUpload(task: UploadTask, file: File, title: string, wsStore: ReturnType<typeof useWebSocketStore>) {
+  async function _doUpload(task: UploadTask, file: File, title: string, wsStore: ReturnType<typeof useWebSocketStore>, selectedPackageIds?: string[]) {
     const { abortController, fileIdentifier, videoId } = task
 
     // 辅助函数：检查任务是否已被中止
@@ -170,7 +170,7 @@ export const useUploadStore = defineStore('upload', () => {
         if (!currentTask || currentTask.status === 'cancelled') {
           return // 已被中止，放弃创建分析任务
         }
-        await createAnalysisTask({ videoId: finalVideoId, taskType: 'FULL_ANALYSIS' })
+        await createAnalysisTask({ videoId: finalVideoId, taskType: 'FULL_ANALYSIS', selectedPackageIds })
         // 创建任务后再次检查（极端情况：createAnalysisTask 期间被中止）
         if (isCancelled()) return
       }

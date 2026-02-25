@@ -228,6 +228,70 @@
             </div>
           </div>
 
+          <!-- 词库挂载配置区块（Slide Down） -->
+          <Transition name="package-panel">
+            <div class="package-panel" v-if="showPackagePanel">
+              <div class="package-panel-header">
+                <div class="package-panel-title">
+                  <svg class="pp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                  </svg>
+                  <span>挂载风险词库</span>
+                  <span class="pp-optional">可选</span>
+                  <el-tooltip
+                    content="系统将根据选中的词库包，对视频语音/文本进行深度风险比对"
+                    placement="top"
+                    :show-after="200"
+                  >
+                    <svg class="pp-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                  </el-tooltip>
+                </div>
+                <span v-if="selectedPackageIds.length > 0" class="pp-selected-count">
+                  已选 {{ selectedPackageIds.length }} 个
+                </span>
+              </div>
+
+              <!-- 加载中 -->
+              <div class="pp-loading" v-if="wordPacksLoading">
+                <el-icon class="rotating"><Loading /></el-icon>
+                <span>加载词库包...</span>
+              </div>
+
+              <!-- 空状态 -->
+              <div class="pp-empty" v-else-if="wordPacks.length === 0">
+                <span>暂无词库包，</span>
+                <a class="pp-link" @click="router.push('/risk-dictionary'); emit('update:visible', false)">去创建</a>
+              </div>
+
+              <!-- 词库包标签阵列 -->
+              <div class="pp-tags" v-else>
+                <button
+                  v-for="pack in wordPacks"
+                  :key="pack.id"
+                  class="pp-tag"
+                  :class="{ 'is-selected': selectedPackageIds.includes(pack.id) }"
+                  @click="togglePackage(pack.id)"
+                >
+                  <span
+                    class="pp-tag-dot"
+                    :style="{ background: levelColorMap[pack.level] }"
+                  ></span>
+                  <span class="pp-tag-name">{{ pack.name }}</span>
+                  <span class="pp-tag-count" v-if="pack.wordCount">{{ pack.wordCount }}词</span>
+                  <svg v-if="selectedPackageIds.includes(pack.id)" class="pp-tag-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </Transition>
+
           <!-- 底部操作 -->
           <div class="modal-footer">
             <template v-if="localState.status === 'uploading' && activeTab === 'local'">
@@ -253,11 +317,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, type UploadFile } from 'element-plus'
-import { createUrlImportTask, validateImportUrl, savePlatformCookies } from '@/api'
+import { createUrlImportTask, validateImportUrl, savePlatformCookies, getWordPackBriefList } from '@/api'
 import { useUploadStore } from '@/stores/upload'
 import { formatFileSize } from '@/types'
+import type { WordPackVO } from '@/types'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const props = defineProps<{
   visible: boolean
@@ -308,6 +376,50 @@ const cookiePanel = reactive({
   content: '',
   saving: false,
   saved: false,
+})
+
+// 词库包状态
+const wordPacks = ref<WordPackVO[]>([])
+const selectedPackageIds = ref<string[]>([])
+const wordPacksLoading = ref(false)
+
+// 是否展示词库挂载区块（文件已选 or URL 已验证通过）
+const showPackagePanel = computed(() => {
+  if (activeTab.value === 'local') {
+    return !!localState.file && localState.status !== 'uploading'
+  }
+  return !!urlState.validatedTitle
+})
+
+// 加载词库包列表
+const loadWordPacks = async () => {
+  if (wordPacks.value.length > 0) return
+  wordPacksLoading.value = true
+  try {
+    const res = await getWordPackBriefList()
+    if (res.code === 200) wordPacks.value = res.data || []
+  } finally {
+    wordPacksLoading.value = false
+  }
+}
+
+// 切换词库包选中状态
+const togglePackage = (id: string) => {
+  const idx = selectedPackageIds.value.indexOf(id)
+  if (idx === -1) selectedPackageIds.value.push(id)
+  else selectedPackageIds.value.splice(idx, 1)
+}
+
+// 词库包风险等级颜色映射
+const levelColorMap: Record<string, string> = {
+  high: '#e74c3c',
+  medium: '#f39c12',
+  low: '#27ae60',
+}
+
+// 当展示词库面板时，自动加载
+watch(showPackagePanel, (val) => {
+  if (val) loadWordPacks()
 })
 
 // 防抖 timer
@@ -427,6 +539,7 @@ function resetForm() {
   cookiePanel.content = ''
   cookiePanel.saving = false
   cookiePanel.saved = false
+  selectedPackageIds.value = []
   if (validateTimer) { clearTimeout(validateTimer); validateTimer = null }
   uploadRef.value?.clearFiles?.()
 }
@@ -509,7 +622,12 @@ const handleLocalUpload = async () => {
   localState.progress = 0
 
   try {
-    const videoId = await uploadStore.startUpload(file, localState.title.trim(), props.folderId)
+    const videoId = await uploadStore.startUpload(
+      file,
+      localState.title.trim(),
+      props.folderId,
+      selectedPackageIds.value.length > 0 ? [...selectedPackageIds.value] : undefined
+    )
     localState.videoId = videoId
 
     // 轮询 store 中该任务的进度，同步到本地 UI
@@ -602,7 +720,8 @@ const handleUrlImport = async () => {
       url,
       title: finalTitle,
       taskType: 'FULL_ANALYSIS',
-      folderId: props.folderId
+      folderId: props.folderId,
+      selectedPackageIds: selectedPackageIds.value.length > 0 ? [...selectedPackageIds.value] : undefined
     })
     if (res.code === 200) {
       ElMessage.success('任务创建成功，视频正在下载中')
@@ -1203,6 +1322,189 @@ $purple: #4b70e2;
 @keyframes rotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+// ===== 词库挂载配置面板 =====
+.package-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(75, 112, 226, 0.12);
+  box-shadow: 0 2px 12px rgba(75, 112, 226, 0.06);
+  overflow: hidden;
+}
+
+.package-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.package-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+
+  .pp-icon {
+    width: 14px;
+    height: 14px;
+    color: $purple;
+    flex-shrink: 0;
+  }
+
+  .pp-optional {
+    font-size: 10px;
+    font-weight: 400;
+    color: $gray;
+    padding: 1px 6px;
+    border-radius: 20px;
+    background: rgba($gray, 0.1);
+  }
+
+  .pp-help {
+    width: 13px;
+    height: 13px;
+    color: $gray;
+    cursor: help;
+    flex-shrink: 0;
+    transition: color 0.2s;
+
+    &:hover { color: $purple; }
+  }
+}
+
+.pp-selected-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: $purple;
+  background: rgba($purple, 0.08);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.pp-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: $gray;
+  padding: 4px 0;
+}
+
+.pp-empty {
+  font-size: 12px;
+  color: $gray;
+  padding: 4px 0;
+
+  .pp-link {
+    color: $purple;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+    &:hover { text-decoration: underline; }
+  }
+}
+
+.pp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px 6px 3px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: $neu-1;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+  font-family: 'Montserrat', sans-serif;
+
+  &:hover {
+    border-color: rgba($purple, 0.4);
+    color: $purple;
+    box-shadow: 1px 1px 3px $neu-2, -1px -1px 3px $white;
+  }
+
+  &.is-selected {
+    border-color: $purple;
+    background: rgba($purple, 0.06);
+    color: $purple;
+    box-shadow: inset 1px 1px 3px rgba($purple, 0.1), 1px 1px 3px $neu-2;
+  }
+
+  .pp-tag-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .pp-tag-name {
+    line-height: 1;
+  }
+
+  .pp-tag-count {
+    font-size: 10px;
+    color: $gray;
+    opacity: 0.8;
+  }
+
+  &.is-selected .pp-tag-count {
+    color: rgba($purple, 0.6);
+  }
+
+  .pp-tag-check {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    color: $purple;
+  }
+}
+
+// 词库面板展开动画（Slide Down）
+.package-panel-enter-active {
+  transition: all 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.package-panel-leave-active {
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.package-panel-enter-from {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.package-panel-enter-to {
+  opacity: 1;
+  max-height: 300px;
+}
+.package-panel-leave-from {
+  opacity: 1;
+  max-height: 300px;
+}
+.package-panel-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 // 模态框动画

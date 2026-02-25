@@ -29,7 +29,7 @@
     />
 
     <!-- 空状态 -->
-    <div class="empty-hint" v-if="userNodes.length === 0 && !loading">
+    <div class="empty-hint" v-if="userNodes.length === 0 && !loading && !creatingRoot">
       <span>暂无自定义文件夹</span>
     </div>
 

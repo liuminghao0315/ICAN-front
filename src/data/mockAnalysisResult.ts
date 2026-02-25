@@ -279,6 +279,16 @@ export interface AnalysisResult {
   
   // 场景识别
   sceneRecognition: SceneInfo[]
+
+  // 挂载的风险词库包（可选，从后端任务关联获取）
+  wordPacks?: {
+    id: string
+    name: string
+    description?: string
+    level?: string
+    wordCount?: number
+    words?: { id: string; text: string; risk: string }[]
+  }[]
 }
 
 // ==================== Mock数据（模拟Python后端返回的完整分析结果） ====================

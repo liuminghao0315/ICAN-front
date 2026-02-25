@@ -89,6 +89,7 @@
           @delete="handleDelete"
           @show-tooltip="showTooltip"
           @hide-tooltip="scheduleHideTooltip"
+          @favorite-change="handleFavoriteChange"
         />
       </div>
     </Transition>
@@ -476,9 +477,8 @@ $shadow-sm: 4px 4px 10px $neu-2, -4px -4px 10px $white;
 }
 
 // ── 过渡 ──
-.view-fade-enter-active, .view-fade-leave-active { transition: opacity .2s, transform .2s; }
-.view-fade-leave-active { position: absolute; width: 100%; pointer-events: none; }
-.view-fade-enter-from, .view-fade-leave-to { opacity: 0; transform: translateY(6px); }
+.view-fade-enter-active, .view-fade-leave-active { transition: opacity .2s; }
+.view-fade-enter-from, .view-fade-leave-to { opacity: 0; }
 .empty-fade-enter-active { transition: opacity .35s ease .15s; }
 .empty-fade-leave-active { transition: opacity .2s ease; }
 .empty-fade-enter-from, .empty-fade-leave-to { opacity: 0; }
@@ -489,6 +489,6 @@ $shadow-sm: 4px 4px 10px $neu-2, -4px -4px 10px $white;
 .tooltip-fade-enter-active, .tooltip-fade-leave-active { transition: opacity .15s; }
 .tooltip-fade-enter-from, .tooltip-fade-leave-to { opacity: 0; }
 .pagination-fade-enter-active { transition: opacity .25s ease, transform .25s ease; }
-.pagination-fade-leave-active { transition: opacity .2s ease, transform .2s ease; }
-.pagination-fade-enter-from, .pagination-fade-leave-to { opacity: 0; transform: translateY(6px); }
+.pagination-fade-leave-active { transition: opacity .2s ease; }
+.pagination-fade-enter-from, .pagination-fade-leave-to { opacity: 0; }
 </style>

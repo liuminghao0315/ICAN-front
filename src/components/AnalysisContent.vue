@@ -122,6 +122,44 @@
                     </span>
                   </div>
                 </div>
+
+                <!-- 挂载的风险词库包 -->
+                <div
+                  v-if="analysisResult.wordPacks && analysisResult.wordPacks.length > 0"
+                  class="detected-keywords-row word-packs-row"
+                >
+                  <div class="feature-label">
+                    <el-icon :size="14"><Warning /></el-icon>
+                    分析词库:
+                  </div>
+                  <div class="keywords-container">
+                    <el-tooltip
+                      v-for="pack in analysisResult.wordPacks"
+                      :key="pack.id"
+                      placement="bottom"
+                      :show-after="200"
+                    >
+                      <template #content>
+                        <div class="pack-tooltip-content">
+                          <div class="pack-tooltip-header">{{ pack.name }}</div>
+                          <div v-if="pack.description" class="pack-tooltip-desc">{{ pack.description }}</div>
+                          <div class="pack-tooltip-words">
+                            <span v-for="(w, wi) in (pack.words || [])" :key="wi" class="pack-tooltip-word">{{ w.text }}</span>
+                            <span v-if="!pack.words || pack.words.length === 0" class="pack-tooltip-empty">暂无词汇</span>
+                          </div>
+                        </div>
+                      </template>
+                      <span
+                        class="keyword-tag-detected word-pack-tag"
+                        :class="`pack-level-${pack.level || 'medium'}`"
+                      >
+                        <el-icon :size="12"><Collection /></el-icon>
+                        {{ pack.name }}
+                        <span class="pack-word-count">({{ pack.wordCount || (pack.words && pack.words.length) || 0 }})</span>
+                      </span>
+                    </el-tooltip>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1503,6 +1541,8 @@ import {
   ChatDotRound,
   TrendCharts,
   WarningFilled,
+  Warning,
+  Collection,
   DocumentChecked,
   Male,
   Female,
@@ -9699,6 +9739,77 @@ $purple: #4b70e2;
   border-color: rgba(230, 162, 60, 0.4);
   color: #e6a23c;
   font-weight: 600;
+}
+
+/* 词库包标签样式 */
+.word-packs-row {
+  margin-top: 4px;
+}
+
+.word-pack-tag {
+  gap: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.word-pack-tag .pack-word-count {
+  opacity: 0.7;
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.word-pack-tag.pack-level-high {
+  background: rgba(245, 108, 108, 0.12);
+  border-color: rgba(245, 108, 108, 0.35);
+  color: #f56c6c;
+}
+
+.word-pack-tag.pack-level-medium {
+  background: rgba(230, 162, 60, 0.12);
+  border-color: rgba(230, 162, 60, 0.35);
+  color: #e6a23c;
+}
+
+.word-pack-tag.pack-level-low {
+  background: rgba(103, 194, 58, 0.12);
+  border-color: rgba(103, 194, 58, 0.35);
+  color: #67c23a;
+}
+
+/* 词库包悬浮提示样式 */
+.pack-tooltip-content {
+  max-width: 280px;
+}
+
+.pack-tooltip-header {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.pack-tooltip-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 6px;
+}
+
+.pack-tooltip-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pack-tooltip-word {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.pack-tooltip-empty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* AI 侧写相关样式 */

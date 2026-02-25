@@ -1332,8 +1332,8 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 }
 // 底部工具栏淡入淡出
 .pagination-fade-enter-active { transition: opacity .25s ease, transform .25s ease; }
-.pagination-fade-leave-active { transition: opacity .2s ease, transform .2s ease; }
-.pagination-fade-enter-from, .pagination-fade-leave-to { opacity: 0; transform: translateY(6px); }
+.pagination-fade-leave-active { transition: opacity .2s ease; }
+.pagination-fade-enter-from, .pagination-fade-leave-to { opacity: 0; }
 
 .neu-pagination {
   display: flex; align-items: center; gap: 16px;
@@ -1411,9 +1411,8 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 // ── 视图切换淡入淡出 ──────────────────────────────
 .view-fade-enter-active { transition: opacity .2s ease, transform .2s ease; }
-.view-fade-leave-active { transition: opacity .15s ease, transform .15s ease; position: absolute; width: 100%; pointer-events: none; }
-.view-fade-enter-from { opacity: 0; transform: translateY(6px); }
-.view-fade-leave-to { opacity: 0; transform: translateY(-4px); }
+.view-fade-enter-active, .view-fade-leave-active { transition: opacity .15s ease; }
+.view-fade-enter-from, .view-fade-leave-to { opacity: 0; }
 
 // ── 空状态过渡 ────────────────────────────────────
 .empty-fade-enter-active { transition: opacity .35s ease .15s; }

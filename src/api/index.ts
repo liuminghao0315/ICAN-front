@@ -13,6 +13,7 @@ import type {
   RiskDistribution,
   UploadTrendItem,
   TotalStats,
+  WordPackVO,
   TaskStatus,
   RiskLevel,
   SourceType
@@ -633,6 +634,8 @@ export interface UrlImportParams {
   title?: string
   taskType?: string
   folderId?: string
+  /** 挂载的风险词库包 ID 列表 */
+  selectedPackageIds?: string[]
 }
 
 // URL导入创建任务
@@ -726,5 +729,72 @@ export const getFavoriteList = async (params: {
   sortDir?: string
 }): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
   const response = await api.get<ApiResponse<PageResult<AnalysisTaskVO>>>('/api/favorite/list', { params })
+  return response.data
+}
+
+// ==================== 词库包接口 ====================
+
+/**
+ * 获取词库包列表（含词汇详情，用于词库管理页面）
+ */
+export const getWordPackList = async (): Promise<ApiResponse<WordPackVO[]>> => {
+  const response = await api.get<ApiResponse<WordPackVO[]>>('/api/word-pack/list')
+  return response.data
+}
+
+/**
+ * 获取词库包简要列表（用于新建任务时选择）
+ */
+export const getWordPackBriefList = async (): Promise<ApiResponse<WordPackVO[]>> => {
+  const response = await api.get<ApiResponse<WordPackVO[]>>('/api/word-pack/brief')
+  return response.data
+}
+
+/**
+ * 创建词库包
+ */
+export const createWordPack = async (data: {
+  name: string
+  description?: string
+  level?: string
+  words?: { text: string; risk?: string }[]
+}): Promise<ApiResponse<WordPackVO>> => {
+  const response = await api.post<ApiResponse<WordPackVO>>('/api/word-pack', data)
+  return response.data
+}
+
+/**
+ * 更新词库包
+ */
+export const updateWordPack = async (packId: string, data: {
+  name?: string
+  description?: string
+  level?: string
+}): Promise<ApiResponse<WordPackVO>> => {
+  const response = await api.put<ApiResponse<WordPackVO>>(`/api/word-pack/${packId}`, data)
+  return response.data
+}
+
+/**
+ * 删除词库包
+ */
+export const deleteWordPack = async (packId: string): Promise<ApiResponse<void>> => {
+  const response = await api.delete<ApiResponse<void>>(`/api/word-pack/${packId}`)
+  return response.data
+}
+
+/**
+ * 向词库包添加词汇
+ */
+export const addWordsToWordPack = async (packId: string, words: { text: string; risk?: string }[]): Promise<ApiResponse<void>> => {
+  const response = await api.post<ApiResponse<void>>(`/api/word-pack/${packId}/words`, words)
+  return response.data
+}
+
+/**
+ * 删除词汇
+ */
+export const deleteWordFromPack = async (wordId: string): Promise<ApiResponse<void>> => {
+  const response = await api.delete<ApiResponse<void>>(`/api/word-pack/word/${wordId}`)
   return response.data
 }

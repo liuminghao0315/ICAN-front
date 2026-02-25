@@ -1287,15 +1287,18 @@ $purple: #4b70e2;
 
 
 .main-content {
-  padding: 20px;
-  padding-right: 20px;
-  margin-right: 4px;
+  padding: 24px;
+  padding-right: 24px;
+  margin-right: 0;
   overflow-y: auto;
   overflow-x: hidden;
   width: 100%;
   min-width: 0; // 防止 flex 子元素溢出
   // 使用与 header 完全一致的纯色背景
   background-color: #ebf0f2;
+  // 让子路由视图能撑满高度（词库管理等固定高度页面需要）
+  display: flex;
+  flex-direction: column;
 
   &::-webkit-scrollbar {
     width: 6px;

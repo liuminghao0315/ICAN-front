@@ -69,6 +69,12 @@ const router = createRouter({
           name: 'Favorites',
           component: () => import('@/views/Favorites.vue'),
           meta: { title: '我的收藏' }
+        },
+        {
+          path: 'risk-dictionary',
+          name: 'RiskDictionary',
+          component: () => import('@/views/RiskWordLibrary.vue'),
+          meta: { title: '风险词库管理' }
         }
       ]
     },

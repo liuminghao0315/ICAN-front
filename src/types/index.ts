@@ -111,12 +111,40 @@ export type TaskType = 'FULL_ANALYSIS' | 'VIDEO_ONLY' | 'AUDIO_ONLY' | 'TEXT_ONL
 export type TaskStatus = 'DOWNLOADING' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
 /**
+ * 词库包风险等级
+ */
+export type WordPackRiskLevel = 'high' | 'medium' | 'low'
+
+/**
+ * 词库包中的词汇项
+ */
+export interface WordPackWordItem {
+  id: string
+  text: string
+  risk: string
+}
+
+/**
+ * 词库包（用于挂载到分析任务）
+ */
+export interface WordPackVO {
+  id: string
+  name: string
+  description: string
+  level: WordPackRiskLevel
+  wordCount?: number
+  words?: WordPackWordItem[]
+}
+
+/**
  * 创建分析任务请求
  */
 export interface AnalysisTaskDTO {
   videoId: string
   taskType?: TaskType
   forceRestart?: boolean
+  /** 挂载的风险词库包 ID 列表 */
+  selectedPackageIds?: string[]
 }
 
 /**
@@ -160,6 +188,8 @@ export interface AnalysisTaskVO {
   folderId?: string | null
   /** 是否已收藏 */
   isFavorited?: boolean
+  /** 挂载的风险词库包列表 */
+  wordPacks?: WordPackVO[]
 }
 
 // ==================== 分析结果模块 ====================
