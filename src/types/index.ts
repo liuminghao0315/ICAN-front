@@ -158,6 +158,8 @@ export interface AnalysisTaskVO {
   folderName?: string | null
   /** 视频所在文件夹 ID */
   folderId?: string | null
+  /** 是否已收藏 */
+  isFavorited?: boolean
 }
 
 // ==================== 分析结果模块 ====================
@@ -428,6 +430,8 @@ export interface TaskProgressData {
   title?: string
   /** 下载完成后的视频可访问URL，用于前端截帧生成缩略图 */
   videoUrl?: string
+  /** 下载完成后的缩略图URL，直接显示在卡片封面 */
+  thumbnailUrl?: string
   moduleType?: string  // 模块类型：audio/video/text/integration
   resultData?: any     // 该模块的分析结果数据
 }

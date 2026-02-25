@@ -63,6 +63,12 @@ const router = createRouter({
           name: 'Analysis',
           component: () => import('@/views/Analysis.vue'),
           meta: { title: '分析结果' }
+        },
+        {
+          path: 'favorites',
+          name: 'Favorites',
+          component: () => import('@/views/Favorites.vue'),
+          meta: { title: '我的收藏' }
         }
       ]
     },

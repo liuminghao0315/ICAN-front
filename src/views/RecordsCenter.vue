@@ -174,7 +174,7 @@
           @card-click="handleCardClick"
           @toggle-select="toggleSelect"
           @toggle-menu="toggleMenu"
-          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId } })"
+          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId, taskId: r.id } })"
           @preview="handlePreview"
           @rename="handleRename"
           @move-to-folder="handleMoveToFolder"
@@ -200,7 +200,7 @@
           @card-click="handleCardClick"
           @toggle-select="toggleSelect"
           @toggle-menu="toggleMenu"
-          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId } })"
+          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId, taskId: r.id } })"
           @preview="handlePreview"
           @rename="handleRename"
           @move-to-folder="handleMoveToFolder"
@@ -217,6 +217,7 @@
     </Transition>
 
     <!-- 空状态 -->
+    <Transition name="empty-fade">
     <div class="empty-state" v-if="!loading && records.length === 0">
       <div class="empty-icon"><el-icon :size="36"><FolderOpened /></el-icon></div>
       <h3>{{ hasActiveFilters ? '未找到匹配的记录' : '暂无记录' }}</h3>
@@ -228,6 +229,7 @@
         <el-icon><Plus /></el-icon>新建分析任务
       </button>
     </div>
+    </Transition>
 
     <!-- 加载 -->
     <div class="loading-state" v-if="loading">
@@ -374,6 +376,7 @@ import { getTaskList, cancelTask, deleteVideo, renameVideo, retryTask } from '@/
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useFolderStore } from '@/stores/folder'
+import { useFavoritesStore } from '@/stores/favorites'
 import { useExportReport } from '@/composables/useExportReport'
 import { formatDate } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
@@ -386,6 +389,7 @@ import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
 const router = useRouter()
 const wsStore = useWebSocketStore()
 const folderStore = useFolderStore()
+const favStore = useFavoritesStore()
 const { exportReportById, exportReportsByIds, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
 
@@ -611,6 +615,8 @@ const fetchAndApplyRecords = async () => {
       return true
     })
     totalRecords.value = total
+    // 同步收藏状态到 favoritesStore，确保卡片收藏图标正确显示
+    favStore.syncFromList(records.value)
   }
 }
 
@@ -653,7 +659,7 @@ const toggleSelectAll = () => {
 const handleCardClick = (record: AnalysisTaskVO) => {
   if (batchMode.value) { toggleSelect(record.id); return }
   if (record.status === 'COMPLETED' && record.hasResult && record.resultId) {
-    router.push({ path: '/analysis', query: { resultId: record.resultId } })
+    router.push({ path: '/analysis', query: { resultId: record.resultId, taskId: record.id } })
   } else if (record.status === 'DOWNLOADING') {
     ElMessage.info('视频正在下载中，请稍候...')
   } else if (record.status === 'CANCELLED') {
@@ -902,9 +908,12 @@ subscribeProgress((data) => {
     if (data.stage === 'FETCHING_TITLE' && data.title) {
       record.videoTitle = data.title
     }
-    // 下载完成阶段：后端上传 MinIO 后推送 videoUrl，触发前端截帧生成缩略图
+    // 下载完成阶段：后端上传 MinIO 后推送 videoUrl + thumbnailUrl，立即更新卡片
     if (data.stage === 'PENDING' && data.videoUrl) {
       record.videoUrl = data.videoUrl
+    }
+    if (data.stage === 'PENDING' && data.thumbnailUrl) {
+      record.thumbnailUrl = data.thumbnailUrl
     }
   }
 })
@@ -957,7 +966,7 @@ $shadow-lg:  12px 12px 28px darken($neu-2, 8%), -12px -12px 28px $white;
 $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 // ── 布局 ──────────────────────────────────────────
-.records-center { width: 100%; }
+.records-center { width: 100%; position: relative; }
 
 // ── 面包屑导航 ────────────────────────────────────
 .breadcrumb-nav {
@@ -1402,9 +1411,14 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 // ── 视图切换淡入淡出 ──────────────────────────────
 .view-fade-enter-active { transition: opacity .2s ease, transform .2s ease; }
-.view-fade-leave-active { transition: opacity .15s ease, transform .15s ease; }
+.view-fade-leave-active { transition: opacity .15s ease, transform .15s ease; position: absolute; width: 100%; pointer-events: none; }
 .view-fade-enter-from { opacity: 0; transform: translateY(6px); }
 .view-fade-leave-to { opacity: 0; transform: translateY(-4px); }
+
+// ── 空状态过渡 ────────────────────────────────────
+.empty-fade-enter-active { transition: opacity .35s ease .15s; }
+.empty-fade-leave-active { transition: opacity .2s ease; }
+.empty-fade-enter-from, .empty-fade-leave-to { opacity: 0; }
 
 // ── 动画 ──────────────────────────────────────────
 .rotating { animation: rotate 1s linear infinite; }

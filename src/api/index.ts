@@ -700,3 +700,31 @@ export const moveVideosToFolder = async (videoIds: string[], folderId: string | 
   const response = await api.put<ApiResponse<void>>('/api/folder/move-videos', { videoIds, folderId })
   return response.data
 }
+
+// ==================== 收藏模块 ====================
+
+/** 收藏一个分析任务 */
+export const favoriteTask = async (taskId: string): Promise<ApiResponse<void>> => {
+  const response = await api.post<ApiResponse<void>>(`/api/favorite/${taskId}`)
+  return response.data
+}
+
+/** 取消收藏一个分析任务 */
+export const unfavoriteTask = async (taskId: string): Promise<ApiResponse<void>> => {
+  const response = await api.delete<ApiResponse<void>>(`/api/favorite/${taskId}`)
+  return response.data
+}
+
+/** 获取收藏列表（分页） */
+export const getFavoriteList = async (params: {
+  page?: number
+  size?: number
+  keyword?: string
+  riskLevel?: string
+  sourceType?: string
+  sortField?: string
+  sortDir?: string
+}): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
+  const response = await api.get<ApiResponse<PageResult<AnalysisTaskVO>>>('/api/favorite/list', { params })
+  return response.data
+}

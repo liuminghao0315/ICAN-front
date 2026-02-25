@@ -1,63 +1,129 @@
 <template>
   <el-container class="main-layout">
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapse ? '64px' : '240px'" class="sidebar" :class="{ 'is-collapsed': isCollapse }"
-      @transitionend="handleSidebarTransitionEnd">
-      <div class="logo" @click="router.push('/')">
-        <div class="logo-icon">
-          <el-icon :size="24">
-            <VideoCamera />
-          </el-icon>
-        </div>
-        <span v-show="!isCollapse" class="logo-text">SynSight</span>
-      </div>
+    <el-aside
+      :width="isAnalysisDetail ? '64px' : (isCollapse ? '64px' : '240px')"
+      class="sidebar"
+      :class="{ 'is-collapsed': isCollapse || isAnalysisDetail, 'is-analysis-mode': isAnalysisDetail }"
+      @transitionend="handleSidebarTransitionEnd"
+    >
+      <!-- 普通导航模式 -->
+      <Transition name="sidebar-switch" mode="out-in">
+        <div v-if="!isAnalysisDetail" key="normal-nav" class="sidebar-normal">
+          <div class="logo" @click="router.push('/')">
+            <div class="logo-icon">
+              <el-icon :size="24">
+                <VideoCamera />
+              </el-icon>
+            </div>
+            <span v-show="!isCollapse" class="logo-text">SynSight</span>
+          </div>
 
-      <el-menu :default-active="route.path" :collapse="isCollapse" :router="true" class="sidebar-menu">
-        <el-menu-item index="/dashboard">
-          <el-icon>
-            <DataAnalysis />
-          </el-icon>
-          <template #title>工作台</template>
-        </el-menu-item>
+          <el-menu :default-active="route.path" :collapse="isCollapse" :router="true" class="sidebar-menu">
+            <el-menu-item index="/dashboard">
+              <el-icon>
+                <DataAnalysis />
+              </el-icon>
+              <template #title>工作台</template>
+            </el-menu-item>
 
-        <el-menu-item index="/records">
-          <el-icon>
-            <List />
-          </el-icon>
-          <template #title>记录中心</template>
-        </el-menu-item>
-      </el-menu>
+            <el-menu-item index="/records">
+              <el-icon>
+                <List />
+              </el-icon>
+              <template #title>记录中心</template>
+            </el-menu-item>
 
-      <!-- 文件夹树（仅展开状态显示） -->
-      <div v-show="!isCollapse" class="folder-section">
-        <!-- 全部记录 / 未分类 快捷入口 -->
-        <div class="folder-quick-nav">
-          <div
-            v-for="node in folderStore.tree.filter(n => n.id.startsWith('__'))"
-            :key="node.id"
-            class="quick-nav-item"
-            :class="{ active: folderStore.activeFolderId === node.id }"
-            @click="handleFolderSelect(node.id)"
-          >
-            <svg class="qn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path v-if="node.id === '__ALL__'" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-              <path v-else d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-            </svg>
-            <span class="qn-name">{{ node.name }}</span>
-            <span class="qn-badge" v-if="node.videoCount > 0">{{ node.videoCount }}</span>
+            <el-menu-item index="/favorites">
+              <el-icon>
+                <Star />
+              </el-icon>
+              <template #title>我的收藏</template>
+            </el-menu-item>
+          </el-menu>
+
+          <!-- 文件夹树（仅展开状态显示） -->
+          <div v-show="!isCollapse" class="folder-section">
+            <div class="folder-quick-nav">
+              <div
+                v-for="node in folderStore.tree.filter(n => n.id.startsWith('__'))"
+                :key="node.id"
+                class="quick-nav-item"
+                :class="{ active: folderStore.activeFolderId === node.id }"
+                @click="handleFolderSelect(node.id)"
+              >
+                <svg class="qn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path v-if="node.id === '__ALL__'" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                  <path v-else d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                </svg>
+                <span class="qn-name">{{ node.name }}</span>
+                <span class="qn-badge" v-if="node.videoCount > 0">{{ node.videoCount }}</span>
+              </div>
+            </div>
+            <FolderTree />
+          </div>
+
+          <!-- 折叠按钮 -->
+          <div class="collapse-btn" @click="isCollapse = !isCollapse">
+            <el-icon :size="16">
+              <DArrowLeft v-if="!isCollapse" />
+              <DArrowRight v-else />
+            </el-icon>
           </div>
         </div>
-        <!-- 自定义文件夹树 -->
-        <FolderTree />
-      </div>
 
-      <!-- 折叠按钮 -->
-      <div class="collapse-btn" @click="isCollapse = !isCollapse">
-        <el-icon :size="16">
-          <DArrowLeft v-if="!isCollapse" />
-          <DArrowRight v-else />
-        </el-icon>
-      </div>
+        <!-- 分析详情工具栏模式 -->
+        <aside v-else key="analysis-toolbar" class="mini-sidebar">
+          <!-- 顶部：返回记录中心 -->
+          <div class="mini-sidebar-top">
+            <el-tooltip content="返回记录中心" placement="right" :show-after="300">
+              <button class="analysis-tool-btn back-btn" @click="router.push('/records')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5"/>
+                  <path d="M12 19l-7-7 7-7"/>
+                </svg>
+              </button>
+            </el-tooltip>
+          </div>
+
+          <!-- 底部：操作工具组 -->
+          <div class="mini-sidebar-bottom">
+            <el-tooltip content="导出报告" placement="right" :show-after="300">
+              <button class="analysis-tool-btn" @click="$emit('export')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="7,10 12,15 17,10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </button>
+            </el-tooltip>
+
+            <el-tooltip content="分享" placement="right" :show-after="300">
+              <button class="analysis-tool-btn" @click="$emit('share')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"/>
+                  <circle cx="6" cy="12" r="3"/>
+                  <circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              </button>
+            </el-tooltip>
+
+            <el-tooltip :content="isAnalysisFavorited ? '取消收藏' : '收藏'" placement="right" :show-after="300">
+              <button
+                class="analysis-tool-btn"
+                :class="{ 'is-favorited': isAnalysisFavorited }"
+                @click="handleAnalysisFavorite"
+              >
+                <svg viewBox="0 0 24 24" :fill="isAnalysisFavorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                </svg>
+              </button>
+            </el-tooltip>
+          </div>
+        </aside>
+      </Transition>
     </el-aside>
 
     <!-- 主内容区 -->
@@ -185,15 +251,17 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+  import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useUserStore } from '@/stores'
   import { useWebSocketStore } from '@/stores/websocket'
   import { useUploadStore } from '@/stores/upload'
   import { useFolderStore } from '@/stores/folder'
+  import { useFavoritesStore } from '@/stores/favorites'
   import { getTaskList } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
   import FolderTree from '@/components/FolderTree.vue'
+  import { ElMessage } from 'element-plus'
 
   const router = useRouter()
   const route = useRoute()
@@ -201,11 +269,29 @@
   const wsStore = useWebSocketStore()
   const uploadStore = useUploadStore()
   const folderStore = useFolderStore()
+  const favStore = useFavoritesStore()
 
   // 侧边栏文件夹快捷导航
   const handleFolderSelect = (folderId: string) => {
     folderStore.setActive(folderId)
     router.push('/records')
+  }
+
+  // 检测是否处于分析详情页（Analysis 路由）
+  const isAnalysisDetail = computed(() => route.name === 'Analysis')
+
+  // 分析页收藏按钮：从路由参数获取 taskId
+  const analysisTaskId = computed(() => route.query.taskId as string | undefined)
+  const isAnalysisFavorited = computed(() =>
+    analysisTaskId.value ? favStore.isFavorited(analysisTaskId.value) : false
+  )
+  const handleAnalysisFavorite = async () => {
+    if (!analysisTaskId.value) {
+      ElMessage.warning('无法获取任务信息，请从记录中心进入分析页')
+      return
+    }
+    await favStore.toggle(analysisTaskId.value)
+    ElMessage.success(isAnalysisFavorited.value ? '已取消收藏' : '收藏成功')
   }
 
   const isCollapse = ref(false)
@@ -340,37 +426,53 @@
     document.removeEventListener('click', handleClickOutside)
   })
 
+  // 修正收起状态下 tooltip 触发器的 padding，使图标居中（手动逐帧过渡 20px→10px）
+  const fixCollapsedTooltipPadding = () => {
+    const elemList = document.querySelectorAll<HTMLElement>('.el-menu-tooltip__trigger.el-tooltip__trigger');
+    if (elemList.length > 0) {
+      elemList.forEach(elem => {
+        let current = 20;
+        const target = 10;
+        const step = () => {
+          if (current > target) {
+            current-=0.5;
+            elem.style.setProperty('padding-left', `${current}px`, 'important');
+            requestAnimationFrame(step);
+          }
+        };
+        requestAnimationFrame(step);
+      });
+      return true;
+    }
+    return false;
+  };
+
+  const retryFixPadding = () => {
+    if (!fixCollapsedTooltipPadding()) {
+      let retryCount = 0;
+      // 间隔 50ms，最多重试 20 次（共 1s），等待 Transition 动画完成后 DOM 出现
+      const intervalId = setInterval(() => {
+        if (fixCollapsedTooltipPadding() || ++retryCount >= 20) {
+          clearInterval(intervalId);
+        }
+      }, 50);
+    }
+  };
+
   // 处理侧边栏过渡动画完成
   const handleSidebarTransitionEnd = (event: TransitionEvent) => {
-    // 只处理 width 属性的过渡完成
     if (event.propertyName !== 'width') return
-
-    // 检查是否是收起状态
     if (isCollapse.value) {
-      const updateTooltipPadding = () => {
-        const elemList = document.querySelectorAll<HTMLElement>('.el-menu-tooltip__trigger.el-tooltip__trigger');
-        if (elemList.length > 0) {
-          elemList.forEach(elem => {
-            elem.style.paddingLeft = "10px";
-          });
-          return true;
-        }
-        return false;
-      };
-
-      // 初始尝试
-      if (!updateTooltipPadding()) {
-        // 若未找到，最多尝试10次，间隔10ms后重试
-        let retryCount = 0;
-        const maxRetries = 10;
-        const intervalId = setInterval(() => {
-          if (updateTooltipPadding() || ++retryCount >= maxRetries) {
-            clearInterval(intervalId);
-          }
-        }, 10);
-      }
+      retryFixPadding();
     }
   }
+
+  // 从分析页退出时，若仍是收起状态，重新修正 padding（DOM 已重建）
+  watch(isAnalysisDetail, (val) => {
+    if (!val && isCollapse.value) {
+      nextTick(() => retryFixPadding());
+    }
+  })
 
   const handleLogout = () => {
     showLogoutConfirm.value = false
@@ -418,6 +520,7 @@ $purple: #4b70e2;
   flex-direction: column;
   position: relative;
   box-shadow: 4px 0 10px $neu-2;
+  overflow: hidden;
 
   .logo {
     height: 70px;
@@ -611,6 +714,98 @@ $purple: #4b70e2;
     &:hover {
       color: $purple;
       box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    }
+  }
+
+  // ===== 分析详情工具栏 =====
+  &.is-analysis-mode {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-right: none;
+    box-shadow: none;
+  }
+
+  .sidebar-normal,
+  .sidebar-analysis {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+
+  // mini-sidebar：工业级极简风
+  .mini-sidebar {
+    width: 64px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    background: rgba(245, 247, 250, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+  }
+
+  .mini-sidebar-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mini-sidebar-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .analysis-tool-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    color: #5a6a85;
+
+    svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2.2;
+      transition: color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    &:hover {
+      background: rgba(64, 158, 255, 0.1);
+      color: $purple;
+    }
+
+    &:active {
+      background: rgba(64, 158, 255, 0.16);
+      transform: scale(0.94);
+    }
+
+    &.is-favorited {
+      color: #fbbf24;
+      svg { filter: drop-shadow(0 0 3px rgba(251,191,36,.5)); }
+      &:hover { background: rgba(251,191,36,.12); color: #f59e0b; }
+    }
+  }
+
+  // 返回按钮：与其他按钮完全统一，hover 时图标向左微移
+  .back-btn {
+    &:hover svg {
+      transform: translateX(-2px);
     }
   }
 }
@@ -972,6 +1167,35 @@ $purple: #4b70e2;
 // 分析页面交互视图专用样式 - 移除底部内边距
 .main-content.interactive-mode-no-padding {
   padding-bottom: 0;
+}
+
+// 侧边栏内容切换过渡动画
+.sidebar-switch-enter-active {
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sidebar-switch-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.sidebar-switch-enter-from {
+  opacity: 0;
+  transform: scale(0.92) translateX(-6px);
+}
+
+.sidebar-switch-enter-to {
+  opacity: 1;
+  transform: scale(1) translateX(0);
+}
+
+.sidebar-switch-leave-from {
+  opacity: 1;
+  transform: scale(1) translateX(0);
+}
+
+.sidebar-switch-leave-to {
+  opacity: 0;
+  transform: scale(0.92) translateX(-6px);
 }
 </style>
 

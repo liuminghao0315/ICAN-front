@@ -25,21 +25,25 @@
           alt="封面"
           @error="onImgError"
         />
-        <video
-          v-else-if="record.videoUrl"
-          :src="record.videoUrl + '#t=1'"
-          class="cover-img"
-          preload="metadata"
-          muted
-        />
-        <div class="cover-placeholder" v-if="!record.thumbnailUrl && !record.videoUrl">
+        <div class="cover-placeholder" v-else>
           <el-icon :size="28"><VideoPlay /></el-icon>
           <span>暂无封面</span>
         </div>
         <span class="cover-duration" v-if="record.videoDuration">{{ formatDuration(record.videoDuration) }}</span>
-        <span class="cover-source" :class="record.sourceType === 'URL_IMPORT' ? 'url' : 'local'">
-          <el-icon><Link v-if="record.sourceType === 'URL_IMPORT'" /><Upload v-else /></el-icon>
-        </span>
+        <!-- 收藏按钮（仅 COMPLETED 状态可用） -->
+        <Transition name="fav-btn">
+          <button
+            v-if="record.status === 'COMPLETED'"
+            class="cover-favorite"
+            :class="{ 'is-favorited': favStore.isFavorited(record.id) }"
+            :title="favStore.isFavorited(record.id) ? '取消收藏' : '收藏'"
+            @click.stop="handleFavorite(record)"
+          >
+            <svg viewBox="0 0 24 24" :fill="favStore.isFavorited(record.id) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+            </svg>
+          </button>
+        </Transition>
         <div class="cover-progress-mask" v-if="['DOWNLOADING','PENDING','PROCESSING'].includes(record.status)">
           <div class="mask-progress-bar" :style="{ width: record.status === 'PENDING' ? '100%' : record.progress + '%' }"></div>
           <span class="mask-label">
@@ -141,10 +145,13 @@
 </template>
 
 <script setup lang="ts">
-import { Check, VideoPlay, Link, Upload, Calendar, View, MoreFilled, Edit, Download, RefreshRight, Close, Delete, School, FolderOpened } from '@element-plus/icons-vue'
+import { Check, VideoPlay, Calendar, View, MoreFilled, Edit, Download, RefreshRight, Close, Delete, School, FolderOpened } from '@element-plus/icons-vue'
 import { formatDate, formatDuration, TASK_STATUS_TEXT, RISK_LEVEL_TEXT } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
 import SourceBadge from './SourceBadge.vue'
+import { useFavoritesStore } from '@/stores/favorites'
+
+const favStore = useFavoritesStore()
 
 const props = defineProps<{
   records: AnalysisTaskVO[]
@@ -172,6 +179,7 @@ const emit = defineEmits<{
   'show-tooltip': [event: MouseEvent, id: string, url: string]
   'hide-tooltip': []
   'navigate-folder': [folderId: string]
+  'favorite-change': [id: string, isFavorited: boolean]
 }>()
 
 /**
@@ -206,7 +214,12 @@ const onImgError = (e: Event) => {
   ;(t.nextElementSibling as HTMLElement)?.removeAttribute('style')
 }
 
-const getExportingId = (record: AnalysisTaskVO) => record.resultId || ''</script>
+const getExportingId = (record: AnalysisTaskVO) => record.resultId || ''
+
+const handleFavorite = async (record: AnalysisTaskVO) => {
+  const newState = await favStore.toggle(record.id)
+  emit('favorite-change', record.id, newState)
+}</script>
 
 <style scoped lang="scss">
 $neu-1:  #ecf0f3;
@@ -244,10 +257,10 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
       0 12px 28px rgba($purple,.1);
     transform: translateY(-6px);
     .footer-actions { opacity: 1; pointer-events: auto; }
+    .cover-favorite { opacity: 1; pointer-events: auto; }
     // 悬浮在来源区域时，隐藏操作按钮，避免与 tooltip 叠压
     &:has(.source-wrapper:hover) .footer-actions { opacity: 0; pointer-events: none; }
   }
-
   &.is-selected {
     box-shadow: $shadow-in, 0 0 0 2.5px rgba($purple,.4);
     transform: none;
@@ -292,12 +305,6 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
     background: rgba(0,0,0,.7); color: #fff;
     font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 5px;
   }
-  .cover-source {
-    position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center; font-size: 11px;
-    &.local { background: rgba($purple,.85); color: #fff; }
-    &.url { background: rgba(#1890ff,.85); color: #fff; }
-  }
   .cover-progress-mask {
     position: absolute; inset: 0; background: rgba(0,0,0,.55);
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
@@ -308,6 +315,37 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
       transition: width .5s ease;
     }
     .mask-label { font-size: 11px; color: rgba(255,255,255,.9); font-weight: 600; }
+  }
+}
+
+// 收藏按钮：独立顶层规则，确保 hover 权重能正确覆盖默认隐藏状态
+.cover-favorite {
+  position: absolute; top: 8px; right: 8px;
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  // 悬浮出现时：深色毛玻璃底座，保证在任何封面（含纯白）上都可见
+  background: rgba(0,0,0,.4);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  // 线框星星：纯白，带极微弱投影防极端情况
+  color: #ffffff;
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s ease, transform .3s cubic-bezier(.34,1.56,.64,1), background .3s, color .2s;
+  svg {
+    width: 14px; height: 14px;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
+  }
+  &:hover {
+    background: rgba(0,0,0,.55);
+    transform: scale(1.1);
+  }
+  // 已收藏：常驻显示，深色底座 + 实心明黄星星
+  &.is-favorited {
+    opacity: 1 !important; pointer-events: auto !important;
+    color: #FADB14;
+    background: rgba(0,0,0,.5);
+    border-color: rgba(255,255,255,.3);
+    svg { filter: none; }
+    &:hover { background: rgba(0,0,0,.65); transform: scale(1.1); }
   }
 }
 
@@ -427,4 +465,9 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 .dropdown-leave-active { animation: dd-out .15s ease; }
 @keyframes dd-in { from { opacity: 0; transform: translateY(8px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes dd-out { from { opacity: 1; } to { opacity: 0; transform: translateY(4px); } }
+
+.fav-btn-enter-active { transition: opacity .2s, transform .2s cubic-bezier(.34,1.56,.64,1); }
+.fav-btn-leave-active { transition: opacity .15s; }
+.fav-btn-enter-from { opacity: 0; transform: scale(.6); }
+.fav-btn-leave-to { opacity: 0; }
 </style>

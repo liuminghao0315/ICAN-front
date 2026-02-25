@@ -35,7 +35,6 @@
       <div class="col-thumb">
         <div class="thumb-wrap">
           <img v-if="record.thumbnailUrl" :src="record.thumbnailUrl" class="thumb-img" alt="封面" />
-          <video v-else-if="record.videoUrl" :src="record.videoUrl + '#t=1'" class="thumb-img" preload="metadata" muted />
           <div class="thumb-placeholder" v-else>
             <el-icon><VideoPlay /></el-icon>
           </div>
