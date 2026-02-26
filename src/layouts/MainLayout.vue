@@ -1206,6 +1206,8 @@ $purple: #4b70e2;
   // 移除新拟态阴影，只使用非常轻的边框来定义边界
   border: 1px solid rgba(209, 217, 230, 0.3);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 1000;
   // 不使用 overflow: hidden，否则会裁剪下拉菜单
 
   :deep(.el-breadcrumb__item) {

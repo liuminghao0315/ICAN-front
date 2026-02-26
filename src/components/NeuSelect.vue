@@ -67,6 +67,8 @@ const isOpen = ref(false)
 const selectRef = ref<HTMLElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownStyle = ref<Record<string, string>>({})
+let repositionRafId: number | null = null
+let initialRepositionTimer: number | null = null
 
 const currentLabel = computed(() => {
   const found = props.options.find(o => o.value === props.modelValue)
@@ -77,13 +79,25 @@ const toggle = () => {
   if (props.disabled) return
   isOpen.value = !isOpen.value
   if (isOpen.value) {
-    nextTick(positionDropdown)
+    bindPositionListeners()
+    nextTick(() => {
+      // 首帧先定位，再在后续帧做一次校正，避免初次打开抖动
+      positionDropdown()
+      schedulePositionDropdown()
+      window.requestAnimationFrame(() => schedulePositionDropdown())
+      initialRepositionTimer = window.setTimeout(() => {
+        schedulePositionDropdown()
+      }, 80)
+    })
+  } else {
+    unbindPositionListeners()
   }
 }
 
 const select = (val: string) => {
   emit('update:modelValue', val)
   isOpen.value = false
+  unbindPositionListeners()
 }
 
 const positionDropdown = () => {
@@ -96,10 +110,38 @@ const positionDropdown = () => {
     position: 'fixed',
     left: rect.left + 'px',
     width: Math.max(rect.width, 160) + 'px',
-    zIndex: '9999',
+    // 与页面内其它下拉层级一致，避免压过全局 header
+    zIndex: '300',
     ...(dropUp
       ? { bottom: (window.innerHeight - rect.top + 6) + 'px' }
       : { top: (rect.bottom + 6) + 'px' })
+  }
+}
+
+const schedulePositionDropdown = () => {
+  if (!isOpen.value) return
+  if (repositionRafId !== null) return
+  repositionRafId = window.requestAnimationFrame(() => {
+    repositionRafId = null
+    positionDropdown()
+  })
+}
+
+const bindPositionListeners = () => {
+  window.addEventListener('resize', schedulePositionDropdown)
+  window.addEventListener('scroll', schedulePositionDropdown, true)
+}
+
+const unbindPositionListeners = () => {
+  window.removeEventListener('resize', schedulePositionDropdown)
+  window.removeEventListener('scroll', schedulePositionDropdown, true)
+  if (repositionRafId !== null) {
+    window.cancelAnimationFrame(repositionRafId)
+    repositionRafId = null
+  }
+  if (initialRepositionTimer !== null) {
+    window.clearTimeout(initialRepositionTimer)
+    initialRepositionTimer = null
   }
 }
 
@@ -109,10 +151,14 @@ const onClickOutside = (e: MouseEvent) => {
   if (selectRef.value?.contains(target)) return
   if (dropdownRef.value?.contains(target)) return
   isOpen.value = false
+  unbindPositionListeners()
 }
 
 onMounted(() => document.addEventListener('mousedown', onClickOutside))
-onUnmounted(() => document.removeEventListener('mousedown', onClickOutside))
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onClickOutside)
+  unbindPositionListeners()
+})
 </script>
 
 <style scoped lang="scss">
@@ -280,11 +326,11 @@ $purple-light: #7c9df7;
   animation: neu-dd-out 0.15s ease;
 }
 @keyframes neu-dd-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  from { opacity: 0; transform: translateY(8px) scale(0.96); transform-origin: top left; }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes neu-dd-out {
-  from { opacity: 1; }
+  from { opacity: 1; transform-origin: top left; }
   to   { opacity: 0; transform: translateY(4px); }
 }
 </style>
