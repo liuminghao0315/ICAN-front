@@ -174,7 +174,7 @@
           @card-click="handleCardClick"
           @toggle-select="toggleSelect"
           @toggle-menu="toggleMenu"
-          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId, taskId: r.id } })"
+          @view-analysis="(r) => router.push(`/analysis/${r.resultId}`)"
           @preview="handlePreview"
           @rename="handleRename"
           @move-to-folder="handleMoveToFolder"
@@ -200,7 +200,7 @@
           @card-click="handleCardClick"
           @toggle-select="toggleSelect"
           @toggle-menu="toggleMenu"
-          @view-analysis="(r) => router.push({ path: '/analysis', query: { resultId: r.resultId, taskId: r.id } })"
+          @view-analysis="(r) => router.push(`/analysis/${r.resultId}`)"
           @preview="handlePreview"
           @rename="handleRename"
           @move-to-folder="handleMoveToFolder"
@@ -390,7 +390,7 @@ const router = useRouter()
 const wsStore = useWebSocketStore()
 const folderStore = useFolderStore()
 const favStore = useFavoritesStore()
-const { exportReportById, exportReportsByIds, exportingIds } = useExportReport()
+const { exportReportByUrl, exportReportsByUrls, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
 
 // 面包屑导航：当前激活文件夹的路径
@@ -659,7 +659,7 @@ const toggleSelectAll = () => {
 const handleCardClick = (record: AnalysisTaskVO) => {
   if (batchMode.value) { toggleSelect(record.id); return }
   if (record.status === 'COMPLETED' && record.hasResult && record.resultId) {
-    router.push({ path: '/analysis', query: { resultId: record.resultId, taskId: record.id } })
+    router.push(`/analysis/${record.resultId}`)
   } else if (record.status === 'DOWNLOADING') {
     ElMessage.info('视频正在下载中，请稍候...')
   } else if (record.status === 'CANCELLED') {
@@ -670,7 +670,12 @@ const handleCardClick = (record: AnalysisTaskVO) => {
 const toggleMenu = (id: string) => { openMenuId.value = openMenuId.value === id ? null : id }
 const handleExport = (record: AnalysisTaskVO) => {
   openMenuId.value = null
-  if (record.resultId) exportReportById(record.resultId)
+  if (record.reportPdfUrl) {
+    const fileName = record.videoTitle ? record.videoTitle.replace(/\.[^.]+$/, '.pdf') : undefined
+    exportReportByUrl(record.reportPdfUrl, fileName)
+  } else {
+    ElMessage.warning('PDF 报告尚未生成')
+  }
 }
 const handleClickOutside = (e: MouseEvent) => {
   openMenuId.value = null
@@ -806,19 +811,21 @@ const handleBatchDelete = () => {
 
 const handleBatchExport = () => {
   if (selectedIds.size === 0) return
-  // 从当前列表中找到已选中且有 resultId 的记录
-  const resultIds = [...selectedIds]
+  const items = [...selectedIds]
     .map(id => records.value.find(r => r.id === id))
-    .filter(r => r?.status === 'COMPLETED' && r?.resultId)
-    .map(r => r!.resultId as string)
-  if (resultIds.length === 0) {
-    ElMessage.warning('所选记录中没有已完成且有分析结果的任务')
+    .filter(r => r?.status === 'COMPLETED' && r?.reportPdfUrl)
+    .map(r => ({
+      url: r!.reportPdfUrl as string,
+      fileName: r!.videoTitle ? r!.videoTitle.replace(/\.[^.]+$/, '.pdf') : undefined
+    }))
+  if (items.length === 0) {
+    ElMessage.warning('所选记录中没有已完成且有PDF报告的任务')
     return
   }
-  if (resultIds.length < selectedIds.size) {
-    ElMessage.info(`${selectedIds.size - resultIds.length} 条未完成的记录将被跳过`)
+  if (items.length < selectedIds.size) {
+    ElMessage.info(`${selectedIds.size - items.length} 条未完成的记录将被跳过`)
   }
-  exportReportsByIds(resultIds)
+  exportReportsByUrls(items)
 }
 
 const confirmDelete = async () => {
@@ -947,6 +954,13 @@ subscribeFailed((data) => {
 
 onMounted(() => { loadRecords(); document.addEventListener('click', handleClickOutside) })
 onUnmounted(() => { document.removeEventListener('click', handleClickOutside); if (searchTimer) clearTimeout(searchTimer); unsubTaskChanged() })
+
+// WebSocket 重连后自动刷新列表，防止重启期间错过推送导致卡片状态过期
+watch(() => wsStore.isConnected, (connected, wasConnected) => {
+  if (connected && wasConnected === false) {
+    loadRecordsSilent()
+  }
+})
 </script>
 
 <style scoped lang="scss">

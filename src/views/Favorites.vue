@@ -167,6 +167,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { Check, Grid, List, Warning, DCaret, Search, Close, Loading, ArrowLeft, ArrowRight, Connection } from '@element-plus/icons-vue'
 import { getFavoriteList, renameVideo } from '@/api'
 import type { AnalysisTaskVO } from '@/types'
@@ -179,7 +180,7 @@ import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
 
 const router = useRouter()
 const favStore = useFavoritesStore()
-const { exportReportById, exportingIds } = useExportReport()
+const { exportReportByUrl, exportingIds } = useExportReport()
 
 // ── 视图 ──
 const viewMode = ref<'card' | 'list'>('card')
@@ -271,7 +272,7 @@ const toggleMenu = (id: string) => { openMenuId.value = openMenuId.value === id 
 
 const handleCardClick = (record: AnalysisTaskVO) => {
   if (record.status === 'COMPLETED' && record.resultId) {
-    router.push({ path: '/analysis', query: { resultId: record.resultId, taskId: record.id } })
+    router.push(`/analysis/${record.resultId}`)
   }
 }
 
@@ -286,7 +287,12 @@ const handleRename = async (record: AnalysisTaskVO) => {
 }
 
 const handleExport = (record: AnalysisTaskVO) => {
-  if (record.resultId) exportReportById(record.resultId)
+  if (record.reportPdfUrl) {
+    const fileName = record.videoTitle ? record.videoTitle.replace(/\.[^.]+$/, '.pdf') : undefined
+    exportReportByUrl(record.reportPdfUrl, fileName)
+  } else {
+    ElMessage.warning('PDF 报告尚未生成')
+  }
 }
 const handleRetryDownload = () => { loadRecords() }
 const handleReanalyze = () => { loadRecords() }

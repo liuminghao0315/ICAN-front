@@ -1,1928 +1,674 @@
 <template>
   <div class="report-view">
-    <!-- 导出报告按钮 -->
-    <div class="report-export-btn-wrapper">
-      <button class="neu-btn primary-btn" @click="$emit('export-pdf')">
+    <div class="report-actions">
+      <button class="export-btn" @click="handleExport">
         <el-icon><Download /></el-icon>
         导出报告
       </button>
     </div>
-    
-    <div class="report-container">
-      
-      <!-- 1. 报告头部 -->
-      <header class="report-header">
-        <div class="header-left">
-          <h1 class="report-title">{{ data.videoInfo.fileName }}</h1>
-          <div class="archive-info">
-            <div class="info-item">
-              <span class="label">视频编号：</span>
-              <span class="value">{{ data.videoInfo.videoId }}</span>
-            </div>
-            <div class="info-item">
-              <span class="label">视频时长：</span>
-              <span class="value">{{ formatDuration(data.videoInfo.duration) }}</span>
-            </div>
-            <div class="info-item">
-              <span class="label">来源渠道：</span>
-              <span class="value">{{ data.videoInfo.uploadSource }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="header-right">
-          <div class="final-conclusion" :class="getConclusionClass()">
-            <div class="conclusion-label">最终结论</div>
-            <div class="conclusion-value">{{ data.action.actionSuggestion }}</div>
-            <div class="conclusion-detail">{{ data.action.actionDetail }}</div>
-          </div>
-        </div>
-      </header>
 
-      <!-- 身份认定结论区 -->
-      <section class="identity-conclusion-section">
-        <div class="identity-conclusion-box">
-          <div class="conclusion-item">
-            <div class="conclusion-icon identity-icon">👤</div>
-            <div class="conclusion-info">
-              <div class="conclusion-title">身份判定</div>
-              <div class="conclusion-result">{{ data.identity.identityLabel }}</div>
-              <div class="conclusion-meta">置信度 {{ data.identity.modalityFusion.finalScore }}%</div>
-            </div>
-          </div>
-          <div class="conclusion-divider"></div>
-          <div class="conclusion-item">
-            <div class="conclusion-icon university-icon">🏛️</div>
-            <div class="conclusion-info">
-              <div class="conclusion-title">涉及高校</div>
-              <div class="conclusion-result">{{ data.university.universityName }}</div>
-              <div class="conclusion-meta">关联度 {{ data.university.modalityFusion.finalScore }}%</div>
-            </div>
+    <div class="report-paper">
+      <!-- 封面区 -->
+      <div class="cover">
+        <div class="cover-rule-thick"></div>
+        <div class="cover-rule-thin"></div>
+        <div class="cover-confidential">内部资料 · 仅供参考</div>
+        <h1 class="cover-title">视频内容分析报告</h1>
+        <div class="cover-subtitle">Video Content Analysis Report</div>
+        <div class="cover-info">
+          <table class="cover-table">
+            <tbody>
+              <tr><td class="ct-key">报告编号</td><td class="ct-sep">：</td><td>{{ data.videoInfo.videoId }}</td></tr>
+              <tr><td class="ct-key">视频文件</td><td class="ct-sep">：</td><td>{{ data.videoInfo.fileName }}</td></tr>
+              <tr><td class="ct-key">视频时长</td><td class="ct-sep">：</td><td>{{ formatDuration(data.videoInfo.duration) }}</td></tr>
+              <tr><td class="ct-key">来源渠道</td><td class="ct-sep">：</td><td>{{ data.videoInfo.uploadSource }}</td></tr>
+              <tr v-if="data.videoInfo.uploadSource === '网络采集' && data.videoInfo.sourceUrl">
+                <td class="ct-key">视频链接</td><td class="ct-sep">：</td>
+                <td><a :href="data.videoInfo.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-link">{{ data.videoInfo.sourceUrl }}</a></td>
+              </tr>
+              <tr><td class="ct-key">生成时间</td><td class="ct-sep">：</td><td>{{ currentDateTime }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="cover-org">基于多模态深度学习的高校内容创作者行为分析平台</div>
+        <div class="cover-version">系统版本 v1.0</div>
+        <div class="cover-rule-thin"></div>
+        <div class="cover-rule-thick"></div>
+      </div>
+
+      <!-- 综合结论 -->
+      <section class="section">
+        <h2 class="section-heading no-border first">综合结论</h2>
+        <table class="info-table">
+          <tr>
+            <td class="it-key">最终建议</td>
+            <td><span class="risk-tag" :class="getConclusionClass()">{{ data.action.actionSuggestion }}</span></td>
+          </tr>
+          <tr><td class="it-key">详细说明</td><td>{{ data.action.actionDetail }}</td></tr>
+          <tr><td class="it-key">身份判定</td><td>{{ data.identity.identityLabel }}（置信度 {{ data.identity.modalityFusion.finalScore }}%）</td></tr>
+          <tr><td class="it-key">涉及高校</td><td>{{ data.university.universityName }}（关联度 {{ data.university.modalityFusion.finalScore }}%）</td></tr>
+        </table>
+      </section>
+
+      <!-- 一、视频概览 -->
+      <section class="section">
+        <h2 class="section-heading">一、视频概览</h2>
+        <div v-if="data.videoInfo.description" class="sub-block">
+          <h3 class="sub-heading">AI 内容摘要</h3>
+          <p class="body-text indent-text">{{ data.videoInfo.description }}</p>
+        </div>
+        <div v-if="data.videoInfo.mainCharacter" class="sub-block">
+          <h3 class="sub-heading">人物特征</h3>
+          <p v-if="data.videoInfo.mainCharacter.gender" class="char-item"><strong class="char-key">性别：</strong>{{ data.videoInfo.mainCharacter.gender }}</p>
+          <p v-if="data.videoInfo.mainCharacter.ageRange" class="char-item"><strong class="char-key">年龄段：</strong>{{ data.videoInfo.mainCharacter.ageRange }}</p>
+          <p v-if="data.videoInfo.mainCharacter.voiceProfile" class="char-item"><strong class="char-key">语音特征：</strong>{{ data.videoInfo.mainCharacter.voiceProfile }}</p>
+          <p v-if="data.videoInfo.mainCharacter.clothing" class="char-item"><strong class="char-key">着装：</strong>{{ data.videoInfo.mainCharacter.clothing }}</p>
+        </div>
+        <div v-if="data.videoInfo.detectedKeywords && data.videoInfo.detectedKeywords.length > 0" class="sub-block">
+          <h3 class="sub-heading">检测到的关键词</h3>
+          <div class="kw-list">
+            <span v-for="(kw, idx) in data.videoInfo.detectedKeywords" :key="idx"
+              class="kw-item" :class="{ 'kw-highlight': kw.isUniversityRelated }">{{ kw.word }}</span>
           </div>
         </div>
       </section>
 
-      <!-- 2. 视频概览 -->
-      <section class="report-section">
-        <h2 class="section-title">一、视频概览</h2>
-        
-        <div class="overview-content">
-          <!-- AI摘要 -->
-          <div class="overview-item" v-if="data.videoInfo.description">
-            <div class="item-label">AI内容摘要</div>
-            <div class="item-value summary-text">{{ data.videoInfo.description }}</div>
+      <!-- 二、风险画像 -->
+      <section class="section page-break">
+        <h2 class="section-heading">二、风险画像</h2>
+        <div class="two-col">
+          <div class="col">
+            <h3 class="sub-heading center">综合风险评估</h3>
+            <table class="radar-table">
+              <thead><tr><th>维度</th><th class="bar-cell"></th><th class="center">得分</th></tr></thead>
+              <tbody>
+                <tr v-for="rd in radarRows" :key="rd.name">
+                  <td>{{ rd.name }}</td>
+                  <td class="bar-cell"><div class="radar-bar-bg"><div class="radar-bar-fill" :style="{ width: rd.value + '%' }"></div></div></td>
+                  <td class="score-cell">{{ rd.value }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-
-          <!-- 人物特征 -->
-          <div class="overview-item" v-if="data.videoInfo.mainCharacter">
-            <div class="item-label">人物特征</div>
-            <div class="character-grid">
-              <div class="char-item" v-if="data.videoInfo.mainCharacter.gender">
-                <span class="char-label">性别：</span>
-                <span>{{ data.videoInfo.mainCharacter.gender }}</span>
+          <div class="col">
+            <h3 class="sub-heading center">多模态分析贡献度</h3>
+            <div class="contrib-list">
+              <div class="contrib-row">
+                <span class="contrib-label">视频模态</span>
+                <div class="contrib-bar"><div class="contrib-fill fill-video" :style="{ width: contribPercent.video + '%' }"></div></div>
+                <span class="contrib-num">{{ contribPercent.video.toFixed(1) }}%</span>
               </div>
-              <div class="char-item" v-if="data.videoInfo.mainCharacter.ageRange">
-                <span class="char-label">年龄段：</span>
-                <span>{{ data.videoInfo.mainCharacter.ageRange }}</span>
+              <div class="contrib-row">
+                <span class="contrib-label">音频模态</span>
+                <div class="contrib-bar"><div class="contrib-fill fill-audio" :style="{ width: contribPercent.audio + '%' }"></div></div>
+                <span class="contrib-num">{{ contribPercent.audio.toFixed(1) }}%</span>
               </div>
-              <div class="char-item" v-if="data.videoInfo.mainCharacter.voiceProfile">
-                <span class="char-label">语音特征：</span>
-                <span>{{ data.videoInfo.mainCharacter.voiceProfile }}</span>
-              </div>
-              <div class="char-item" v-if="data.videoInfo.mainCharacter.clothing">
-                <span class="char-label">着装：</span>
-                <span>{{ data.videoInfo.mainCharacter.clothing }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 关键词云 -->
-          <div class="overview-item" v-if="data.videoInfo.detectedKeywords && data.videoInfo.detectedKeywords.length > 0">
-            <div class="item-label">检测到的关键词</div>
-            <div class="keywords-cloud">
-              <span 
-                v-for="(kw, idx) in data.videoInfo.detectedKeywords" 
-                :key="idx" 
-                class="keyword-tag"
-                :class="{ 'university-keyword': kw.isUniversityRelated }">
-                {{ kw.word }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 3. 风险画像 -->
-      <section class="report-section">
-        <h2 class="section-title">二、风险画像</h2>
-        
-        <div class="risk-portrait">
-          <!-- 全局雷达图 -->
-          <div class="portrait-item portrait-left">
-            <h3 class="subsection-title">综合风险雷达图</h3>
-            <div class="radar-chart" ref="radarChartRef"></div>
-          </div>
-
-          <!-- 模态贡献比 -->
-          <div class="portrait-item portrait-right">
-            <h3 class="subsection-title">多模态分析贡献度</h3>
-            <div class="modality-contribution-compact">
-              <!-- 视频模态 -->
-              <div class="contribution-row">
-                <div class="contribution-label">
-                  <span class="modality-icon-semantic video-semantic">👁</span>
-                  <span class="modality-dot video-dot"></span>
-                  <span class="modality-text">视频模态</span>
-                </div>
-                <div class="contribution-progress-compact">
-                  <div class="progress-bar-compact video-bar" :style="{ width: data.action.modalityFusion.videoContribution + '%' }"></div>
-                </div>
-                <div class="contribution-metrics">
-                  <span class="metric-score">{{ data.action.modalityFusion.videoScore }}</span>
-                  <span class="metric-percent">{{ data.action.modalityFusion.videoContribution.toFixed(1) }}%</span>
-                </div>
-              </div>
-              
-              <!-- 音频模态 -->
-              <div class="contribution-row">
-                <div class="contribution-label">
-                  <span class="modality-icon-semantic audio-semantic">🎤</span>
-                  <span class="modality-dot audio-dot"></span>
-                  <span class="modality-text">音频模态</span>
-                </div>
-                <div class="contribution-progress-compact">
-                  <div class="progress-bar-compact audio-bar" :style="{ width: data.action.modalityFusion.audioContribution + '%' }"></div>
-                </div>
-                <div class="contribution-metrics">
-                  <span class="metric-score">{{ data.action.modalityFusion.audioScore }}</span>
-                  <span class="metric-percent">{{ data.action.modalityFusion.audioContribution.toFixed(1) }}%</span>
-                </div>
-              </div>
-              
-              <!-- 文本模态 -->
-              <div class="contribution-row">
-                <div class="contribution-label">
-                  <span class="modality-icon-semantic text-semantic">T</span>
-                  <span class="modality-dot text-dot"></span>
-                  <span class="modality-text">文本模态</span>
-                </div>
-                <div class="contribution-progress-compact">
-                  <div class="progress-bar-compact text-bar" :style="{ width: data.action.modalityFusion.textContribution + '%' }"></div>
-                </div>
-                <div class="contribution-metrics">
-                  <span class="metric-score">{{ data.action.modalityFusion.textScore }}</span>
-                  <span class="metric-percent">{{ data.action.modalityFusion.textContribution.toFixed(1) }}%</span>
-                </div>
+              <div class="contrib-row">
+                <span class="contrib-label">文本模态</span>
+                <div class="contrib-bar"><div class="contrib-fill fill-text" :style="{ width: contribPercent.text + '%' }"></div></div>
+                <span class="contrib-num">{{ contribPercent.text.toFixed(1) }}%</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 4. 风险走势 -->
-      <section class="report-section">
-        <h2 class="section-title">三、风险走势分析</h2>
-        <div class="risk-trend-container">
-          <div class="trend-chart" ref="trendChartRef"></div>
-        </div>
-        
-        <!-- 风险峰值分析 -->
-        <div class="risk-peak-analysis" :class="{ 'extreme-risk': riskPeakAnalysis.peakIntensity >= 0.9 }">
-          <div class="peak-indicator">{{ riskPeakAnalysis.peakIntensity >= 0.9 ? '🚨' : '⚠️' }}</div>
-          <div class="peak-content">
-            <strong v-if="riskPeakAnalysis.peakIntensity >= 0.9" class="extreme-warning">【极高风险红色预警】</strong>
-            <strong v-else>风险峰值分析：</strong>
-            本视频风险峰值出现在 <strong>{{ riskPeakAnalysis.peakTime }}</strong>，
-            风险强度达到 <strong>{{ (riskPeakAnalysis.peakIntensity * 100).toFixed(1) }}%</strong>，
-            主要由 <strong>{{ riskPeakAnalysis.triggerEvent }}</strong> 触发。
-          </div>
+      <!-- 三、风险走势分析 -->
+      <section class="section">
+        <h2 class="section-heading">三、风险走势分析</h2>
+        <table class="trend-table">
+          <thead><tr><th style="width:18%">时间段</th><th class="bar-cell">风险强度</th><th style="width:12%;text-align:center">数值</th><th style="width:12%;text-align:center">等级</th></tr></thead>
+          <tbody>
+            <tr v-for="(point, idx) in riskTrendRows" :key="idx">
+              <td>{{ point.timeLabel }}</td>
+              <td class="bar-cell">
+                <div class="trend-bar-bg">
+                  <div class="trend-bar-fill" :class="point.fillClass" :style="{ width: (point.intensity * 100) + '%' }"></div>
+                </div>
+              </td>
+              <td class="center">{{ (point.intensity * 100).toFixed(1) }}%</td>
+              <td class="center">
+                <span v-if="point.intensity >= 0.667" class="tag-danger">高风险</span>
+                <span v-else-if="point.intensity >= 0.333">中风险</span>
+                <span v-else>低风险</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="note-box">
+          <template v-if="riskPeakAnalysis.peakIntensity >= 0.9"><strong>【极高风险红色预警】</strong></template>
+          <template v-else><strong>风险峰值分析：</strong></template>
+          本视频风险峰值出现在 {{ riskPeakAnalysis.peakTime }}，风险强度达到 {{ (riskPeakAnalysis.peakIntensity * 100).toFixed(1) }}%，主要由 {{ riskPeakAnalysis.triggerEvent }} 触发。
         </div>
       </section>
 
-      <!-- 5. 维度详情 -->
-      <section class="report-section dimensions-section">
-        <h2 class="section-title">四、六大维度分析详情</h2>
-        
-        <div class="dimensions-grid">
-          <!-- 身份判定 -->
-          <div class="dimension-card">
-            <div class="card-header">
-              <h3 class="card-title">1. 身份判定</h3>
-              <div class="card-score">置信度：{{ data.identity.modalityFusion.finalScore }}%</div>
+      <!-- 四、六大维度分析详情 -->
+      <section class="section page-break">
+        <h2 class="section-heading">四、六大维度分析详情</h2>
+        <div class="dim-grid">
+          <div class="dim-card" v-for="dim in dimensionList" :key="dim.title">
+            <div class="dim-header">
+              <span class="dim-title">{{ dim.title }}</span>
+              <span class="dim-score" :class="dim.scoreClass">{{ dim.scoreLabel }}</span>
             </div>
-            <div class="card-content">
-              <div class="conclusion-row">
-                <span class="conclusion-label">判定结果：</span>
-                <span class="conclusion-value">{{ data.identity.identityLabel }}</span>
+            <div class="dim-body">
+              <div v-for="(row, ri) in dim.rows" :key="ri" class="dim-row">
+                <span class="dim-row-key">{{ row.label }}</span>
+                <span>{{ row.value }}</span>
               </div>
-              <div class="modality-scores">
-                <div class="score-item">视频：<span class="score-value">{{ data.identity.modalityFusion.videoScore }}</span></div>
-                <div class="score-item">音频：<span class="score-value">{{ data.identity.modalityFusion.audioScore }}</span></div>
-                <div class="score-item">文本：<span class="score-value">{{ data.identity.modalityFusion.textScore }}</span></div>
+              <div v-if="dim.video !== null" class="dim-modality">
+                <span>视频 {{ dim.video }}</span>
+                <span>音频 {{ dim.audio }}</span>
+                <span>文本 {{ dim.text }}</span>
               </div>
-              <div class="evidence-summary">证据数量：{{ data.identity.evidences.length }} 条</div>
-            </div>
-          </div>
-
-          <!-- 涉及高校 -->
-          <div class="dimension-card">
-            <div class="card-header">
-              <h3 class="card-title">2. 涉及高校</h3>
-              <div class="card-score">关联度：{{ data.university.modalityFusion.finalScore }}%</div>
-            </div>
-            <div class="card-content">
-              <div class="conclusion-row">
-                <span class="conclusion-label">识别结果：</span>
-                <span class="conclusion-value">{{ data.university.universityName }}</span>
-              </div>
-              <div class="modality-scores">
-                <div class="score-item">视频：<span class="score-value">{{ data.university.modalityFusion.videoScore }}</span></div>
-                <div class="score-item">音频：<span class="score-value">{{ data.university.modalityFusion.audioScore }}</span></div>
-                <div class="score-item">文本：<span class="score-value">{{ data.university.modalityFusion.textScore }}</span></div>
-              </div>
-              <div class="evidence-summary">证据数量：{{ data.university.evidences.length }} 条</div>
-            </div>
-          </div>
-
-          <!-- 内容主题 -->
-          <div class="dimension-card">
-            <div class="card-header">
-              <h3 class="card-title">3. 内容主题</h3>
-              <div class="card-score">相关度：{{ data.topic.modalityFusion.finalScore }}%</div>
-            </div>
-            <div class="card-content">
-              <div class="conclusion-row">
-                <span class="conclusion-label">主题分类：</span>
-                <span class="conclusion-value">{{ data.topic.topicCategory }}</span>
-              </div>
-              <div class="conclusion-row">
-                <span class="conclusion-label">细分主题：</span>
-                <span class="conclusion-value">{{ data.topic.topicSubCategory }}</span>
-              </div>
-              <div class="modality-scores">
-                <div class="score-item">视频：<span class="score-value">{{ data.topic.modalityFusion.videoScore }}</span></div>
-                <div class="score-item">音频：<span class="score-value">{{ data.topic.modalityFusion.audioScore }}</span></div>
-                <div class="score-item">文本：<span class="score-value">{{ data.topic.modalityFusion.textScore }}</span></div>
-              </div>
-              <div class="evidence-summary">证据数量：{{ data.topic.evidences.length }} 条</div>
-            </div>
-          </div>
-
-          <!-- 态度分析（特殊处理） -->
-          <div class="dimension-card">
-            <div class="card-header">
-              <h3 class="card-title">4. 对学校态度分析</h3>
-            </div>
-            <div class="card-content">
-              <div class="attitude-distribution">
-                <div class="distribution-item positive">
-                  <div class="dist-label">正面</div>
-                  <div class="dist-value">{{ attitudeStats.positive }}条 ({{ attitudeStats.positivePercent }}%)</div>
-                </div>
-                <div class="distribution-item neutral">
-                  <div class="dist-label">中性</div>
-                  <div class="dist-value">{{ attitudeStats.neutral }}条 ({{ attitudeStats.neutralPercent }}%)</div>
-                </div>
-                <div class="distribution-item negative">
-                  <div class="dist-label">负面</div>
-                  <div class="dist-value">{{ attitudeStats.negative }}条 ({{ attitudeStats.negativePercent }}%)</div>
-                </div>
-              </div>
-              <div class="evidence-summary">证据总数：{{ data.attitude.evidences.length }} 条</div>
-            </div>
-          </div>
-
-          <!-- 潜在舆论风险 -->
-          <div class="dimension-card">
-            <div class="card-header">
-              <h3 class="card-title">5. 潜在舆论风险</h3>
-              <div class="card-score" :class="getRiskLevelClass(data.opinionRisk.modalityFusion.finalScore)">
-                风险值：{{ data.opinionRisk.modalityFusion.finalScore }}%
-              </div>
-            </div>
-            <div class="card-content">
-              <div class="conclusion-row">
-                <span class="conclusion-label">风险原因：</span>
-                <span class="conclusion-value">{{ data.opinionRisk.riskReason }}</span>
-              </div>
-              <div class="modality-scores">
-                <div class="score-item">视频：<span class="score-value">{{ data.opinionRisk.modalityFusion.videoScore }}</span></div>
-                <div class="score-item">音频：<span class="score-value">{{ data.opinionRisk.modalityFusion.audioScore }}</span></div>
-                <div class="score-item">文本：<span class="score-value">{{ data.opinionRisk.modalityFusion.textScore }}</span></div>
-              </div>
-              <div class="evidence-summary">证据数量：{{ data.opinionRisk.evidences.length }} 条</div>
-            </div>
-          </div>
-
-          <!-- 处置建议 -->
-          <div class="dimension-card">
-            <div class="card-header">
-              <h3 class="card-title">6. 处置建议</h3>
-              <div class="card-score" :class="getConclusionClass()">
-                {{ data.action.actionSuggestion }}
-              </div>
-            </div>
-            <div class="card-content">
-              <div class="conclusion-row">
-                <span class="conclusion-label">详细说明：</span>
-                <span class="conclusion-value">{{ data.action.actionDetail }}</span>
-              </div>
-              <div class="modality-scores">
-                <div class="score-item">视频：<span class="score-value">{{ data.action.modalityFusion.videoScore }}</span></div>
-                <div class="score-item">音频：<span class="score-value">{{ data.action.modalityFusion.audioScore }}</span></div>
-                <div class="score-item">文本：<span class="score-value">{{ data.action.modalityFusion.textScore }}</span></div>
-              </div>
-              <div class="evidence-summary">证据数量：{{ data.action.evidences.length }} 条</div>
+              <div class="dim-evidence">证据 {{ dim.evidenceCount }} 条</div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 6. 详细证据清单 -->
-      <section class="report-section evidence-section">
-        <h2 class="section-title">五、详细证据清单</h2>
-        
-        <table class="evidence-table">
+      <!-- 五、详细证据清单 -->
+      <section class="section page-break">
+        <h2 class="section-heading no-border">五、详细证据清单</h2>
+        <table class="ev-table">
           <thead>
             <tr>
-              <th style="width: 15%">时间段</th>
-              <th style="width: 10%">模态类型</th>
-              <th style="width: 50%">具体内容</th>
-              <th style="width: 12%; text-align: center;">风险分数</th>
-              <th style="width: 13%; text-align: center;">置信度</th>
+              <th style="width:14%">时间段</th>
+              <th style="width:8%">模态</th>
+              <th style="width:52%">具体内容</th>
+              <th style="width:13%;text-align:center">风险分数</th>
+              <th style="width:13%;text-align:center">置信度</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="event in data.timelineEvents" :key="event.id" :class="{ 'high-risk-row': event.riskScore > 66.7 }">
-              <td>{{ formatTime(event.startTime) }} - {{ formatTime(event.endTime) }}</td>
+            <tr v-for="event in data.timelineEvents" :key="event.id">
+              <td>{{ formatTime(event.startTime) }}-{{ formatTime(event.endTime) }}</td>
+              <td>{{ getModalityText(event.modality) }}</td>
               <td>
-                <div class="modality-badge" :class="'modality-' + event.modality">
-                  <span class="modality-dot" :class="getModalityDotClass(event)"></span>
-                  {{ getModalityText(event.modality) }}
-                </div>
+                <span v-if="event.riskScore > 66.7" class="tag-danger">高危</span>
+                <template v-if="event.modality === 'speech'">{{ event.transcript }}<span v-if="event.keywords && event.keywords.length" class="ev-kw">（{{ event.keywords.join('、') }}）</span></template>
+                <template v-else-if="event.modality === 'visual'">{{ event.detectionLabel }}</template>
+                <template v-else-if="event.modality === 'audio-effect'">{{ event.description }}</template>
               </td>
-              <td class="content-cell">
-                <div class="content-with-label">
-                  <span v-if="event.riskScore > 66.7" class="high-risk-label">⚠️ 高危</span>
-                  <div :class="{ 'high-risk-content': event.riskScore > 66.7 }">
-                    <template v-if="event.modality === 'speech'">
-                      <span class="content-text">{{ event.transcript }}</span>
-                      <div v-if="event.keywords && event.keywords.length > 0" class="keywords-tags">
-                        <span v-for="(kw, idx) in event.keywords" :key="idx" class="keyword-tag">{{ kw }}</span>
-                      </div>
-                    </template>
-                    <template v-else-if="event.modality === 'visual'">
-                      <span class="content-text">{{ event.detectionLabel }}</span>
-                    </template>
-                    <template v-else-if="event.modality === 'audio-effect'">
-                      <span class="content-text">{{ event.description }}</span>
-                    </template>
-                  </div>
-                </div>
-              </td>
-              <td class="numeric-cell">
-                <div class="risk-score-badge" :class="getRiskScoreClass(event.riskScore)">
-                  {{ event.riskScore }}
-                </div>
-              </td>
-              <td class="numeric-cell">{{ event.confidence }}%</td>
+              <td class="center" :class="{ 'score-critical': event.riskScore > 80 }">{{ event.riskScore }}</td>
+              <td class="center">{{ event.confidence }}%</td>
             </tr>
           </tbody>
         </table>
       </section>
 
-      <!-- 7. 场景流 -->
-      <section class="report-section scene-section">
-        <h2 class="section-title">六、场景识别轨迹</h2>
-        
-        <div class="scene-flow">
-          <div v-for="(scene, idx) in data.sceneRecognition" :key="scene.id" class="scene-item">
-            <div class="scene-icon">{{ scene.icon }}</div>
-            <div class="scene-info">
-              <div class="scene-name">{{ scene.name }}</div>
-              <div class="scene-time">{{ formatTime(scene.timeStart) }} - {{ formatTime(scene.timeEnd) }}</div>
-              <div class="scene-confidence">置信度 {{ (scene.confidence * 100).toFixed(0) }}%</div>
-            </div>
-            <div v-if="idx < data.sceneRecognition.length - 1" class="scene-arrow">→</div>
-          </div>
-        </div>
+      <!-- 六、场景识别轨迹 -->
+      <section class="section page-break">
+        <h2 class="section-heading no-border">六、场景识别轨迹</h2>
+        <table class="info-table">
+          <thead><tr><th>序号</th><th>场景名称</th><th>时间段</th><th>置信度</th></tr></thead>
+          <tbody>
+            <tr v-for="(scene, idx) in data.sceneRecognition" :key="scene.id">
+              <td>{{ idx + 1 }}</td>
+              <td>{{ scene.name }}</td>
+              <td>{{ formatTime(scene.timeStart) }} - {{ formatTime(scene.timeEnd) }}</td>
+              <td>{{ (scene.confidence * 100).toFixed(0) }}%</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- 分析标准说明 -->
-      <section class="compliance-section">
-        <h2 class="section-title">分析标准说明</h2>
-        <div class="compliance-content">
-          <p>本报告基于<strong>多模态深度学习 V1.0 算法</strong>生成，综合计算权重：<strong>视频(30%)、音频(30%)、文本(40%)</strong>，符合国家网络言论治理规范。</p>
-          <p>报告结果仅供参考，具体处置决策需结合实际情况由相关部门人工审核后确定。</p>
-        </div>
+      <section class="section">
+        <h2 class="section-heading">分析标准说明</h2>
+        <p class="body-text">本报告由多模态深度学习分析系统自动生成，综合视频、音频、文本三种模态的分析结果，经融合算法计算得出。</p>
+        <p class="body-text">报告结果仅供参考，具体处置决策需结合实际情况由相关部门人工审核后确定。</p>
       </section>
 
-      <!-- 行政落款 -->
-      <section class="signature-section">
-        <div class="signature-row">
-          <div class="signature-item">
-            <span class="signature-label">分析员：</span>
-            <span class="signature-line"></span>
-          </div>
-          <div class="signature-item">
-            <span class="signature-label">审核员：</span>
-            <span class="signature-line"></span>
-          </div>
-          <div class="signature-item">
-            <span class="signature-label">签发日期：</span>
-            <span class="signature-line"></span>
-          </div>
-        </div>
-      </section>
+      <!-- 签章区 -->
+      <div class="sign-area">
+        <table class="sign-table">
+          <tr>
+            <td><span class="sign-label">分析员：</span>________________</td>
+            <td><span class="sign-label">审核员：</span>________________</td>
+          </tr>
+          <tr>
+            <td><span class="sign-label">签发日期：</span>________________</td>
+            <td></td>
+          </tr>
+        </table>
+      </div>
 
-      <!-- 报告页脚 -->
-      <footer class="report-footer">
-        <div class="footer-line"></div>
-        <div class="footer-content">
-          <div class="footer-left">
-            <div>生成时间：{{ currentDateTime }}</div>
-            <div>系统版本：多模态高校内容创作者行为分析系统 v1.0</div>
-          </div>
-          <div class="footer-right">
-            <div>报告编号：{{ data.videoInfo.videoId }}</div>
-          </div>
-        </div>
-      </footer>
+      <!-- 页脚 -->
+      <div class="report-foot">
+        <div class="foot-rule"></div>
+        <div class="foot-row">生成时间：{{ currentDateTime }}&nbsp;&nbsp;&nbsp;&nbsp;报告编号：{{ data.videoInfo.videoId }}</div>
+        <div class="foot-row">系统版本：多模态高校内容创作者行为分析系统 v1.0</div>
+      </div>
     </div>
   </div>
 </template>
 
+<!-- SCRIPT_PLACEHOLDER -->
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import { computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import type { AnalysisResult } from '@/data/mockAnalysisResult'
+import { useExportReport } from '@/composables/useExportReport'
 
-// Emits
-defineEmits<{
-  'export-pdf': []
-}>()
+defineEmits<{ 'export-pdf': [] }>()
+const props = defineProps<{ data: AnalysisResult }>()
+const { exportReportByUrl } = useExportReport()
 
-// Props
-const props = defineProps<{
-  data: AnalysisResult
-}>()
+const handleExport = () => {
+  const pdfUrl = (props.data as any).reportPdfUrl
+  if (pdfUrl) {
+    const fileName = props.data.videoInfo?.fileName
+      ? props.data.videoInfo.fileName.replace(/\.[^.]+$/, '.pdf')
+      : undefined
+    exportReportByUrl(pdfUrl, fileName)
+  } else {
+    ElMessage.warning('PDF 报告尚未生成，请稍后重试')
+  }
+}
 
-// Refs
-const radarChartRef = ref<HTMLElement>()
-const trendChartRef = ref<HTMLElement>()
+const radarRows = computed(() => {
+  const names = ['身份置信', '学校关联', '负面情感', '传播风险', '影响范围', '处置紧迫']
+  const values = props.data.timelineData.averageRadarData
+  return names.map((name, i) => ({ name, value: values[i] ?? 0 }))
+})
 
-// 计算态度分析统计
 const attitudeStats = computed(() => {
   const evidences = props.data.attitude.evidences
   let positive = 0, neutral = 0, negative = 0
-  
   evidences.forEach(ev => {
     const score = ev.sentimentScore || 50
     if (score < 33.3) positive++
     else if (score > 66.7) negative++
     else neutral++
   })
-  
   const total = evidences.length
   return {
-    positive,
-    neutral,
-    negative,
+    positive, neutral, negative,
     positivePercent: ((positive / total) * 100).toFixed(1),
     neutralPercent: ((neutral / total) * 100).toFixed(1),
     negativePercent: ((negative / total) * 100).toFixed(1)
   }
 })
 
-// 计算风险峰值分析
 const riskPeakAnalysis = computed(() => {
   const risks = props.data.timelineData.comprehensiveRisks
   const granularity = props.data.timelineData.timeGranularity
-  
-  // 找到最高风险点
-  let peakIndex = 0
-  let peakIntensity = 0
+  let peakIndex = 0, peakIntensity = 0
   risks.forEach((risk, idx) => {
-    if (risk.intensity > peakIntensity) {
-      peakIntensity = risk.intensity
-      peakIndex = idx
-    }
+    if (risk.intensity > peakIntensity) { peakIntensity = risk.intensity; peakIndex = idx }
   })
-  
-  // 计算峰值时间（秒）
   const peakStartSec = peakIndex * granularity
   const peakEndSec = (peakIndex + 1) * granularity
-  
-  // 找到该时间段内的事件
-  const eventsInPeak = props.data.timelineEvents.filter(event => {
-    return event.startTime >= peakStartSec && event.startTime < peakEndSec
-  })
-  
-  // 找到风险分数最高的事件作为触发事件
-  let triggerEvent = '未知事件'
-  if (eventsInPeak.length > 0) {
-    const highestRiskEvent = eventsInPeak.reduce((prev, curr) => 
-      curr.riskScore > prev.riskScore ? curr : prev
-    )
-    
-    if (highestRiskEvent.modality === 'speech') {
-      // 截取前30个字符
-      triggerEvent = `语音事件「${highestRiskEvent.transcript.substring(0, 30)}${highestRiskEvent.transcript.length > 30 ? '...' : ''}」`
-    } else if (highestRiskEvent.modality === 'visual') {
-      triggerEvent = `视觉事件「${highestRiskEvent.detectionLabel}」`
-    } else if (highestRiskEvent.modality === 'audio-effect') {
-      triggerEvent = `声学事件「${highestRiskEvent.description}」`
-    }
+
+  const eventsInPeak = props.data.timelineEvents.filter(e => e.startTime >= peakStartSec && e.startTime < peakEndSec)
+  const candidates = eventsInPeak.length > 0 ? eventsInPeak : [...props.data.timelineEvents]
+
+  let triggerEvent = ''
+  if (candidates.length > 0) {
+    const top = candidates.reduce((a, b) => b.riskScore > a.riskScore ? b : a)
+    if (top.modality === 'speech') triggerEvent = `语音内容「${top.transcript.substring(0, 30)}${top.transcript.length > 30 ? '...' : ''}」`
+    else if (top.modality === 'visual') triggerEvent = `视觉特征「${top.detectionLabel}」`
+    else if (top.modality === 'audio-effect') triggerEvent = `声学特征「${top.description}」`
   }
-  
+
+  return { peakTime: `${formatTime(peakStartSec)} - ${formatTime(peakEndSec)}`, peakIntensity, triggerEvent, peakIndex }
+})
+
+const riskTrendRows = computed(() => {
+  const risks = props.data.timelineData.comprehensiveRisks
+  const g = props.data.timelineData.timeGranularity
+  return risks.map((r, i) => ({
+    timeLabel: `${formatTime(i * g)} - ${formatTime((i + 1) * g)}`,
+    intensity: r.intensity,
+    fillClass: r.intensity >= 0.667 ? 'trend-fill-high' : r.intensity >= 0.333 ? 'trend-fill-mid' : 'trend-fill-low'
+  }))
+})
+
+const contribPercent = computed(() => {
+  const f = props.data.action.modalityFusion
+  const total = f.videoContribution + f.audioContribution + f.textContribution
+  if (total === 0) return { video: 0, audio: 0, text: 0 }
   return {
-    peakTime: `${formatTime(peakStartSec)} - ${formatTime(peakEndSec)}`,
-    peakIntensity,
-    triggerEvent,
-    peakIndex
+    video: (f.videoContribution / total) * 100,
+    audio: (f.audioContribution / total) * 100,
+    text: (f.textContribution / total) * 100
   }
 })
 
-// 当前日期时间
-const currentDateTime = computed(() => {
-  const now = new Date()
-  return now.toLocaleString('zh-CN', { 
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit', 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })
-})
-
-// 格式化时长
-const formatDuration = (seconds: number) => {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}分${secs}秒`
-}
-
-// 格式化时间
-const formatTime = (seconds: number) => {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
-
-// 获取结论样式类
-const getConclusionClass = () => {
-  const score = props.data.action.modalityFusion.finalScore
-  if (score >= 67) return 'conclusion-high'
-  if (score >= 34) return 'conclusion-medium'
-  return 'conclusion-low'
-}
-
-// 获取风险等级样式类
-const getRiskLevelClass = (score: number) => {
-  if (score >= 67) return 'risk-high'
-  if (score >= 34) return 'risk-medium'
-  return 'risk-low'
-}
-
-// 获取风险分数样式类
-const getRiskScoreClass = (score: number) => {
-  if (score >= 67) return 'score-high'
-  if (score >= 34) return 'score-medium'
-  return 'score-low'
-}
-
-// 获取模态类型文本
-const getModalityText = (modality: string) => {
-  const map: Record<string, string> = {
-    'speech': '语音',
-    'visual': '视觉',
-    'audio-effect': '声学'
-  }
-  return map[modality] || modality
-}
-
-// 获取模态圆点样式类
-const getModalityDotClass = (event: any) => {
-  if (event.modality === 'visual') {
-    return 'dot-visual'
-  } else if (event.modality === 'audio-effect') {
-    return 'dot-audio'
-  } else if (event.modality === 'speech') {
-    // speech根据风险分数动态着色
-    if (event.riskScore >= 67) return 'dot-speech-high'
-    if (event.riskScore >= 34) return 'dot-speech-medium'
-    return 'dot-speech-low'
-  }
-  return ''
-}
-
-// 初始化雷达图
-const initRadarChart = () => {
-  if (!radarChartRef.value) return
-  
-  const chart = echarts.init(radarChartRef.value)
-  const option = {
-    radar: {
-      indicator: [
-        { name: '身份置信度', max: 100 },
-        { name: '学校关联度', max: 100 },
-        { name: '负面情感度', max: 100 },
-        { name: '传播风险', max: 100 },
-        { name: '影响范围', max: 100 },
-        { name: '处置紧迫度', max: 100 }
+const dimensionList = computed(() => {
+  const d = props.data
+  const cls = (score: number) => score >= 67 ? 'sc-high' : score >= 34 ? 'sc-mid' : 'sc-low'
+  return [
+    {
+      title: '1. 身份判定', scoreLabel: `置信度 ${d.identity.modalityFusion.finalScore}%`,
+      scoreClass: cls(d.identity.modalityFusion.finalScore),
+      rows: [{ label: '判定结果', value: d.identity.identityLabel }],
+      video: d.identity.modalityFusion.videoScore, audio: d.identity.modalityFusion.audioScore,
+      text: d.identity.modalityFusion.textScore, evidenceCount: d.identity.evidences.length
+    },
+    {
+      title: '2. 涉及高校', scoreLabel: `关联度 ${d.university.modalityFusion.finalScore}%`,
+      scoreClass: cls(d.university.modalityFusion.finalScore),
+      rows: [{ label: '识别结果', value: d.university.universityName }],
+      video: d.university.modalityFusion.videoScore, audio: d.university.modalityFusion.audioScore,
+      text: d.university.modalityFusion.textScore, evidenceCount: d.university.evidences.length
+    },
+    {
+      title: '3. 内容主题', scoreLabel: `相关度 ${d.topic.modalityFusion.finalScore}%`,
+      scoreClass: cls(d.topic.modalityFusion.finalScore),
+      rows: [{ label: '主题分类', value: d.topic.topicCategory }, { label: '细分主题', value: d.topic.topicSubCategory }],
+      video: d.topic.modalityFusion.videoScore, audio: d.topic.modalityFusion.audioScore,
+      text: d.topic.modalityFusion.textScore, evidenceCount: d.topic.evidences.length
+    },
+    {
+      title: '4. 对学校态度', scoreLabel: `正${attitudeStats.value.positivePercent}% / 负${attitudeStats.value.negativePercent}%`,
+      scoreClass: '', rows: [
+        { label: '正面', value: `${attitudeStats.value.positive}条 (${attitudeStats.value.positivePercent}%)` },
+        { label: '中性', value: `${attitudeStats.value.neutral}条 (${attitudeStats.value.neutralPercent}%)` },
+        { label: '负面', value: `${attitudeStats.value.negative}条 (${attitudeStats.value.negativePercent}%)` }
       ],
-      shape: 'polygon',
-      splitNumber: 4,
-      axisName: {
-        color: '#333',
-        fontSize: 12
-      },
-      splitLine: {
-        lineStyle: {
-          color: '#ddd'
-        }
-      },
-      splitArea: {
-        show: true,
-        areaStyle: {
-          color: ['#fafafa', '#f5f5f5']
-        }
-      }
+      video: null, audio: null, text: null, evidenceCount: d.attitude.evidences.length
     },
-    series: [{
-      type: 'radar',
-      data: [{
-        value: props.data.timelineData.averageRadarData,
-        name: '综合评估',
-        areaStyle: {
-          color: 'rgba(64, 158, 255, 0.2)'
-        },
-        lineStyle: {
-          color: '#409EFF',
-          width: 2
-        },
-        itemStyle: {
-          color: '#409EFF'
-        }
-      }]
-    }]
-  }
-  
-  chart.setOption(option)
-  
-  // 打印时重新渲染
-  window.addEventListener('beforeprint', () => {
-    chart.resize()
-  })
-}
-
-// 初始化走势图
-const initTrendChart = () => {
-  if (!trendChartRef.value) return
-  
-  const chart = echarts.init(trendChartRef.value)
-  const granularity = props.data.timelineData.timeGranularity
-  const xAxisData = props.data.timelineData.comprehensiveRisks.map((_, idx) => {
-    const startSec = idx * granularity
-    return formatTime(startSec)
-  })
-  
-  const option = {
-    grid: {
-      left: '60px',
-      right: '40px',
-      top: '40px',
-      bottom: '50px'
+    {
+      title: '5. 潜在舆论风险', scoreLabel: `风险值 ${d.opinionRisk.modalityFusion.finalScore}%`,
+      scoreClass: cls(d.opinionRisk.modalityFusion.finalScore),
+      rows: [{ label: '风险原因', value: d.opinionRisk.riskReason }],
+      video: d.opinionRisk.modalityFusion.videoScore, audio: d.opinionRisk.modalityFusion.audioScore,
+      text: d.opinionRisk.modalityFusion.textScore, evidenceCount: d.opinionRisk.evidences.length
     },
-    xAxis: {
-      type: 'category',
-      data: xAxisData,
-      axisLabel: {
-        color: '#666',
-        fontSize: 11
-      },
-      axisLine: {
-        lineStyle: {
-          color: '#ddd'
-        }
-      }
-    },
-    yAxis: {
-      type: 'value',
-      name: '风险强度',
-      min: 0,
-      max: 1,
-      axisLabel: {
-        color: '#666',
-        fontSize: 11
-      },
-      splitLine: {
-        lineStyle: {
-          color: '#eee',
-          type: 'dashed'
-        }
-      }
-    },
-    series: [{
-      name: '综合风险',
-      type: 'line',
-      data: props.data.timelineData.comprehensiveRisks.map(r => r.intensity),
-      smooth: true,
-      lineStyle: {
-        color: '#409EFF',
-        width: 2
-      },
-      areaStyle: {
-        color: {
-          type: 'linear',
-          x: 0,
-          y: 0,
-          x2: 0,
-          y2: 1,
-          colorStops: [
-            { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
-            { offset: 1, color: 'rgba(64, 158, 255, 0.05)' }
-          ]
-        }
-      },
-      itemStyle: {
-        color: '#409EFF'
-      },
-      markLine: {
-        silent: true,
-        symbol: 'none',
-        lineStyle: {
-          color: '#f56c6c',
-          type: 'dashed',
-          width: 2
-        },
-        label: {
-          show: true,
-          position: 'end',
-          formatter: '高风险阈值',
-          color: '#f56c6c',
-          fontSize: 11,
-          fontWeight: 600
-        },
-        data: [{
-          yAxis: 0.67
-        }]
-      },
-      markArea: {
-        silent: true,
-        data: [[
-          {
-            xAxis: riskPeakAnalysis.value.peakIndex,
-            itemStyle: {
-              color: 'rgba(245, 108, 108, 0.15)'
-            }
-          },
-          {
-            xAxis: riskPeakAnalysis.value.peakIndex
-          }
-        ]]
-      }
-    }]
-  }
-  
-  chart.setOption(option)
-  
-  // 打印时重新渲染
-  window.addEventListener('beforeprint', () => {
-    chart.resize()
-  })
-}
-
-onMounted(() => {
-  nextTick(() => {
-    initRadarChart()
-    initTrendChart()
-  })
+    {
+      title: '6. 处置建议', scoreLabel: d.action.actionSuggestion,
+      scoreClass: cls(d.action.modalityFusion.finalScore),
+      rows: [{ label: '详细说明', value: d.action.actionDetail }],
+      video: d.action.modalityFusion.videoScore, audio: d.action.modalityFusion.audioScore,
+      text: d.action.modalityFusion.textScore, evidenceCount: d.action.evidences.length
+    }
+  ]
 })
+
+const currentDateTime = computed(() => {
+  return new Date().toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+})
+
+const formatDuration = (seconds: number) => `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`
+const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
+const getConclusionClass = () => {
+  const s = props.data.action.modalityFusion.finalScore
+  return s >= 67 ? 'risk-high' : s >= 34 ? 'risk-mid' : 'risk-low'
+}
+const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'audio-effect': '声学' }[m] || m)
 </script>
 
+<!-- STYLE_PLACEHOLDER -->
 <style scoped lang="scss">
+@page { size: A4 portrait; margin: 20mm; }
+
 .report-view {
   background: #f5f5f5;
   min-height: 100vh;
-  padding: 20px;
+  padding: 24px;
   position: relative;
 }
 
-.report-export-btn-wrapper {
-  position: sticky;
-  top: 1px;
-  right: 30px;
-  z-index: 10;
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: -56px; // 负边距，让按钮不占用文档流空间
-  pointer-events: none; // 让包装器不阻挡下方内容
-  
-  .neu-btn {
-    pointer-events: auto; // 恢复按钮本身的交互
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: #ecf0f3;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #a0a5a8;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 
-      2px 2px 5px rgba(163, 177, 198, 0.3),
-      -2px -2px 5px rgba(255, 255, 255, 0.8);
-    
-    &:hover {
-      box-shadow: 
-        3px 3px 6px rgba(163, 177, 198, 0.4),
-        -3px -3px 6px rgba(255, 255, 255, 0.9);
-    }
-    
-    &:active {
-      box-shadow: 
-        inset 2px 2px 4px rgba(163, 177, 198, 0.4),
-        inset -2px -2px 4px rgba(255, 255, 255, 0.8);
-    }
-    
-    &.primary-btn {
-      background: #4b70e2;
-      color: white;
-      box-shadow: 
-        3px 3px 8px rgba(75, 112, 226, 0.3),
-        -2px -2px 6px rgba(255, 255, 255, 0.5);
-      
-      &:hover {
-        box-shadow: 
-          4px 4px 10px rgba(75, 112, 226, 0.4),
-          -2px -2px 6px rgba(255, 255, 255, 0.6);
-      }
-      
-      &:active {
-        box-shadow: 
-          inset 2px 2px 5px rgba(75, 112, 226, 0.5),
-          inset -1px -1px 3px rgba(255, 255, 255, 0.3);
-      }
-    }
-  }
+.report-actions {
+  position: sticky; top: 8px; z-index: 10;
+  display: flex; justify-content: flex-end;
+  padding: 0 0 10px 0; pointer-events: none;
+}
+.export-btn {
+  pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; background: #4461f2; border: none; border-radius: 6px;
+  font-size: 13px; font-weight: 500; color: #fff; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(68, 97, 242, 0.35);
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  letter-spacing: 0.5px;
+  .el-icon { font-size: 14px; color: #fff; }
+  &:hover { background: #3451d1; box-shadow: 0 4px 16px rgba(68, 97, 242, 0.45); transform: scale(1.02); }
+  &:active { transform: scale(0.98); box-shadow: 0 1px 6px rgba(68, 97, 242, 0.25); }
 }
 
-.report-container {
-  max-width: 210mm; /* A4 width */
-  margin: 0 auto;
-  background: white;
-  box-shadow: 0 0 20px rgba(0,0,0,0.1);
-  padding: 20mm 20mm; /* A4 margins: 上下20mm, 左右20mm */
+.report-paper {
+  position: relative; max-width: 794px; min-height: 297mm;
+  margin: 0 auto; transform: translateY(-50px);
+  background: #ffffff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  padding: 20mm; color: #333333;
+  font-size: 14px; line-height: 1.8;
+  font-family: "SimSun", "Songti SC", "Microsoft YaHei", "PingFang SC", serif;
 }
 
-/* ===== 1. 报告头部 ===== */
-.report-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding-bottom: 24px;
-  border-bottom: 3px solid #000;
-  margin-bottom: 32px;
+// ===== 封面 =====
+.cover {
+  text-align: center; padding-top: 60px; margin-bottom: 0;
+  page-break-after: always; break-after: page;
+}
+.cover-rule-thick { height: 3px; background: #333; }
+.cover-rule-thin { height: 1px; background: #333; margin-top: 2px; margin-bottom: 2px; }
+.cover-confidential { margin-top: 40px; font-size: 13.3px; color: #888; letter-spacing: 6px; }
+.cover-title {
+  font-size: 29.3px; font-weight: 800; letter-spacing: 8px;
+  margin: 36px 0 8px; color: #000;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif;
+}
+.cover-subtitle { font-size: 13.3px; color: #999; letter-spacing: 2px; margin-bottom: 52px; }
+.cover-info { display: flex; justify-content: center; margin-bottom: 52px; }
+.cover-table {
+  border-collapse: collapse; font-size: 14px; text-align: left;
+  td { padding: 10px 8px; color: #333; }
+  .ct-key { font-weight: 600; color: #1a1a1a; white-space: nowrap; text-align: right; padding-right: 0; letter-spacing: 1px; }
+  .ct-sep { padding: 10px 10px 10px 4px; color: #999; width: 20px; }
+}
+.cover-org { font-size: 14.7px; font-weight: 600; color: #333; letter-spacing: 2px; margin-bottom: 6px; }
+.cover-version { font-size: 13.3px; color: #999; margin-bottom: 40px; }
+.text-link { color: #1565c0; text-decoration: none; word-break: break-all; &:hover { text-decoration: underline; } }
+
+// ===== 通用区块 =====
+.section { margin-bottom: 20px; page-break-inside: avoid; break-inside: avoid; }
+.page-break { page-break-before: always; break-before: page; }
+.section-heading {
+  font-size: 17.3px; font-weight: 700; color: #000;
+  border-bottom: 2px solid #333; padding-bottom: 6px;
+  margin: 24px 0 12px; letter-spacing: 1px;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif;
+  &:first-child, &.first { margin-top: 8px; }
+  &.no-border { border-bottom: none; padding-bottom: 0; margin-bottom: 8px; }
+}
+.sub-block { margin-bottom: 12px; }
+.sub-heading {
+  font-size: 14.7px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; margin-top: 10px;
+  &.center { text-align: center; }
+}
+.body-text { font-size: 14px; color: #333; line-height: 1.8; margin: 0 0 6px; }
+.indent-text { text-indent: 2em; }
+
+// ===== 三线表 =====
+.info-table {
+  width: 100%; border-collapse: collapse; font-size: 14px;
+  line-height: 1.8; margin-bottom: 10px;
+  border-top: 2px solid #333; border-bottom: 2px solid #333;
+  th, td { border: none; padding: 10px 10px; text-align: left; vertical-align: top; }
+  th { border-bottom: 1px solid #333; background: none; font-weight: 600; color: #000; padding: 8px 10px; }
+  .it-key { background: none; font-weight: 600; color: #1a1a1a; white-space: nowrap; width: 100px; }
 }
 
-.header-left {
-  flex: 1;
-}
-
-.report-title {
-  font-size: 24px;
-  font-weight: bold;
-  color: #000;
-  margin: 0 0 16px 0;
-  line-height: 1.4;
-}
-
-.archive-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.info-item {
-  font-size: 13px;
-  color: #333;
-  
-  .label {
-    font-weight: 600;
-    color: #000;
-  }
-  
-  .value {
-    color: #333;
-  }
-}
-
-.header-right {
-  margin-left: 24px;
-}
-
-.final-conclusion {
-  border: 2px solid;
-  padding: 16px 20px;
-  border-radius: 4px;
-  text-align: center;
-  min-width: 180px;
-  
-  &.conclusion-high {
-    border-color: #f56c6c;
-    background: #fef0f0;
-    
-    .conclusion-value {
-      color: #f56c6c;
-    }
-  }
-  
-  &.conclusion-medium {
-    border-color: #e6a23c;
-    background: #fdf6ec;
-    
-    .conclusion-value {
-      color: #e6a23c;
-    }
-  }
-  
-  &.conclusion-low {
-    border-color: #67c23a;
-    background: #f0f9ff;
-    
-    .conclusion-value {
-      color: #67c23a;
-    }
-  }
-}
-
-.conclusion-label {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.conclusion-value {
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 8px;
-}
-
-.conclusion-detail {
-  font-size: 12px;
-  color: #333;
-}
-
-/* ===== 身份认定结论区 ===== */
-.identity-conclusion-section {
-  margin-bottom: 32px;
-}
-
-.identity-conclusion-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 40px;
-  padding: 24px;
-  background: linear-gradient(135deg, #f0f2f5 0%, #fafafa 100%);
-  border: 2px solid #409EFF;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
-}
-
-.conclusion-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.conclusion-icon {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  border-radius: 12px;
-  
-  &.identity-icon {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  }
-  
-  &.university-icon {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  }
-}
-
-.conclusion-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.conclusion-title {
-  font-size: 12px;
-  color: #999;
-  font-weight: 500;
-}
-
-.conclusion-result {
-  font-size: 20px;
-  font-weight: bold;
-  color: #000;
-}
-
-.conclusion-meta {
-  font-size: 11px;
-  color: #666;
-}
-
-.conclusion-divider {
-  width: 2px;
-  height: 60px;
-  background: linear-gradient(to bottom, transparent, #409EFF, transparent);
-}
-
-/* ===== 2. 报告区块 ===== */
-.report-section {
-  margin-bottom: 40px;
-  page-break-inside: avoid;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: bold;
-  color: #000;
-  border-left: 4px solid #409EFF;
-  padding-left: 12px;
-  margin: 0 0 20px 0;
-}
-
-/* ===== 3. 视频概览 ===== */
-.overview-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.overview-item {
-  page-break-inside: avoid;
-  
-  .item-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #000;
-    margin-bottom: 10px;
-  }
-  
-  .item-value {
-    font-size: 13px;
-    color: #333;
-    line-height: 1.8;
-  }
-}
-
-.summary-text {
-  padding: 12px;
-  background: transparent;
-  border-left: 4px solid #409EFF;
-  line-height: 1.8;
-}
-
-.character-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.char-item {
-  font-size: 13px;
-  color: #333;
-  
-  .char-label {
-    font-weight: 600;
-    color: #000;
-  }
-}
-
-.keywords-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.keyword-tag {
-  padding: 4px 12px;
-  font-size: 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fafafa;
-  color: #333;
-  
-  &.university-keyword {
-    border-color: #409EFF;
-    background: #ecf5ff;
-    color: #409EFF;
-    font-weight: 600;
-  }
-}
-
-/* ===== 4. 风险画像 ===== */
-.risk-portrait {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.portrait-item {
-  border: 1px solid #ddd;
-  padding: 20px;
-  border-radius: 4px;
-  page-break-inside: avoid;
-}
-
-.portrait-left {
-  display: flex;
-  flex-direction: column;
-}
-
-.portrait-right {
-  display: flex;
-  flex-direction: column;
-}
-
-.subsection-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #000;
-  margin: 0 0 16px 0;
-  text-align: center;
-}
-
-.radar-chart {
-  width: 100%;
-  height: 350px;
-}
-
-/* 一行式模态贡献度 */
-.modality-contribution-compact {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  justify-content: center;
-  height: 100%;
-}
-
-.contribution-row {
-  display: grid;
-  grid-template-columns: 100px 1fr 90px;
-  align-items: center;
-  gap: 12px;
-}
-
-.contribution-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #000;
-}
-
-.modality-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.modality-icon-semantic {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  font-size: 14px;
+// ===== 风险标签 =====
+.risk-tag {
+  display: inline; padding: 2px 12px; font-size: 14px;
   font-weight: 700;
-  flex-shrink: 0;
-  
-  &.video-semantic {
-    background: rgba(64, 158, 255, 0.15);
-    color: #409EFF;
+}
+.risk-high { background: #C00000; color: #fff; }
+.risk-mid  { background: #e8a000; color: #fff; }
+.risk-low  { background: #2e7d32; color: #fff; }
+
+// ===== 关键词 =====
+.kw-list { display: flex; flex-wrap: wrap; gap: 3px 4px; width: 100%; align-items: center; }
+.kw-item {
+  padding: 1px 6px; font-size: 12px; border: 1px solid #d0d0d0;
+  color: #333; flex-shrink: 0; white-space: nowrap;
+}
+.kw-highlight { border-color: #333; font-weight: 700; color: #000; }
+
+// ===== 两栏布局 =====
+.two-col {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  align-items: stretch;
+  page-break-inside: avoid; break-inside: avoid;
+}
+.col {
+  display: flex; flex-direction: column;
+  page-break-inside: avoid; break-inside: avoid;
+  &:first-child { padding-right: 10px; }
+  &:last-child { padding-left: 10px; }
+}
+
+// ===== 雷达数据表 =====
+.radar-table {
+  width: 100%; border-collapse: collapse; font-size: 13.3px;
+  border-top: 1.5pt solid #333; border-bottom: 1.5pt solid #333; margin-top: 8px;
+  th {
+    padding: 6px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
+    border-bottom: 1pt solid #333; border-top: none;
   }
-  
-  &.audio-semantic {
-    background: rgba(103, 194, 58, 0.15);
-    color: #67C23A;
-  }
-  
-  &.text-semantic {
-    background: rgba(230, 162, 60, 0.15);
-    color: #E6A23C;
-    font-family: 'Courier New', monospace;
-  }
+  td { padding: 5px 8px; border: none; }
+  .bar-cell { width: 45%; }
+  .score-cell { text-align: center; font-weight: 600; }
 }
+.radar-bar-bg { background: #eee; height: 8px; width: 100%; }
+.radar-bar-fill { height: 8px; background: #555; }
 
-.modality-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  
-  &.video-dot {
-    background: #409EFF;
-  }
-  
-  &.audio-dot {
-    background: #67C23A;
-  }
-  
-  &.text-dot {
-    background: #E6A23C;
-  }
+// ===== 贡献度 =====
+.contrib-list {
+  display: flex; flex-direction: column; gap: 0;
+  justify-content: center; flex: 1;
+  margin-top: 8px;
 }
-
-.modality-text {
-  white-space: nowrap;
+.contrib-row {
+  display: grid; grid-template-columns: 60px 1fr 50px;
+  align-items: center; gap: 6px; padding: 8px 6px;
 }
+.contrib-label { font-size: 13.3px; font-weight: 600; color: #1a1a1a; white-space: nowrap; }
+.contrib-bar { height: 8px; background: #eee; min-width: 0; }
+.contrib-fill { height: 100%; }
+.fill-video { background: #444; }
+.fill-audio { background: #777; }
+.fill-text  { background: #aaa; }
+.contrib-num { font-size: 12px; color: #555; text-align: right; }
 
-.contribution-progress-compact {
-  width: 100%;
-  height: 8px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-bar-compact {
-  height: 100%;
-  transition: width 0.3s ease;
-  
-  &.video-bar {
-    background: #409EFF;
-  }
-  
-  &.audio-bar {
-    background: #67C23A;
-  }
-  
-  &.text-bar {
-    background: #E6A23C;
-  }
-}
-
-.contribution-metrics {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.metric-score {
-  font-size: 13px;
-  font-weight: 600;
-  color: #333;
-}
-
-.metric-percent {
-  font-size: 11px;
-  color: #999;
-}
-
-/* ===== 5. 风险走势 ===== */
-.risk-trend-container {
-  border: 1px solid #ddd;
-  padding: 20px;
-  border-radius: 4px;
-}
-
-.trend-chart {
-  width: 100%;
-  height: 300px;
-}
-
-/* 风险峰值分析 */
-.risk-peak-analysis {
-  margin-top: 20px;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);
-  border-left: 4px solid #f56c6c;
-  border-radius: 4px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  page-break-inside: avoid;
-  
-  &.extreme-risk {
-    background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%);
-    border-left: 6px solid #cf1322;
-    box-shadow: 0 4px 12px rgba(207, 19, 34, 0.2);
-  }
-}
-
-.peak-indicator {
-  font-size: 24px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.peak-content {
-  font-size: 13px;
-  color: #333;
-  line-height: 1.8;
-  
-  strong {
-    color: #f56c6c;
-    font-weight: 700;
-  }
-  
-  .extreme-warning {
-    display: block;
-    color: #cf1322;
-    font-size: 15px;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-}
-
-/* ===== 6. 维度详情 ===== */
-.dimensions-section {
-  page-break-before: always;
-}
-
-.dimensions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.dimension-card {
-  border: 1px solid #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-  page-break-inside: avoid;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  background: white;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: #f9f9f9;
-  border-bottom: 1px solid #eeeeee;
-}
-
-.card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #000;
-  margin: 0;
-}
-
-.card-score {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 4px;
-  
-  &.risk-high, &.conclusion-high {
-    background: #fef0f0;
-    color: #f56c6c;
-  }
-  
-  &.risk-medium, &.conclusion-medium {
-    background: #fdf6ec;
-    color: #e6a23c;
-  }
-  
-  &.risk-low, &.conclusion-low {
-    background: #f0f9ff;
-    color: #67c23a;
-  }
-}
-
-.card-content {
-  padding: 16px;
-}
-
-.conclusion-row {
-  margin-bottom: 12px;
-  font-size: 13px;
-  
-  .conclusion-label {
-    font-weight: 600;
-    color: #000;
-  }
-  
-  .conclusion-value {
-    color: #333;
-  }
-}
-
-.modality-scores {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding: 8px;
-  background: #fafafa;
-  border-radius: 4px;
-}
-
-.score-item {
-  font-size: 12px;
-  color: #666;
-}
-
-.score-value {
-  display: inline-block;
-  padding: 2px 8px;
-  background: #f0f0f0;
-  color: #333;
-  font-weight: 600;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.evidence-summary {
-  font-size: 12px;
-  color: #999;
-  text-align: right;
-}
-
-/* 态度分析特殊样式 */
-.attitude-distribution {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  gap: 8px;
-}
-
-.distribution-item {
-  flex: 1;
-  padding: 12px 8px;
-  border-radius: 4px;
-  text-align: center;
-  
-  &.positive {
-    background: #f0f9ff;
-    border: 1px solid #b3d8ff;
-  }
-  
-  &.neutral {
-    background: #fafafa;
-    border: 1px solid #ddd;
-  }
-  
-  &.negative {
-    background: #fef0f0;
-    border: 1px solid #fbc4c4;
-  }
-  
-  .dist-label {
-    font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-  
-  .dist-value {
-    font-size: 13px;
-    font-weight: bold;
-  }
-}
-
-/* ===== 7. 证据清单 ===== */
-.evidence-section {
-  page-break-before: always;
-}
-
-.evidence-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  
+// ===== 风险走势表 =====
+.trend-table {
+  width: 100%; border-collapse: collapse; font-size: 13.3px; line-height: 1.8;
+  border-top: 1.5pt solid #333; border-bottom: 1.5pt solid #333;
   thead {
-    background: #f5f5f5;
-    
+    background: #f9f9f9;
     th {
-      padding: 10px 8px;
-      text-align: left;
-      font-weight: 600;
-      color: #000;
-      border: 1px solid #ddd;
+      padding: 6px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
+      background: #f9f9f9; border: none;
+      border-bottom: 1pt solid #333;
     }
   }
-  
   tbody {
-    tr {
-      page-break-inside: avoid;
-      page-break-after: auto;
-      
-      &:nth-child(even) {
-        background: #fafafa;
-      }
-      
-      &.high-risk-row {
-        background: #fff5f5 !important;
-        border-left: 3px solid #f56c6c;
-      }
-      
-      td {
-        padding: 14px 10px;
-        border: 1px solid #ddd;
-        color: #333;
-        vertical-align: top;
-      }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    td { padding: 4px 8px; border: none; color: #333; vertical-align: middle; }
+  }
+  .bar-cell { width: 40%; }
+}
+.trend-bar-bg { background: #eee; height: 6px; width: 100%; }
+.trend-bar-fill { height: 6px; }
+.trend-fill-low  { background: #2e7d32; }
+.trend-fill-mid  { background: #e8a000; }
+.trend-fill-high { background: #C00000; }
+
+// ===== 提示框 =====
+.note-box {
+  margin-top: 12px; padding: 10px 14px;
+  border-left: 3px solid #C00000; background: none;
+  font-size: 14px; color: #333; line-height: 1.8;
+  page-break-inside: avoid; break-inside: avoid;
+  strong { color: #C00000; }
+}
+
+// ===== 六大维度卡片 =====
+.dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 16px; }
+.dim-card {
+  border-top: 1px solid #e0e0e0; padding-top: 6px;
+  page-break-inside: avoid; break-inside: avoid;
+}
+.dim-header {
+  margin-bottom: 4px;
+}
+.dim-title { font-size: 14px; font-weight: 700; color: #000; }
+.dim-score { font-size: 12px; font-weight: 600; padding: 1px 6px; margin-left: 8px; }
+.sc-high { background: #f5e0e0; color: #C00000; }
+.sc-mid  { background: #fdf0d5; color: #9a5f00; }
+.sc-low  { background: #e0f0e0; color: #1b5e20; }
+.dim-body { padding: 4px 0 0; font-size: 13.3px; line-height: 1.8; }
+.dim-row { margin-bottom: 3px; }
+.dim-row-key { font-weight: 600; color: #333; margin-right: 4px; }
+.dim-modality {
+  display: flex; gap: 14px; margin-top: 6px;
+  font-size: 12px; color: #555;
+}
+.dim-evidence { text-align: right; font-size: 12px; color: #999; margin-top: 3px; }
+
+// ===== 证据表格 =====
+.ev-table {
+  width: 100%; border-collapse: collapse; font-size: 13.3px; line-height: 1.8;
+  border-top: 1.5pt solid #333; border-bottom: 1.5pt solid #333;
+  thead {
+    background: #f9f9f9;
+    th {
+      padding: 8px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
+      background: #f9f9f9; border: none;
+      border-bottom: 1.5pt solid #333;
     }
   }
-}
-
-.content-cell {
-  line-height: 1.8;
-}
-
-.content-with-label {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.high-risk-label {
-  display: inline-block;
-  padding: 4px 12px;
-  background: linear-gradient(135deg, #f56c6c 0%, #ff6b6b 100%);
-  color: white;
-  font-size: 11px;
-  font-weight: bold;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(245, 108, 108, 0.3);
-  align-self: flex-start;
-}
-
-.high-risk-content {
-  font-weight: 700;
-  color: #000;
-}
-
-.high-risk-row {
-  td {
-    padding: 16px 10px !important;
+  tbody {
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    td { padding: 8px 8px; border: none; color: #333; vertical-align: top; }
   }
+  .center { text-align: center; vertical-align: middle; }
 }
-
-/* 关键词标签样式 */
-.keywords-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+.center { text-align: center; }
+.tag-danger {
+  display: inline; padding: 1px 4px; background: #C00000; color: #fff;
+  font-size: 10.7px; font-weight: 700; margin-right: 4px;
 }
+.ev-kw { color: #777; font-size: 12px; }
+.score-critical { font-weight: 700; color: #C00000; }
 
-.keyword-tag {
-  display: inline-block;
-  padding: 4px 10px;
-  background: #f0f0f0;
-  color: #666;
-  font-size: 11px;
-  border-radius: 8px;
-  font-weight: 500;
-  border: 1px solid #e0e0e0;
+// ===== 人物特征 =====
+.char-item { font-size: 14px; color: #333; line-height: 1.8; margin: 0 0 2px; }
+.char-key { font-weight: 700; color: #1a1a1a; }
+
+// ===== 签章区 =====
+.sign-area {
+  margin-top: 40px; padding-top: 20px; border-top: 1px solid #999;
+  page-break-inside: avoid; break-inside: avoid;
 }
-
-.content-text {
-  display: block;
-  line-height: 1.6;
+.sign-table {
+  width: 100%; border-collapse: collapse;
+  td { padding: 10px 0; width: 50%; }
 }
+.sign-label { font-size: 14px; font-weight: 600; color: #1a1a1a; white-space: nowrap; }
 
-/* 数值列样式 */
-.numeric-cell {
-  text-align: center !important;
-  vertical-align: middle !important;
-}
+// ===== 页脚 =====
+.report-foot { margin-top: 30px; page-break-inside: avoid; break-inside: avoid; }
+.foot-rule { height: 1px; background: #999; margin-bottom: 6px; }
+.foot-row { font-size: 10.7px; color: #999; margin-bottom: 2px; }
 
-.modality-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  
-  .modality-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    
-    /* Visual - 蓝色 */
-    &.dot-visual {
-      background: #3b82f6;
-      box-shadow: 0 0 4px rgba(59, 130, 246, 0.5);
-    }
-    
-    /* Audio Effect - 琥珀色 */
-    &.dot-audio {
-      background: #f59e0b;
-      box-shadow: 0 0 4px rgba(245, 158, 11, 0.5);
-    }
-    
-    /* Speech - 风险动态色 */
-    &.dot-speech-high {
-      background: #f56c6c;
-      box-shadow: 0 0 4px rgba(245, 108, 108, 0.5);
-    }
-    
-    &.dot-speech-medium {
-      background: #e6a23c;
-      box-shadow: 0 0 4px rgba(230, 162, 60, 0.5);
-    }
-    
-    &.dot-speech-low {
-      background: #67c23a;
-      box-shadow: 0 0 4px rgba(103, 194, 58, 0.5);
-    }
-  }
-  
-  &.modality-speech {
-    background: #ecf5ff;
-    color: #409EFF;
-  }
-  
-  &.modality-visual {
-    background: #f0f9ff;
-    color: #67C23A;
-  }
-  
-  &.modality-audio-effect {
-    background: #fdf6ec;
-    color: #E6A23C;
-  }
-}
-
-.risk-score-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-weight: 600;
-  min-width: 40px;
-  
-  &.score-high {
-    background: #fef0f0;
-    color: #f56c6c;
-  }
-  
-  &.score-medium {
-    background: #fdf6ec;
-    color: #e6a23c;
-  }
-  
-  &.score-low {
-    background: #f0f9ff;
-    color: #67c23a;
-  }
-}
-
-/* ===== 8. 场景流 ===== */
-.scene-flow {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fafafa;
-  flex-wrap: wrap;
-}
-
-.scene-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.scene-icon {
-  font-size: 32px;
-}
-
-.scene-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.scene-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #000;
-}
-
-.scene-time {
-  font-size: 11px;
-  color: #666;
-}
-
-.scene-confidence {
-  font-size: 11px;
-  color: #999;
-}
-
-.scene-arrow {
-  font-size: 20px;
-  color: #999;
-  margin: 0 8px;
-}
-
-/* ===== 分析标准说明 ===== */
-.compliance-section {
-  margin-top: 40px;
-  padding: 24px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
-  border: 2px solid #409EFF;
-  border-radius: 8px;
-}
-
-.compliance-content {
-  font-size: 13px;
-  color: #333;
-  line-height: 1.8;
-  
-  p {
-    margin: 0 0 12px 0;
-    
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-  
-  strong {
-    color: #409EFF;
-    font-weight: 700;
-  }
-}
-
-/* ===== 行政落款 ===== */
-.signature-section {
-  margin-top: 60px;
-  padding: 32px 0;
-  border-top: 1px solid #eee;
-}
-
-.signature-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 60px;
-}
-
-.signature-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 0;
-}
-
-.signature-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #333;
-  white-space: nowrap;
-}
-
-.signature-line {
-  flex: 1;
-  min-height: 30px;
-  border-bottom: 1px solid #ddd;
-  position: relative;
-}
-
-/* ===== 9. 报告页脚 ===== */
-.report-footer {
-  margin-top: 40px;
-  padding-top: 24px;
-}
-
-.footer-line {
-  height: 2px;
-  background: #ddd;
-  margin-bottom: 16px;
-}
-
-.footer-content {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #999;
-}
-
-.footer-left,
-.footer-right {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* ===== 打印样式 ===== */
+// ===== 打印 =====
 @media print {
-  .report-export-btn-wrapper {
-    display: none !important;
-  }
-  
-  .report-view {
-    padding: 0;
-    background: white;
-  }
-  
-  .report-container {
-    max-width: 100%;
-    box-shadow: none;
-    margin: 0;
-    padding: 20mm 15mm; /* 打印时上下20mm，左右15mm */
-  }
-  
-  /* 防止关键区块被截断 */
-  .report-section {
-    page-break-inside: avoid;
-  }
-  
-  .report-header {
-    page-break-inside: avoid;
-    page-break-after: avoid;
-  }
-  
-  .identity-conclusion-section {
-    page-break-inside: avoid;
-    page-break-after: avoid;
-  }
-  
-  .portrait-item {
-    page-break-inside: avoid;
-  }
-  
-  .radar-chart {
-    page-break-inside: avoid;
-  }
-  
-  .risk-trend-container {
-    page-break-inside: avoid;
-  }
-  
-  .trend-chart {
-    page-break-inside: avoid;
-  }
-  
-  .risk-peak-analysis {
-    page-break-inside: avoid;
-  }
-  
-  .risk-portrait {
-    page-break-inside: avoid;
-  }
-  
-  .dimension-card {
-    page-break-inside: avoid;
-  }
-  
-  .dimensions-section {
-    page-break-before: always;
-  }
-  
-  .evidence-section {
-    page-break-before: always;
-  }
-  
-  .evidence-table {
-    tr {
-      page-break-inside: avoid;
-      page-break-after: auto;
-    }
-    
-    thead {
-      display: table-header-group;
-    }
-  }
-  
-  .scene-section {
-    page-break-inside: avoid;
-  }
-  
-  .compliance-section {
-    page-break-inside: avoid;
-  }
-  
-  .signature-section {
-    page-break-inside: avoid;
-  }
-  
-  .report-footer {
-    page-break-inside: avoid;
-  }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .report-actions, .export-btn { display: none !important; }
+  .report-view { padding: 0; background: #fff; }
+  .report-paper { max-width: 100%; box-shadow: none; margin: 0; padding: 0; background: #fff; color: #333; }
+  .cover { page-break-after: always; break-after: page; }
+  .section { page-break-inside: avoid; break-inside: avoid; }
+  .page-break { page-break-before: always; break-before: page; }
+  .two-col, .col, .note-box, .dim-card, .sign-area, .report-foot { page-break-inside: avoid; break-inside: avoid; }
+  .ev-table { thead { display: table-header-group; } tr { page-break-inside: avoid; break-inside: avoid; } }
+  .info-table tr { page-break-inside: avoid; break-inside: avoid; }
 }
 </style>

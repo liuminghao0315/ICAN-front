@@ -59,7 +59,7 @@ const router = createRouter({
           redirect: '/records'
         },
         {
-          path: 'analysis',
+          path: 'analysis/:resultId?',
           name: 'Analysis',
           component: () => import('@/views/Analysis.vue'),
           meta: { title: '分析结果' }

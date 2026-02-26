@@ -190,6 +190,8 @@ export interface AnalysisTaskVO {
   isFavorited?: boolean
   /** 挂载的风险词库包列表 */
   wordPacks?: WordPackVO[]
+  /** PDF报告下载URL */
+  reportPdfUrl?: string | null
 }
 
 // ==================== 分析结果模块 ====================

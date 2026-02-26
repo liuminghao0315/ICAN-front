@@ -110,13 +110,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { ElMessage } from 'element-plus'
 import { VideoPlay, DataAnalysis, Close, Document, Download } from '@element-plus/icons-vue'
 import { getVideoList, getResultById, getResultByVideoId, getResultByTaskId, type VideoInfo } from '@/api'
 import AnalysisContent from '@/components/AnalysisContent.vue'
+import { useAnalysisActionsStore } from '@/stores/analysisActions'
+import { useExportReport } from '@/composables/useExportReport'
 
 const route = useRoute()
 const router = useRouter()
@@ -175,8 +177,8 @@ const loadAnalysisByVideo = async () => {
       analysisData.value = null
       emptyMessage.value = '该视频尚未分析或分析未完成'
     }
-  } catch (error: any) {
-    ElMessage.error(error?.message || '加载分析结果失败')
+  } catch {
+    // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
     emptyMessage.value = '加载失败，请稍后重试'
   } finally {
@@ -199,8 +201,8 @@ const loadAnalysisById = async (resultId: string) => {
       analysisData.value = null
       emptyMessage.value = '分析结果不存在'
     }
-  } catch (error: any) {
-    ElMessage.error(error?.message || '加载分析结果失败')
+  } catch {
+    // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
     emptyMessage.value = '加载失败，请稍后重试'
   } finally {
@@ -222,8 +224,8 @@ const loadAnalysisByTaskId = async (taskId: string) => {
       analysisData.value = null
       emptyMessage.value = '该任务尚未生成分析结果'
     }
-  } catch (error: any) {
-    ElMessage.error(error?.message || '加载分析结果失败')
+  } catch {
+    // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
     emptyMessage.value = '加载失败，请稍后重试'
   } finally {
@@ -257,11 +259,36 @@ const getStatusText = (status: string) => {
 }
 
 // 导出PDF
+const { exportReportByUrl } = useExportReport()
 const handleExportPdf = () => {
-  if (analysisContentRef.value && typeof analysisContentRef.value.exportToPdf === 'function') {
-    analysisContentRef.value.exportToPdf()
+  if (!analysisData.value?.reportPdfUrl) {
+    ElMessage.warning('PDF 报告尚未生成，请稍后重试')
+    return
   }
+  const fileName = analysisData.value?.videoInfo?.fileName
+    ? analysisData.value.videoInfo.fileName.replace(/\.[^.]+$/, '.pdf')
+    : undefined
+  exportReportByUrl(analysisData.value.reportPdfUrl, fileName)
 }
+
+// 监听侧边栏导出按钮触发
+const analysisActionsStore = useAnalysisActionsStore()
+watch(() => analysisActionsStore.exportTrigger, (newVal, oldVal) => {
+  if (newVal > oldVal) {
+    handleExportPdf()
+  }
+})
+
+// 同步分析数据状态到 store，供 MainLayout 侧边栏按钮判断
+watch(analysisData, (val) => {
+  analysisActionsStore.setHasAnalysisData(!!val)
+  analysisActionsStore.setCurrentTaskId(val?.taskId ?? null)
+})
+
+onUnmounted(() => {
+  analysisActionsStore.setHasAnalysisData(false)
+  analysisActionsStore.setCurrentTaskId(null)
+})
 
 // ==================== WebSocket订阅 ====================
 // 订阅任务完成事件，自动刷新视频列表
@@ -278,9 +305,10 @@ subscribeCompleted((data) => {
 onMounted(() => {
   fetchVideos()
   
-  // 优先使用 resultId 直接加载
-  if (route.query.resultId) {
-    loadAnalysisById(route.query.resultId as string)
+  // 优先使用 resultId 直接加载（路径参数或 query 兼容）
+  const resultId = (route.params.resultId as string) || (route.query.resultId as string)
+  if (resultId) {
+    loadAnalysisById(resultId)
   } else if (route.query.videoId) {
     selectedVideoId.value = route.query.videoId as string
     loadAnalysisByVideo()

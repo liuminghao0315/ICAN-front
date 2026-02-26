@@ -189,6 +189,7 @@ export interface VideoInfo {
   fileName: string                      // 文件名
   duration: number                      // 时长（秒）
   uploadSource: string                  // 来源
+  sourceUrl?: string | null             // 网络采集时的原始链接
   description?: string                  // AI自动生成的视频内容摘要（可选）
   detectedKeywords?: DetectedKeyword[]  // 检测到的关键词（可选）
   mainCharacter?: MainCharacter         // 视频主要人物特征（可选）

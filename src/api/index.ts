@@ -1,4 +1,4 @@
-﻿import axios from 'axios'
+import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 import type {
@@ -539,6 +539,14 @@ export const retryTask = async (taskId: string): Promise<ApiResponse<AnalysisTas
 // 获取分析结果
 export const getResultById = async (resultId: string): Promise<ApiResponse<AnalysisResultVO>> => {
   const response = await api.get<ApiResponse<AnalysisResultVO>>(`/api/analysis/result/${resultId}`)
+  return response.data
+}
+
+// 下载PDF分析报告
+export const downloadReportPdf = async (resultId: string): Promise<Blob> => {
+  const response = await api.get(`/api/analysis/result/${resultId}/pdf`, {
+    responseType: 'blob'
+  })
   return response.data
 }
 

@@ -448,7 +448,7 @@ const changePage = (page: number) => {
 // 查看结果
 const viewResult = (task: AnalysisTaskVO) => {
   if (task.resultId) {
-    router.push({ path: '/analysis', query: { resultId: task.resultId } })
+    router.push(`/analysis/${task.resultId}`)
   }
 }
 

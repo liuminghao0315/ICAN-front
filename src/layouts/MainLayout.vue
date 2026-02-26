@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <el-container class="main-layout">
     <!-- 侧边栏 -->
     <el-aside
@@ -94,7 +94,12 @@
           <!-- 底部：操作工具组 -->
           <div class="mini-sidebar-bottom">
             <el-tooltip content="导出报告" placement="right" :show-after="300">
-              <button class="analysis-tool-btn" @click="$emit('export')">
+              <button 
+                class="analysis-tool-btn" 
+                :class="{ 'is-disabled': !analysisActionsStore.hasAnalysisData }"
+                :disabled="!analysisActionsStore.hasAnalysisData"
+                @click="analysisActionsStore.hasAnalysisData && analysisActionsStore.triggerExport()"
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
                   <polyline points="7,10 12,15 17,10"/>
@@ -104,7 +109,12 @@
             </el-tooltip>
 
             <el-tooltip content="分享" placement="right" :show-after="300">
-              <button class="analysis-tool-btn" @click="$emit('share')">
+              <button 
+                class="analysis-tool-btn"
+                :class="{ 'is-disabled': !analysisActionsStore.hasAnalysisData }"
+                :disabled="!analysisActionsStore.hasAnalysisData"
+                @click="analysisActionsStore.hasAnalysisData && $emit('share')"
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="18" cy="5" r="3"/>
                   <circle cx="6" cy="12" r="3"/>
@@ -118,8 +128,9 @@
             <el-tooltip :content="isAnalysisFavorited ? '取消收藏' : '收藏'" placement="right" :show-after="300">
               <button
                 class="analysis-tool-btn"
-                :class="{ 'is-favorited': isAnalysisFavorited }"
-                @click="handleAnalysisFavorite"
+                :class="{ 'is-favorited': isAnalysisFavorited, 'is-disabled': !analysisActionsStore.hasAnalysisData }"
+                :disabled="!analysisActionsStore.hasAnalysisData"
+                @click="analysisActionsStore.hasAnalysisData && handleAnalysisFavorite()"
               >
                 <svg viewBox="0 0 24 24" :fill="isAnalysisFavorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
@@ -263,6 +274,7 @@
   import { useUploadStore } from '@/stores/upload'
   import { useFolderStore } from '@/stores/folder'
   import { useFavoritesStore } from '@/stores/favorites'
+  import { useAnalysisActionsStore } from '@/stores/analysisActions'
   import { getTaskList, getMe } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
   import FolderTree from '@/components/FolderTree.vue'
@@ -275,6 +287,7 @@
   const uploadStore = useUploadStore()
   const folderStore = useFolderStore()
   const favStore = useFavoritesStore()
+  const analysisActionsStore = useAnalysisActionsStore()
 
   // ===== 三段式导航配置 =====
   const primaryNavItems = [
@@ -348,8 +361,8 @@
   // 检测是否处于分析详情页（Analysis 路由）
   const isAnalysisDetail = computed(() => route.name === 'Analysis')
 
-  // 分析页收藏按钮：从路由参数获取 taskId
-  const analysisTaskId = computed(() => route.query.taskId as string | undefined)
+  // 分析页收藏按钮：从 store 获取当前分析数据的 taskId
+  const analysisTaskId = computed(() => analysisActionsStore.currentTaskId)
   const isAnalysisFavorited = computed(() =>
     analysisTaskId.value ? favStore.isFavorited(analysisTaskId.value) : false
   )
@@ -358,8 +371,9 @@
       ElMessage.warning('无法获取任务信息，请从记录中心进入分析页')
       return
     }
+    const wasFavorited = isAnalysisFavorited.value
     await favStore.toggle(analysisTaskId.value)
-    ElMessage.success(isAnalysisFavorited.value ? '已取消收藏' : '收藏成功')
+    ElMessage.success(wasFavorited ? '已取消收藏' : '收藏成功')
   }
 
   const isCollapse = ref(false)
@@ -960,6 +974,13 @@ $purple: #4b70e2;
       color: #fbbf24;
       svg { filter: drop-shadow(0 0 3px rgba(251,191,36,.5)); }
       &:hover { background: rgba(251,191,36,.12); color: #f59e0b; }
+    }
+
+    &.is-disabled,
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: none;
     }
   }
 
