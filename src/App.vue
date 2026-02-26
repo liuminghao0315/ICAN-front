@@ -199,4 +199,32 @@ body {
   background: rgba(0, 0, 0, 0.05);
   transform: scale(1.1);
 }
+
+/* ===== 全局主题 CSS 变量 ===== */
+:root,
+[data-theme='light'] {
+  --bg-page: #f5f6fa;
+  --bg-card: #ffffff;
+  --bg-hover: #f8f9fc;
+  --bg-input: #fafbfd;
+  --bg-icon: #f0f2f8;
+  --border-color: #e8eaf0;
+  --text-primary: #1a1d2e;
+  --text-secondary: #5a5f7a;
+  --text-tertiary: #8b8fa8;
+  --color-primary: #5b6af0;
+}
+
+[data-theme='dark'] {
+  --bg-page: #0f1117;
+  --bg-card: #1a1d2e;
+  --bg-hover: #22263a;
+  --bg-input: #22263a;
+  --bg-icon: #22263a;
+  --border-color: #2e3248;
+  --text-primary: #e8eaf6;
+  --text-secondary: #9ba3c4;
+  --text-tertiary: #5a6080;
+  --color-primary: #7b8ff5;
+}
 </style>

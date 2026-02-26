@@ -75,6 +75,12 @@ const router = createRouter({
           name: 'RiskDictionary',
           component: () => import('@/views/RiskWordLibrary.vue'),
           meta: { title: '风险词库管理' }
+        },
+        {
+          path: 'settings',
+          name: 'Settings',
+          component: () => import('@/views/Settings.vue'),
+          meta: { title: '设置' }
         }
       ]
     },

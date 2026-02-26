@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <!-- Toast 消息提示组件 -->
   <Toast :message="toast.message.value" :type="toast.type.value" @close="toast.hideToast" />
 
@@ -133,7 +133,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { login, register, sendRegisterCode } from '@/api'
+import { login, register, sendRegisterCode, getMe } from '@/api'
 import type { LoginParams, RegisterParams, SendRegisterCodeParams } from '@/api'
 import Toast from '@/components/Toast.vue'
 import { useToast } from '@/composables/useToast'
@@ -451,8 +451,19 @@ const handleLogin = async () => {
           // 静默处理错误
         }
       }
-      
-      // 跳转到首页或其他页面
+      // 获取完整用户信息（含 email）后再跳转
+      try {
+        const meRes = await getMe()
+        if (meRes.code === 200 && meRes.data) {
+          userStore.setUserInfo({
+            id: meRes.data.id,
+            username: meRes.data.username,
+            email: meRes.data.email
+          })
+        }
+      } catch {
+        // getMe 失败不阻断登录流程
+      }
       router.push('/')
     } else {
       loginError.value = response.message || '登录失败'

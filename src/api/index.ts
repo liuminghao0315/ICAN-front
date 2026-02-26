@@ -1,4 +1,4 @@
-import axios from 'axios'
+﻿import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 import type {
@@ -796,5 +796,44 @@ export const addWordsToWordPack = async (packId: string, words: { text: string; 
  */
 export const deleteWordFromPack = async (wordId: string): Promise<ApiResponse<void>> => {
   const response = await api.delete<ApiResponse<void>>(`/api/word-pack/word/${wordId}`)
+  return response.data
+}
+
+// ==================== 设置模块接口 ====================
+
+/** 向当前绑定邮箱发送修改密码验证码 */
+export const sendMailToChangePwd = async (): Promise<ApiResponse<string>> => {
+  const response = await api.get<ApiResponse<string>>('/account/sendMailToChangePwd')
+  return response.data
+}
+
+/** 验证码验证后修改密码 */
+export const changePwd = async (verifyCode: string, newPwd: string): Promise<ApiResponse<string>> => {
+  const response = await api.post<ApiResponse<string>>('/account/changePwd', null, {
+    params: { verifyCode, newPwd }
+  })
+  return response.data
+}
+
+
+/** 发送变更邮箱验证码到新邮箱 */
+export const sendMailToChangeEmail = async (newEmail: string): Promise<ApiResponse<string>> => {
+  const response = await api.get<ApiResponse<string>>('/account/sendMailToChangeEmail', {
+    params: { newEmail }
+  })
+  return response.data
+}
+
+/** 验证验证码并更新邮箱 */
+export const changeEmail = async (newEmail: string, verifyCode: string): Promise<ApiResponse<string>> => {
+  const response = await api.post<ApiResponse<string>>('/account/changeEmail', null, {
+    params: { newEmail, verifyCode }
+  })
+  return response.data
+}
+
+/** 获取当前登录用户信息（id / username / email） */
+export const getMe = async (): Promise<ApiResponse<{ id: string; username: string; email: string }>> => {
+  const response = await api.get<ApiResponse<{ id: string; username: string; email: string }>>('/account/me')
   return response.data
 }

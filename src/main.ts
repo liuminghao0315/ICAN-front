@@ -8,6 +8,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 import App from './App.vue'
 import router from './router'
+import { useSettingsStore } from './stores'
 
 const app = createApp(App)
 
@@ -15,6 +16,10 @@ const app = createApp(App)
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 app.use(pinia)
+
+// 初始化主题（需在 pinia 挂载后）
+const settingsStore = useSettingsStore()
+settingsStore.init()
 
 // Element Plus
 app.use(ElementPlus, { locale: zhCn })
