@@ -116,6 +116,7 @@ api.interceptors.response.use(
     if (error.response) {
       const status = error.response.status
       const message = error.response.data?.message || '请求失败'
+      const silent = originalRequest?._silent === true
       
       // 401: 未授权，尝试刷新token
       if (status === 401 && originalRequest && !originalRequest._retry) {
@@ -232,18 +233,18 @@ api.interceptors.response.use(
       }
       // 403: 禁止访问
       else if (status === 403) {
-        ElMessage.error('权限不足，无法访问该资源')
+        if (!silent) ElMessage.error('权限不足，无法访问该资源')
       }
       // 404: 资源不存在
       else if (status === 404) {
-        ElMessage.error('请求的资源不存在')
+        if (!silent) ElMessage.error('请求的资源不存在')
       }
       // 500: 服务器错误
       else if (status >= 500) {
-        ElMessage.error('服务器错误，请稍后重试')
+        if (!silent) ElMessage.error('服务器错误，请稍后重试')
       } else if (status !== 401) {
         // 其他错误（401已在上面处理，不重复提示）
-        ElMessage.error(message || '请求失败')
+        if (!silent) ElMessage.error(message || '请求失败')
       }
       
       // 返回错误信息，让调用方处理
@@ -449,8 +450,8 @@ export const getVideoList = async (
 }
 
 // 删除视频
-export const deleteVideo = async (videoId: string): Promise<ApiResponse<void>> => {
-  const response = await api.delete<ApiResponse<void>>(`/api/video/${videoId}`)
+export const deleteVideo = async (videoId: string, silent = false): Promise<ApiResponse<void>> => {
+  const response = await api.delete<ApiResponse<void>>(`/api/video/${videoId}`, { _silent: silent } as any)
   return response.data
 }
 
@@ -537,8 +538,10 @@ export const retryTask = async (taskId: string): Promise<ApiResponse<AnalysisTas
 // ==================== 分析结果接口 ====================
 
 // 获取分析结果
-export const getResultById = async (resultId: string): Promise<ApiResponse<AnalysisResultVO>> => {
-  const response = await api.get<ApiResponse<AnalysisResultVO>>(`/api/analysis/result/${resultId}`)
+export const getResultById = async (resultId: string, feedback?: string): Promise<ApiResponse<AnalysisResultVO>> => {
+  const response = await api.get<ApiResponse<AnalysisResultVO>>(`/api/analysis/result/${resultId}`, {
+    params: feedback ? { feedback } : undefined
+  })
   return response.data
 }
 
@@ -551,14 +554,18 @@ export const downloadReportPdf = async (resultId: string): Promise<Blob> => {
 }
 
 // 根据任务ID获取分析结果
-export const getResultByTaskId = async (taskId: string): Promise<ApiResponse<AnalysisResultVO | null>> => {
-  const response = await api.get<ApiResponse<AnalysisResultVO | null>>(`/api/analysis/result/task/${taskId}`)
+export const getResultByTaskId = async (taskId: string, feedback?: string): Promise<ApiResponse<AnalysisResultVO | null>> => {
+  const response = await api.get<ApiResponse<AnalysisResultVO | null>>(`/api/analysis/result/task/${taskId}`, {
+    params: feedback ? { feedback } : undefined
+  })
   return response.data
 }
 
 // 根据视频ID获取最新分析结果
-export const getResultByVideoId = async (videoId: string): Promise<ApiResponse<AnalysisResultVO | null>> => {
-  const response = await api.get<ApiResponse<AnalysisResultVO | null>>(`/api/analysis/result/video/${videoId}`)
+export const getResultByVideoId = async (videoId: string, feedback?: string): Promise<ApiResponse<AnalysisResultVO | null>> => {
+  const response = await api.get<ApiResponse<AnalysisResultVO | null>>(`/api/analysis/result/video/${videoId}`, {
+    params: feedback ? { feedback } : undefined
+  })
   return response.data
 }
 
@@ -840,8 +847,126 @@ export const changeEmail = async (newEmail: string, verifyCode: string): Promise
   return response.data
 }
 
-/** 获取当前登录用户信息（id / username / email） */
-export const getMe = async (): Promise<ApiResponse<{ id: string; username: string; email: string }>> => {
-  const response = await api.get<ApiResponse<{ id: string; username: string; email: string }>>('/account/me')
+/** 获取当前登录用户信息（id / username / email / role） */
+export const getMe = async (): Promise<ApiResponse<{ id: string; username: string; email: string; role: string }>> => {
+  const response = await api.get<ApiResponse<{ id: string; username: string; email: string; role: string }>>('/account/me')
+  return response.data
+}
+
+// ==================== 反馈模块接口 ====================
+
+export interface FeedbackCreateParams {
+  taskId: string
+  videoId: string
+  feedbackType: string
+  module?: string
+  content: string
+}
+
+export interface FeedbackVO {
+  id: string
+  userId: string
+  username: string
+  taskId: string
+  videoId: string
+  videoTitle?: string
+  feedbackType: string
+  module: string | null
+  content: string
+  status: string
+  handlerId: string | null
+  handlerName: string | null
+  adminReply: string | null
+  analysisSnapshot?: Record<string, any> | null
+  videoDeleted?: boolean
+  gmtCreated: string
+  gmtModified: string
+}
+
+export interface FeedbackMessage {
+  role: 'user' | 'admin'
+  text: string
+  type?: string
+  module?: string
+  time: string
+}
+
+/** 提交反馈 */
+export const submitFeedback = async (params: FeedbackCreateParams): Promise<ApiResponse<FeedbackVO>> => {
+  const response = await api.post<ApiResponse<FeedbackVO>>('/api/feedback', params)
+  return response.data
+}
+
+/** 获取我的反馈历史 */
+export const getMyFeedbacks = async (page: number = 1, size: number = 10): Promise<ApiResponse<PageResult<FeedbackVO>>> => {
+  const response = await api.get<ApiResponse<PageResult<FeedbackVO>>>('/api/feedback/my', { params: { page, size } })
+  return response.data
+}
+
+/** 获取我对某视频的反馈 */
+export const getMyFeedbackByVideo = async (videoId: string): Promise<ApiResponse<FeedbackVO | null>> => {
+  const response = await api.get<ApiResponse<FeedbackVO | null>>(`/api/feedback/my/video/${videoId}`)
+  return response.data
+}
+
+/** 管理员获取反馈列表 */
+export const getAdminFeedbackList = async (page: number = 1, size: number = 10, status?: string): Promise<ApiResponse<PageResult<FeedbackVO>>> => {
+  const params: Record<string, any> = { page, size }
+  if (status) params.status = status
+  const response = await api.get<ApiResponse<PageResult<FeedbackVO>>>('/api/feedback/admin/list', { params })
+  return response.data
+}
+
+/** 管理员锁定反馈 */
+export const lockFeedback = async (feedbackId: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/feedback/${feedbackId}/lock`)
+  return response.data
+}
+
+/** 管理员回复消息（纯聊天，不改状态） */
+export const replyFeedback = async (feedbackId: string, reply: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/feedback/${feedbackId}/reply`, { reply })
+  return response.data
+}
+
+/** 管理员关闭反馈（改状态） */
+export const closeFeedback = async (feedbackId: string, status: string = 'RESOLVED'): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/feedback/${feedbackId}/close`, { status })
+  return response.data
+}
+
+// ==================== 通知模块接口 ====================
+
+export interface NotificationVO {
+  id: string
+  type: string
+  title: string
+  content: string | null
+  relatedId: string | null
+  isRead: boolean
+  gmtCreated: string
+}
+
+/** 获取通知列表 */
+export const getNotificationList = async (page: number = 1, size: number = 20): Promise<ApiResponse<PageResult<NotificationVO>>> => {
+  const response = await api.get<ApiResponse<PageResult<NotificationVO>>>('/api/notification/list', { params: { page, size } })
+  return response.data
+}
+
+/** 获取未读通知数量 */
+export const getUnreadNotificationCount = async (): Promise<ApiResponse<number>> => {
+  const response = await api.get<ApiResponse<number>>('/api/notification/unread-count')
+  return response.data
+}
+
+/** 标记单条通知已读 */
+export const markNotificationRead = async (id: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/notification/${id}/read`)
+  return response.data
+}
+
+/** 全部标记已读 */
+export const markAllNotificationsRead = async (): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>('/api/notification/read-all')
   return response.data
 }

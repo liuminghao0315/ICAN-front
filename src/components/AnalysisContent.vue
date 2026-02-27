@@ -1511,6 +1511,7 @@
         v-else 
         key="report" 
         :data="analysisResult" 
+        :hide-export="hideExport"
         @export-pdf="emit('export-pdf')"
       />
     </transition>
@@ -1581,8 +1582,9 @@ import {
 // ==================== Props 定义 ====================
 // 接收从父组件传入的分析结果数据
 const props = defineProps<{
-  analysisResult: typeof mockAnalysisResult; // 分析结果数据
-  viewMode: "interactive" | "report"; // 视图模式
+  analysisResult: typeof mockAnalysisResult;
+  viewMode: "interactive" | "report";
+  hideExport?: boolean;
 }>();
 
 // Emits 定义

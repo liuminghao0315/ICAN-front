@@ -612,8 +612,8 @@ const confirmDelete = async () => {
     } else {
       ElMessage.error(response.message || '删除失败')
     }
-  } catch (error: any) {
-    ElMessage.error(error?.message || '删除失败')
+  } catch {
+    // 拦截器已弹出后端错误消息
   } finally {
     deleteDialogVisible.value = false
     videoToDelete.value = null

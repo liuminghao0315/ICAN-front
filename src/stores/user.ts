@@ -14,10 +14,12 @@ export const useUserStore = defineStore('user', () => {
     id: string
     username: string
     email: string
+    role?: string
   } | null>(null)
 
   // 计算属性
   const isLoggedIn = computed(() => !!token.value)
+  const isAdmin = computed(() => userInfo.value?.role === 'Administrator')
 
   // 方法
   const setToken = (newToken: string) => {
@@ -51,6 +53,7 @@ export const useUserStore = defineStore('user', () => {
     refreshToken,
     userInfo,
     isLoggedIn,
+    isAdmin,
     setToken,
     setRefreshToken,
     setTokens,

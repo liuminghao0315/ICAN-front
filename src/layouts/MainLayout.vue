@@ -195,6 +195,7 @@
         </div>
 
         <div class="header-right">
+          <NotificationBell />
           <div class="user-dropdown" ref="userDropdownRef">
             <div class="user-info" ref="userInfoRef" @click="toggleDropdown">
               <div class="user-avatar">
@@ -278,6 +279,7 @@
   import { getTaskList, getMe } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
   import FolderTree from '@/components/FolderTree.vue'
+  import NotificationBell from '@/components/NotificationBell.vue'
   import { ElMessage } from 'element-plus'
 
   const router = useRouter()
@@ -290,28 +292,38 @@
   const analysisActionsStore = useAnalysisActionsStore()
 
   // ===== 三段式导航配置 =====
-  const primaryNavItems = [
-    {
-      path: '/dashboard',
-      label: '工作台',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`
-    },
-    {
-      path: '/records',
-      label: '记录中心',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>`
-    },
-    {
-      path: '/favorites',
-      label: '我的收藏',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`
-    },
-    {
-      path: '/risk-dictionary',
-      label: '风险词库管理',
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+  const primaryNavItems = computed(() => {
+    const items = [
+      {
+        path: '/dashboard',
+        label: '工作台',
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`
+      },
+      {
+        path: '/records',
+        label: '记录中心',
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>`
+      },
+      {
+        path: '/favorites',
+        label: '我的收藏',
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`
+      },
+      {
+        path: '/risk-dictionary',
+        label: '风险词库管理',
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+      }
+    ]
+    if (userStore.isAdmin) {
+      items.push({
+        path: '/admin/feedback',
+        label: '反馈管理',
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="12" y1="6" x2="12" y2="12"/></svg>`
+      })
     }
-  ]
+    return items
+  })
 
   const systemNavItems = [
     {
@@ -484,11 +496,16 @@
 
   // 同时在 onMounted 中也尝试连接（双重保险）
   onMounted(() => {
-    // 若 email 为空则补拉用户信息（兼容旧登录态）
-    if (userStore.isLoggedIn && !userStore.userInfo?.email) {
+    // 拉取用户信息（含角色），确保 role 字段始终存在
+    if (userStore.isLoggedIn) {
       getMe().then(res => {
         if (res.code === 200 && res.data) {
-          userStore.setUserInfo({ id: res.data.id, username: res.data.username, email: res.data.email })
+          userStore.setUserInfo({
+            id: res.data.id,
+            username: res.data.username,
+            email: res.data.email,
+            role: res.data.role
+          })
         }
       }).catch(() => {})
     }
@@ -1228,6 +1245,10 @@ $purple: #4b70e2;
   }
 
   .header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
     .user-info {
       display: flex;
       align-items: center;
@@ -1676,31 +1697,45 @@ $black: #181818;
 }
 
 // 对话框动画
-.modal-enter-active {
-  animation: modal-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
+// 遮罩层只做 opacity 淡入淡出，避免 scale 导致四周出现边界感
+.modal-enter-active,
 .modal-leave-active {
-  animation: modal-out 0.2s ease-out;
+  transition: opacity 0.25s ease;
 }
 
-@keyframes modal-in {
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+// 缩放弹跳动画只作用在内部弹窗卡片上
+.modal-enter-active .confirm-modal {
+  animation: modal-card-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-leave-active .confirm-modal {
+  animation: modal-card-out 0.2s ease-out;
+}
+
+@keyframes modal-card-in {
   0% {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.88) translateY(12px);
   }
   100% {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
-@keyframes modal-out {
+@keyframes modal-card-out {
   0% {
     opacity: 1;
+    transform: scale(1) translateY(0);
   }
   100% {
     opacity: 0;
+    transform: scale(0.93) translateY(8px);
   }
 }
 </style>

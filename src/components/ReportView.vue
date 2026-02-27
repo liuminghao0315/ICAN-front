@@ -1,11 +1,12 @@
 <template>
   <div class="report-view">
-    <div class="report-actions">
+    <div class="report-actions" v-if="!hideExport">
       <button class="export-btn" @click="handleExport">
         <el-icon><Download /></el-icon>
         导出报告
       </button>
     </div>
+    <div v-else class="report-actions-placeholder"></div>
 
     <div class="report-paper">
       <!-- 封面区 -->
@@ -253,7 +254,7 @@ import type { AnalysisResult } from '@/data/mockAnalysisResult'
 import { useExportReport } from '@/composables/useExportReport'
 
 defineEmits<{ 'export-pdf': [] }>()
-const props = defineProps<{ data: AnalysisResult }>()
+const props = defineProps<{ data: AnalysisResult; hideExport?: boolean }>()
 const { exportReportByUrl } = useExportReport()
 
 const handleExport = () => {
@@ -416,6 +417,9 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
   position: sticky; top: 8px; z-index: 10;
   display: flex; justify-content: flex-end;
   padding: 0 0 10px 0; pointer-events: none;
+}
+.report-actions-placeholder {
+  height: 45px;
 }
 .export-btn {
   pointer-events: auto;

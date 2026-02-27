@@ -4,8 +4,30 @@
     class="analysis-page"
   >
     <div class="header-actions" :class="{ 'interactive-mode': viewMode === 'interactive' && analysisData }">
-      <h2 class="page-title">分析结果</h2>
+      <h2 class="page-title">
+        分析结果
+        <span v-if="isReviewMode" class="review-badge">审核反馈</span>
+      </h2>
       <div class="header-actions-right">
+        <!-- 审核反馈模式：直接弹出对话记录 -->
+        <button
+          v-if="isReviewMode"
+          class="neu-btn review-chat-btn"
+          @click="showReviewChatDialog = true"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          对话记录
+        </button>
+        <!-- 反馈按钮（仅普通用户可见，且有分析数据时，非审核模式） -->
+        <button
+          v-if="analysisData && !userStore.isAdmin && !isReviewMode"
+          class="neu-btn feedback-btn"
+          :class="{ 'has-feedback': !!currentFeedback }"
+          @click="showFeedbackDialog = true"
+        >
+          <el-icon><ChatDotRound /></el-icon>
+          {{ currentFeedback ? '已反馈' : '反馈' }}
+        </button>
         <!-- 视图切换按钮 -->
         <div class="view-mode-toggle" v-if="analysisData">
           <button 
@@ -103,8 +125,31 @@
       ref="analysisContentRef"
       :analysis-result="analysisData"
       :view-mode="viewMode"
+      :hide-export="isReviewMode"
       @update:view-mode="viewMode = $event"
       @export-pdf="handleExportPdf"
+    />
+
+    <!-- 普通用户反馈弹窗 -->
+    <FeedbackDialog
+      :visible="showFeedbackDialog"
+      @update:visible="showFeedbackDialog = $event"
+      :task-id="analysisData?.taskId ?? ''"
+      :video-id="analysisData?.videoInfo?.videoId ?? selectedVideoId"
+      :feedback-data="currentFeedback"
+      @submitted="onFeedbackSubmitted"
+    />
+
+    <!-- 管理员审核：带回复/处理操作的对话记录弹窗 -->
+    <FeedbackDialog
+      v-if="isReviewMode"
+      :visible="showReviewChatDialog"
+      @update:visible="showReviewChatDialog = $event"
+      :task-id="analysisData?.taskId ?? ''"
+      :video-id="analysisData?.videoInfo?.videoId ?? selectedVideoId"
+      :feedback-data="reviewFeedbackData"
+      :is-admin="true"
+      @status-changed="onReviewStatusChanged"
     />
   </div>
 </template>
@@ -114,14 +159,24 @@ import { ref, onMounted, watch, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { ElMessage } from 'element-plus'
-import { VideoPlay, DataAnalysis, Close, Document, Download } from '@element-plus/icons-vue'
-import { getVideoList, getResultById, getResultByVideoId, getResultByTaskId, type VideoInfo } from '@/api'
+import { VideoPlay, DataAnalysis, Close, Document, Download, ChatDotRound } from '@element-plus/icons-vue'
+import { getVideoList, getResultById, getResultByVideoId, getResultByTaskId, getMyFeedbackByVideo, type VideoInfo, type FeedbackVO } from '@/api'
 import AnalysisContent from '@/components/AnalysisContent.vue'
+import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import { useAnalysisActionsStore } from '@/stores/analysisActions'
+import { useUserStore } from '@/stores'
 import { useExportReport } from '@/composables/useExportReport'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+
+
+// 审核反馈模式：管理员从反馈管理页跳转过来
+const feedbackId = ref<string | null>(null)
+const isReviewMode = ref(false)
+const showReviewChatDialog = ref(false)
+const reviewFeedbackData = ref<FeedbackVO | null>(null)
 
 // WebSocket - 当任务完成时刷新视频列表
 const { subscribeCompleted } = useWebSocket()
@@ -134,6 +189,8 @@ const analysisData = ref<any>(null)  // 分析结果数据
 const emptyMessage = ref('请选择一个视频')
 const showVideoDrawer = ref(false)
 const viewMode = ref<'interactive' | 'report'>('interactive')  // 视图模式
+const showFeedbackDialog = ref(false)
+const currentFeedback = ref<FeedbackVO | null>(null)
 const analysisContentRef = ref<InstanceType<typeof AnalysisContent> | null>(null)
 
 // ==================== 数据加载方法 ====================
@@ -157,6 +214,12 @@ const selectVideo = (video: VideoInfo) => {
   loadAnalysisByVideo()
 }
 
+const getReviewFeedbackParam = (): string | undefined => {
+  const feedback = route.query.feedback as string | undefined
+  const legacyFeedbackId = route.query.feedbackId as string | undefined
+  return feedback || legacyFeedbackId || undefined
+}
+
 const loadAnalysisByVideo = async () => {
   if (!selectedVideoId.value) {
     analysisData.value = null
@@ -167,12 +230,15 @@ const loadAnalysisByVideo = async () => {
   loading.value = true
   
   try {
+    const feedback = isReviewMode.value ? getReviewFeedbackParam() : undefined
     // 使用统一的API调用（指向8080后端）
-    const response = await getResultByVideoId(selectedVideoId.value)
+    const response = await getResultByVideoId(selectedVideoId.value, feedback)
     
     if (response.code === 200 && response.data) {
       analysisData.value = response.data
       emptyMessage.value = ''
+      const vid = response.data.videoInfo?.videoId || selectedVideoId.value
+      loadFeedbackForVideo(vid)
     } else {
       analysisData.value = null
       emptyMessage.value = '该视频尚未分析或分析未完成'
@@ -180,9 +246,37 @@ const loadAnalysisByVideo = async () => {
   } catch {
     // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
-    emptyMessage.value = '加载失败，请稍后重试'
+    emptyMessage.value = isReviewMode.value ? '暂无权限查看该完整分析' : '加载失败，请稍后重试'
   } finally {
     loading.value = false
+  }
+}
+
+const loadFeedbackForVideo = async (videoId: string) => {
+  currentFeedback.value = null
+  if (!videoId || userStore.isAdmin) return
+  try {
+    const res = await getMyFeedbackByVideo(videoId)
+    if (res.code === 200 && res.data) {
+      currentFeedback.value = res.data
+    }
+  } catch { /* silent */ }
+}
+
+const onFeedbackSubmitted = async (feedback?: FeedbackVO) => {
+  if (feedback) {
+    currentFeedback.value = feedback
+  }
+  const videoId = analysisData.value?.videoInfo?.videoId || selectedVideoId.value
+  if (videoId) {
+    await loadFeedbackForVideo(videoId)
+  }
+}
+
+/** 管理员在对话弹窗中更改反馈状态后，同步更新本地 reviewFeedbackData */
+const onReviewStatusChanged = (status: string) => {
+  if (reviewFeedbackData.value) {
+    reviewFeedbackData.value = { ...reviewFeedbackData.value, status }
   }
 }
 
@@ -190,13 +284,15 @@ const loadAnalysisById = async (resultId: string) => {
   loading.value = true
   
   try {
+    const feedback = isReviewMode.value ? getReviewFeedbackParam() : undefined
     // 使用统一的API调用（指向8080后端）
-    const response = await getResultById(resultId)
+    const response = await getResultById(resultId, feedback)
     
     if (response.code === 200 && response.data) {
       analysisData.value = response.data
-      selectedVideoId.value = response.data.videoId
+      selectedVideoId.value = response.data.videoInfo?.videoId ?? ''
       emptyMessage.value = ''
+      if (selectedVideoId.value) loadFeedbackForVideo(selectedVideoId.value)
     } else {
       analysisData.value = null
       emptyMessage.value = '分析结果不存在'
@@ -204,7 +300,7 @@ const loadAnalysisById = async (resultId: string) => {
   } catch {
     // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
-    emptyMessage.value = '加载失败，请稍后重试'
+    emptyMessage.value = isReviewMode.value ? '暂无权限查看该完整分析' : '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -214,12 +310,14 @@ const loadAnalysisByTaskId = async (taskId: string) => {
   loading.value = true
   
   try {
-    const response = await getResultByTaskId(taskId)
+    const feedback = isReviewMode.value ? getReviewFeedbackParam() : undefined
+    const response = await getResultByTaskId(taskId, feedback)
     
     if (response.code === 200 && response.data) {
       analysisData.value = response.data
-      selectedVideoId.value = response.data.videoId
+      selectedVideoId.value = response.data.videoInfo?.videoId ?? ''
       emptyMessage.value = ''
+      if (selectedVideoId.value) loadFeedbackForVideo(selectedVideoId.value)
     } else {
       analysisData.value = null
       emptyMessage.value = '该任务尚未生成分析结果'
@@ -227,7 +325,7 @@ const loadAnalysisByTaskId = async (taskId: string) => {
   } catch {
     // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
-    emptyMessage.value = '加载失败，请稍后重试'
+    emptyMessage.value = isReviewMode.value ? '暂无权限查看该完整分析' : '加载失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -281,7 +379,7 @@ watch(() => analysisActionsStore.exportTrigger, (newVal, oldVal) => {
 
 // 同步分析数据状态到 store，供 MainLayout 侧边栏按钮判断
 watch(analysisData, (val) => {
-  analysisActionsStore.setHasAnalysisData(!!val)
+  analysisActionsStore.setHasAnalysisData(!!val && !isReviewMode.value)
   analysisActionsStore.setCurrentTaskId(val?.taskId ?? null)
 })
 
@@ -303,6 +401,17 @@ subscribeCompleted((data) => {
 
 // ==================== 生命周期 ====================
 onMounted(() => {
+  // 检测审核反馈模式
+  const reviewFeedback = (route.query.feedback as string) || (route.query.feedbackId as string)
+  if (reviewFeedback) {
+    feedbackId.value = reviewFeedback
+    isReviewMode.value = true
+    // 从路由 state 恢复反馈数据（AdminFeedback.vue 跳转时携带）
+    if (history.state?.feedbackData) {
+      reviewFeedbackData.value = history.state.feedbackData as FeedbackVO
+    }
+  }
+
   fetchVideos()
   
   // 优先使用 resultId 直接加载（路径参数或 query 兼容）
@@ -353,6 +462,21 @@ $purple: #4b70e2;
       font-weight: 700;
       margin: 0;
       color: $black;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .review-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        background: rgba(#e6a23c, 0.12);
+        color: #e6a23c;
+        letter-spacing: 0.5px;
+      }
     }
     
     .header-actions-right {
@@ -384,6 +508,39 @@ $purple: #4b70e2;
             -2px -2px 6px rgba(255, 255, 255, 0.5);
         }
       }
+    }
+
+    .feedback-btn {
+      color: #7a6e5f;
+      border: 1.5px solid rgba(#e6a23c, 0.35);
+      background: rgba(#e6a23c, 0.06);
+
+      &:hover {
+        color: #e6a23c;
+        border-color: rgba(#e6a23c, 0.5);
+        background: rgba(#e6a23c, 0.1);
+      }
+
+      &.has-feedback {
+        color: #b7791f;
+        background: rgba(#e6a23c, 0.12);
+        border-color: rgba(#e6a23c, 0.3);
+      }
+    }
+
+    .review-chat-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #b7791f;
+      background: rgba(#e6a23c, 0.12);
+      border: 1px solid rgba(#e6a23c, 0.25);
+      box-shadow: none;
+      &:hover {
+        background: rgba(#e6a23c, 0.2);
+        border-color: rgba(#e6a23c, 0.4);
+      }
+      svg { flex-shrink: 0; }
     }
   }
 
@@ -662,3 +819,5 @@ $purple: #4b70e2;
   padding-left: 0 !important;
 }
 </style>
+
+

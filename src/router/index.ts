@@ -81,6 +81,12 @@ const router = createRouter({
           name: 'Settings',
           component: () => import('@/views/Settings.vue'),
           meta: { title: '设置' }
+        },
+        {
+          path: 'admin/feedback',
+          name: 'AdminFeedback',
+          component: () => import('@/views/AdminFeedback.vue'),
+          meta: { title: '反馈管理', requiresAdmin: true }
         }
       ]
     },
@@ -109,15 +115,26 @@ function getStoredToken(): string | null {
   return null
 }
 
+function getStoredRole(): string | null {
+  try {
+    const stored = localStorage.getItem('user-store')
+    if (stored) {
+      const data = JSON.parse(stored)
+      return data.userInfo?.role || null
+    }
+  } catch { /* silent */ }
+  return null
+}
+
 // 路由守卫
 router.beforeEach((to, _from, next) => {
   const token = getStoredToken()
   
   if (to.meta.requiresAuth !== false && !token) {
-    // 需要登录但未登录，跳转到登录页
     next('/login')
   } else if ((to.path === '/login' || to.path === '/register') && token) {
-    // 已登录但访问登录/注册页，跳转到首页
+    next('/dashboard')
+  } else if (to.meta.requiresAdmin && getStoredRole() !== 'Administrator') {
     next('/dashboard')
   } else {
     next()

@@ -835,39 +835,48 @@ const confirmDelete = async () => {
 
   try {
     if (deleteState.isBatch) {
-      // 批量删除：乐观UI先移除，再并发请求
       const idsToDelete = [...deleteState.ids]
-      const videoIdsToDelete = idsToDelete.map(id => records.value.find(r => r.id === id)?.videoId).filter(Boolean) as string[]
-      // 先关闭弹窗，再乐观移除
+      const tasksToDelete = idsToDelete.map(id => records.value.find(r => r.id === id)).filter(Boolean) as AnalysisTaskVO[]
+      const videoIdsToDelete = tasksToDelete.map(t => t.videoId).filter(Boolean)
       deleteState.visible = false
-      records.value = records.value.filter(r => !idsToDelete.includes(r.id))
-      totalRecords.value = Math.max(0, totalRecords.value - idsToDelete.length)
+
+      const results = await Promise.allSettled(videoIdsToDelete.map(vid => deleteVideo(vid, true)))
+
+      const failedNames: string[] = []
+      results.forEach((r, i) => {
+        if (r.status === 'rejected' || (r.status === 'fulfilled' && r.value.code !== 200)) {
+          const task = tasksToDelete[i]
+          failedNames.push(task?.videoTitle || '未知视频')
+        }
+      })
+
+      const successCount = results.length - failedNames.length
+      if (successCount > 0) {
+        ElMessage.success(`已删除 ${successCount} 条记录`)
+      }
+      if (failedNames.length > 0) {
+        ElMessage.error(`以下视频有未处理的反馈，无法删除：${failedNames.join('、')}`)
+      }
+
       selectedIds.clear()
-      ElMessage.success(`已删除 ${idsToDelete.length} 条记录`)
-      // 后台执行实际删除
-      await Promise.all(videoIdsToDelete.map(vid => deleteVideo(vid)))
       wsStore.notifyTaskChanged()
       loadRecords()
       folderStore.loadTree()
     } else {
       const videoId = deleteState.videoId
-      // 先关闭弹窗（同步，立即生效）
       deleteState.visible = false
-      // 乐观UI：立即从列表移除
-      records.value = records.value.filter(r => r.videoId !== videoId)
-      totalRecords.value = Math.max(0, totalRecords.value - 1)
-      ElMessage.success('删除成功')
-      // 后台执行实际删除
       try {
         const res = await deleteVideo(videoId)
-        if (res.code !== 200) {
-          // 后端报错：回滚需要重新拉取列表
-          ElMessage.error(res.message || '删除失败')
-        } else {
+        if (res.code === 200) {
+          records.value = records.value.filter(r => r.videoId !== videoId)
+          totalRecords.value = Math.max(0, totalRecords.value - 1)
+          ElMessage.success('删除成功')
           wsStore.notifyTaskChanged()
+        } else {
+          ElMessage.error(res.message || '删除失败')
         }
-      } catch (e: any) {
-        ElMessage.error(e.message || '删除失败')
+      } catch {
+        // 拦截器已弹出后端错误消息，此处不重复提示
       }
       loadRecords()
       folderStore.loadTree()
@@ -953,7 +962,19 @@ subscribeFailed((data) => {
 })
 
 onMounted(() => { loadRecords(); document.addEventListener('click', handleClickOutside) })
-onUnmounted(() => { document.removeEventListener('click', handleClickOutside); if (searchTimer) clearTimeout(searchTimer); unsubTaskChanged() })
+onUnmounted(() => { document.removeEventListener('click', handleClickOutside); if (searchTimer) clearTimeout(searchTimer); unsubTaskChanged(); if (stalePollTimer) clearInterval(stalePollTimer) })
+
+// 兜底轮询：如果列表中有活跃任务，每 15 秒静默刷新一次，防止 WebSocket 消息丢失导致卡片卡住
+let stalePollTimer: ReturnType<typeof setInterval> | null = null
+const hasActiveTasks = computed(() => records.value.some(r => r.status === 'PENDING' || r.status === 'PROCESSING'))
+watch(hasActiveTasks, (active) => {
+  if (active && !stalePollTimer) {
+    stalePollTimer = setInterval(() => { if (hasActiveTasks.value) loadRecordsSilent() }, 15000)
+  } else if (!active && stalePollTimer) {
+    clearInterval(stalePollTimer)
+    stalePollTimer = null
+  }
+}, { immediate: true })
 
 // WebSocket 重连后自动刷新列表，防止重启期间错过推送导致卡片状态过期
 watch(() => wsStore.isConnected, (connected, wasConnected) => {
