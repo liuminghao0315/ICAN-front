@@ -334,6 +334,7 @@ $black: #1a1f2e;
 $purple: #4b70e2;
 $purple-light: #7c9df7;
 $shadow-sm: 4px 4px 10px $neu-2, -4px -4px 10px $white;
+$shadow-in: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
 .favorites-page {
   width: 100%;
@@ -381,10 +382,20 @@ $shadow-sm: 4px 4px 10px $neu-2, -4px -4px 10px $white;
 .view-option {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 13px;
   border: none; border-radius: 9px; background: transparent; color: $black;
-  font-size: 13px; cursor: pointer; transition: all .2s;
+  font-size: 13px; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: all .2s;
   .el-icon { font-size: 14px; color: $gray; }
-  .check-icon { margin-left: auto; color: $purple; }
-  &:hover, &.active { background: $neu-1; box-shadow: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white; }
+  .check-icon { margin-left: auto; color: $purple; font-size: 13px; }
+  span { flex: 1; text-align: left; }
+
+  &:hover {
+    background: $neu-1;
+    box-shadow: $shadow-in;
+    .el-icon { color: $purple; }
+  }
+  &.active {
+    color: $purple; font-weight: 600;
+    .el-icon { color: $purple; }
+  }
 }
 
 // ── 控制按钮 ──

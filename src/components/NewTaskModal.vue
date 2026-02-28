@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div class="neu-modal-overlay" v-if="visible" @click.self="handleClose">
+      <div class="neu-modal-overlay" v-if="visible" @mousedown.self="onOverlayMouseDown" @mouseup.self="onOverlayMouseUp">
         <div class="neu-modal task-modal">
           <!-- 模态框头部 -->
           <div class="modal-header">
@@ -340,6 +340,20 @@ const emit = defineEmits<{
   (e: 'success'): void
   (e: 'task-created', task: import('@/types').AnalysisTaskVO): void
 }>()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let mouseDownOnOverlay = false
+
+const onOverlayMouseDown = () => {
+  mouseDownOnOverlay = true
+}
+
+const onOverlayMouseUp = () => {
+  if (mouseDownOnOverlay) {
+    handleClose()
+  }
+  mouseDownOnOverlay = false
+}
 
 const activeTab = ref<'local' | 'url'>('local')
 const uploadRef = ref()

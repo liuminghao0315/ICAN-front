@@ -435,7 +435,7 @@ export interface TotalStats {
 /**
  * WebSocket消息类型
  */
-export type WSMessageType = 'connected' | 'task_progress' | 'task_completed' | 'task_failed' | 'pong'
+export type WSMessageType = 'connected' | 'task_progress' | 'task_completed' | 'task_failed' | 'video_deleted' | 'feedback_new' | 'feedback_updated' | 'feedback_locked' | 'feedback_sync' | 'pong'
 
 /**
  * WebSocket基础消息
@@ -504,6 +504,45 @@ export interface TaskFailedData {
   errorMessage: string
   /** 失败类型：DOWNLOAD_FAILED（下载失败，无文件）/ ANALYSIS_FAILED（分析失败，有文件） */
   failureType?: 'DOWNLOAD_FAILED' | 'ANALYSIS_FAILED'
+}
+
+/**
+ * 视频删除通知消息数据
+ */
+export interface VideoDeletedData {
+  videoId: string
+  videoTitle: string
+}
+
+/**
+ * 反馈新消息通知（推给管理员）
+ */
+export interface FeedbackNewData {
+  feedbackId: string
+}
+
+/**
+ * 反馈被锁定通知（推给其他管理员）
+ */
+export interface FeedbackLockedData {
+  feedbackId: string
+  handlerId: string
+  handlerName: string
+}
+
+/**
+ * 反馈会话更新通知（推给其他管理员：仅刷新，不增加未读）
+ */
+export interface FeedbackSyncData {
+  feedbackId: string
+}
+
+/**
+ * 反馈更新通知（推给用户：管理员回复/状态变更）
+ */
+export interface FeedbackUpdatedData {
+  feedbackId: string
+  status: string
 }
 
 // ==================== 常量映射 ====================

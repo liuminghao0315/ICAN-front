@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useUserStore } from './user'
-import type { WSMessage, TaskProgressData, TaskCompletedData, TaskFailedData } from '@/types'
+import type { WSMessage, TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData } from '@/types'
 
 /**
  * WebSocket 全局状态管理
@@ -30,7 +30,12 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const taskFailedHandlers = ref<Array<(data: TaskFailedData) => void>>([])
   // 任务列表变更通知（取消/删除等操作后触发，用于同步顶部横幅计数）
   const taskChangedHandlers = ref<Array<() => void>>([])
-  
+  const videoDeletedHandlers = ref<Array<(data: VideoDeletedData) => void>>([])
+  const feedbackNewHandlers = ref<Array<(data: FeedbackNewData) => void>>([])
+  const feedbackUpdatedHandlers = ref<Array<(data: FeedbackUpdatedData) => void>>([])
+  const feedbackLockedHandlers = ref<Array<(data: FeedbackLockedData) => void>>([])
+  const feedbackSyncHandlers = ref<Array<(data: FeedbackSyncData) => void>>([])
+
   // ── 全局任务计数（乐观更新，无需等待 HTTP 轮询）──
   // MainLayout 直接绑定此值，取消/删除时立即减量，后端推送时覆盖校正
   const analyzingCount = ref(0)
@@ -186,6 +191,51 @@ export const useWebSocketStore = defineStore('websocket', () => {
           }
           break
 
+        case 'video_deleted':
+          if (message.data) {
+            const deletedData = message.data as VideoDeletedData
+            videoDeletedHandlers.value.forEach(handler => {
+              try { handler(deletedData) } catch { /* 忽略 */ }
+            })
+          }
+          break
+
+        case 'feedback_new':
+          if (message.data) {
+            const feedbackNewData = message.data as FeedbackNewData
+            feedbackNewHandlers.value.forEach(handler => {
+              try { handler(feedbackNewData) } catch { /* 忽略 */ }
+            })
+          }
+          break
+
+        case 'feedback_updated':
+          if (message.data) {
+            const feedbackUpdatedData = message.data as FeedbackUpdatedData
+            feedbackUpdatedHandlers.value.forEach(handler => {
+              try { handler(feedbackUpdatedData) } catch { /* 忽略 */ }
+            })
+          }
+          break
+
+        case 'feedback_locked':
+          if (message.data) {
+            const feedbackLockedData = message.data as FeedbackLockedData
+            feedbackLockedHandlers.value.forEach(handler => {
+              try { handler(feedbackLockedData) } catch { /* 忽略 */ }
+            })
+          }
+          break
+
+        case 'feedback_sync':
+          if (message.data) {
+            const feedbackSyncData = message.data as FeedbackSyncData
+            feedbackSyncHandlers.value.forEach(handler => {
+              try { handler(feedbackSyncData) } catch { /* 忽略 */ }
+            })
+          }
+          break
+
         default:
           break
       }
@@ -283,7 +333,52 @@ export const useWebSocketStore = defineStore('websocket', () => {
       }
     }
   }
+
+  // 订阅视频删除通知
+  function onVideoDeleted(handler: (data: VideoDeletedData) => void) {
+    videoDeletedHandlers.value.push(handler)
+    return () => {
+      const index = videoDeletedHandlers.value.indexOf(handler)
+      if (index > -1) videoDeletedHandlers.value.splice(index, 1)
+    }
+  }
+
+  // 订阅反馈新消息（管理员用）
+  function onFeedbackNew(handler: (data: FeedbackNewData) => void) {
+    feedbackNewHandlers.value.push(handler)
+    return () => {
+      const index = feedbackNewHandlers.value.indexOf(handler)
+      if (index > -1) feedbackNewHandlers.value.splice(index, 1)
+    }
+  }
+
+  // 订阅反馈更新（用户用）
+  function onFeedbackUpdated(handler: (data: FeedbackUpdatedData) => void) {
+    feedbackUpdatedHandlers.value.push(handler)
+    return () => {
+      const index = feedbackUpdatedHandlers.value.indexOf(handler)
+      if (index > -1) feedbackUpdatedHandlers.value.splice(index, 1)
+    }
+  }
+
+  // 订阅反馈被锁定（其他管理员用）
+  function onFeedbackLocked(handler: (data: FeedbackLockedData) => void) {
+    feedbackLockedHandlers.value.push(handler)
+    return () => {
+      const index = feedbackLockedHandlers.value.indexOf(handler)
+      if (index > -1) feedbackLockedHandlers.value.splice(index, 1)
+    }
+  }
   
+  // 订阅反馈会话更新（其他管理员刷新用，不增加未读）
+  function onFeedbackSync(handler: (data: FeedbackSyncData) => void) {
+    feedbackSyncHandlers.value.push(handler)
+    return () => {
+      const index = feedbackSyncHandlers.value.indexOf(handler)
+      if (index > -1) feedbackSyncHandlers.value.splice(index, 1)
+    }
+  }
+
   // 主动通知任务列表已变更（取消/删除后调用，触发顶部横幅立即刷新）
   function notifyTaskChanged() {
     taskChangedHandlers.value.forEach(handler => {
@@ -320,6 +415,11 @@ export const useWebSocketStore = defineStore('websocket', () => {
     onTaskProgress,
     onTaskCompleted,
     onTaskFailed,
+    onVideoDeleted,
+    onFeedbackNew,
+    onFeedbackUpdated,
+    onFeedbackLocked,
+    onFeedbackSync,
     notifyTaskChanged,
     onTaskChanged,
     setAnalyzingCount,

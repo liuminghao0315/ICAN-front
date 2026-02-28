@@ -4,7 +4,8 @@
       <div
         v-if="visible"
         class="preview-overlay"
-        @click.self="close"
+        @mousedown.self="onOverlayMouseDown"
+        @mouseup.self="onOverlayMouseUp"
       >
         <div
           class="preview-card"
@@ -164,6 +165,20 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:visible': [value: boolean]
 }>()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let mouseDownOnOverlay = false
+
+const onOverlayMouseDown = () => {
+  mouseDownOnOverlay = true
+}
+
+const onOverlayMouseUp = () => {
+  if (mouseDownOnOverlay) {
+    close()
+  }
+  mouseDownOnOverlay = false
+}
 
 const videoRef = ref<HTMLVideoElement | null>(null)
 const thumbVideoRef = ref<HTMLVideoElement | null>(null)

@@ -168,7 +168,7 @@
     
     <!-- 自定义取消确认弹框 -->
     <Transition name="modal-fade">
-      <div class="neu-modal-overlay" v-if="showCancelModal" @click.self="showCancelModal = false">
+      <div class="neu-modal-overlay" v-if="showCancelModal" @mousedown.self="onCancelOverlayMouseDown" @mouseup.self="onCancelOverlayMouseUp">
         <div class="neu-modal">
           <div class="neu-modal-icon warning">
             <el-icon :size="28"><Warning /></el-icon>
@@ -318,16 +318,30 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { 
-  getTaskList, 
+import {
+  getTaskList,
   getTaskById,
-  cancelTask, 
+  cancelTask,
   retryTask
 } from '@/api'
 import type { AnalysisTaskVO, TaskStatus, TaskType, RiskLevel } from '@/types'
 import { useWebSocket } from '@/composables/useWebSocket'
 
 const router = useRouter()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let cancelOverlayMouseDown = false
+
+const onCancelOverlayMouseDown = () => {
+  cancelOverlayMouseDown = true
+}
+
+const onCancelOverlayMouseUp = () => {
+  if (cancelOverlayMouseDown) {
+    showCancelModal.value = false
+  }
+  cancelOverlayMouseDown = false
+}
 
 const loading = ref(false)
 const taskList = ref<AnalysisTaskVO[]>([])

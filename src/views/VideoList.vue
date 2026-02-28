@@ -245,7 +245,7 @@
     <!-- 自定义视频详情模态框 -->
     <Teleport to="body">
       <Transition name="modal">
-        <div class="video-modal-overlay" v-if="detailDialogVisible" @click.self="detailDialogVisible = false">
+        <div class="video-modal-overlay" v-if="detailDialogVisible" @mousedown.self="onDetailOverlayMouseDown" @mouseup.self="onDetailOverlayMouseUp">
           <div class="video-modal" v-if="selectedVideo">
             <!-- 模态框头部 -->
             <div class="video-modal-header">
@@ -412,16 +412,30 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { 
-  getVideoList, 
+import {
+  getVideoList,
   deleteVideo,
   createAnalysisTask,
-  type VideoInfo 
+  type VideoInfo
 } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog.vue'
 
 const router = useRouter()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let detailOverlayMouseDown = false
+
+const onDetailOverlayMouseDown = () => {
+  detailOverlayMouseDown = true
+}
+
+const onDetailOverlayMouseUp = () => {
+  if (detailOverlayMouseDown) {
+    detailDialogVisible.value = false
+  }
+  detailOverlayMouseDown = false
+}
 
 const loading = ref(false)
 const videoList = ref<VideoInfo[]>([])

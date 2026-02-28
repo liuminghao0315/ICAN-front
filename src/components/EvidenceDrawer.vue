@@ -2,10 +2,11 @@
   <div>
     <!-- 遮罩层 -->
     <transition name="fade">
-      <div 
-        v-if="visible" 
-        class="drawer-overlay" 
-        @click="handleClose"
+      <div
+        v-if="visible"
+        class="drawer-overlay"
+        @mousedown.self="onOverlayMouseDown"
+        @mouseup.self="onOverlayMouseUp"
       ></div>
     </transition>
 
@@ -215,6 +216,20 @@ const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
   (e: 'jump-to-time', timestamp: number): void
 }>()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let mouseDownOnOverlay = false
+
+const onOverlayMouseDown = () => {
+  mouseDownOnOverlay = true
+}
+
+const onOverlayMouseUp = () => {
+  if (mouseDownOnOverlay) {
+    handleClose()
+  }
+  mouseDownOnOverlay = false
+}
 
 // 分类证据
 const videoEvidences = computed(() => 

@@ -175,7 +175,7 @@
               <el-icon><Upload class="rotating" /></el-icon>
             </div>
             <div class="broadcast-text">
-              <span class="broadcast-title">正在上传</span>
+              <span class="broadcast-title">正在上传......</span>
               <span class="broadcast-desc">{{ uploadStore.activeCount }} 个文件上传中（{{ uploadStore.overallProgress }}%）</span>
             </div>
             <div class="upload-mini-bar">
@@ -230,7 +230,7 @@
             <!-- 自定义退出确认对话框 -->
             <Teleport to="body">
               <Transition name="modal">
-                <div class="confirm-modal-overlay" v-if="showLogoutConfirm" @click.self="showLogoutConfirm = false">
+                <div class="confirm-modal-overlay" v-if="showLogoutConfirm" @mousedown.self="onLogoutOverlayMouseDown" @mouseup.self="onLogoutOverlayMouseUp">
                   <div class="confirm-modal">
                     <div class="confirm-modal-header">
                       <div class="confirm-icon">
@@ -347,6 +347,7 @@
     if (path.startsWith('/records') || path.startsWith('/analysis')) return '/records'
     if (path.startsWith('/favorites')) return '/favorites'
     if (path.startsWith('/risk-dictionary')) return '/risk-dictionary'
+    if (path.startsWith('/admin/feedback')) return '/admin/feedback'
     return '/dashboard'
   })
 
@@ -392,6 +393,20 @@
   const isDropdownOpen = ref(false)
   const showLogoutConfirm = ref(false)
   const userDropdownRef = ref<HTMLElement | null>(null)
+
+  // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+  let logoutOverlayMouseDown = false
+
+  const onLogoutOverlayMouseDown = () => {
+    logoutOverlayMouseDown = true
+  }
+
+  const onLogoutOverlayMouseUp = () => {
+    if (logoutOverlayMouseDown) {
+      showLogoutConfirm.value = false
+    }
+    logoutOverlayMouseDown = false
+  }
 
   // 直接使用 store 中的计数，支持乐观更新
   const analyzingTaskCount = computed(() => wsStore.analyzingCount)
@@ -1067,7 +1082,7 @@ $purple: #4b70e2;
   color: white;
   padding: 12px 24px;
   box-shadow: 0 2px 8px rgba(75, 112, 226, 0.3);
-  z-index: 100;
+  z-index: 1000;
 
   .broadcast-content {
     display: flex;
@@ -1161,7 +1176,7 @@ $purple: #4b70e2;
   color: white;
   padding: 10px 24px;
   box-shadow: 0 2px 8px rgba(54, 168, 90, 0.3);
-  z-index: 100;
+  z-index: 1000;
 
   .broadcast-content {
     display: flex;

@@ -343,7 +343,7 @@
     <!-- ===== 新建词库包 Modal ===== -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div v-if="showNewPackModal" class="modal-overlay" @click.self="showNewPackModal = false">
+        <div v-if="showNewPackModal" class="modal-overlay" @mousedown.self="onNewPackOverlayMouseDown" @mouseup.self="onNewPackOverlayMouseUp">
           <div class="modal-card">
             <div class="modal-header">
               <h3>新建词库包</h3>
@@ -396,7 +396,7 @@
     <!-- ===== 添加词汇 Modal ===== -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div v-if="showAddWordModal" class="modal-overlay" @click.self="showAddWordModal = false">
+        <div v-if="showAddWordModal" class="modal-overlay" @mousedown.self="onAddWordOverlayMouseDown" @mouseup.self="onAddWordOverlayMouseUp">
           <div class="modal-card">
             <div class="modal-header">
               <h3>{{ editingWord ? '编辑词汇' : '添加词汇' }}</h3>
@@ -467,7 +467,7 @@
     <!-- ===== 编辑词库包 Modal ===== -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div v-if="showEditPackModal" class="modal-overlay" @click.self="showEditPackModal = false">
+        <div v-if="showEditPackModal" class="modal-overlay" @mousedown.self="onEditPackOverlayMouseDown" @mouseup.self="onEditPackOverlayMouseUp">
           <div class="modal-card">
             <div class="modal-header">
               <h3>编辑词库包</h3>
@@ -537,7 +537,7 @@
     <!-- ===== 合并词库包 Modal ===== -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div v-if="showMergeModal" class="modal-overlay" @click.self="showMergeModal = false">
+        <div v-if="showMergeModal" class="modal-overlay" @mousedown.self="onMergeOverlayMouseDown" @mouseup.self="onMergeOverlayMouseUp">
           <div class="modal-card">
             <div class="modal-header">
               <h3>合并词库包</h3>
@@ -753,6 +753,56 @@ import {
   addWordsToWordPack,
   deleteWordFromPack
 } from '@/api'
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let newPackOverlayMouseDown = false
+let addWordOverlayMouseDown = false
+let editPackOverlayMouseDown = false
+let mergeOverlayMouseDown = false
+
+const onNewPackOverlayMouseDown = () => {
+  newPackOverlayMouseDown = true
+}
+
+const onNewPackOverlayMouseUp = () => {
+  if (newPackOverlayMouseDown) {
+    showNewPackModal.value = false
+  }
+  newPackOverlayMouseDown = false
+}
+
+const onAddWordOverlayMouseDown = () => {
+  addWordOverlayMouseDown = true
+}
+
+const onAddWordOverlayMouseUp = () => {
+  if (addWordOverlayMouseDown) {
+    closeWordModal()
+  }
+  addWordOverlayMouseDown = false
+}
+
+const onEditPackOverlayMouseDown = () => {
+  editPackOverlayMouseDown = true
+}
+
+const onEditPackOverlayMouseUp = () => {
+  if (editPackOverlayMouseDown) {
+    showEditPackModal.value = false
+  }
+  editPackOverlayMouseDown = false
+}
+
+const onMergeOverlayMouseDown = () => {
+  mergeOverlayMouseDown = true
+}
+
+const onMergeOverlayMouseUp = () => {
+  if (mergeOverlayMouseDown) {
+    showMergeModal.value = false
+  }
+  mergeOverlayMouseDown = false
+}
 
 // ── 类型定义 ──
 type RiskLevel = 'high' | 'medium' | 'low'

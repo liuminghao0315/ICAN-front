@@ -430,8 +430,8 @@ export const uploadVideoSimple = async (formData: FormData, signal?: AbortSignal
 }
 
 // 获取视频详情
-export const getVideoById = async (videoId: string): Promise<ApiResponse<VideoInfo>> => {
-  const response = await api.get<ApiResponse<VideoInfo>>(`/api/video/${videoId}`)
+export const getVideoById = async (videoId: string, silent: boolean = false): Promise<ApiResponse<VideoInfo>> => {
+  const response = await api.get<ApiResponse<VideoInfo>>(`/api/video/${videoId}`, { _silent: silent } as any)
   return response.data
 }
 
@@ -877,6 +877,8 @@ export interface FeedbackVO {
   handlerId: string | null
   handlerName: string | null
   adminReply: string | null
+  userUnread: number
+  adminUnread: number
   analysisSnapshot?: Record<string, any> | null
   videoDeleted?: boolean
   gmtCreated: string
@@ -910,9 +912,15 @@ export const getMyFeedbackByVideo = async (videoId: string): Promise<ApiResponse
 }
 
 /** 管理员获取反馈列表 */
-export const getAdminFeedbackList = async (page: number = 1, size: number = 10, status?: string): Promise<ApiResponse<PageResult<FeedbackVO>>> => {
+export const getAdminFeedbackList = async (
+  page: number = 1,
+  size: number = 10,
+  status?: string,
+  onlyMine: boolean = false
+): Promise<ApiResponse<PageResult<FeedbackVO>>> => {
   const params: Record<string, any> = { page, size }
   if (status) params.status = status
+  if (onlyMine) params.onlyMine = true
   const response = await api.get<ApiResponse<PageResult<FeedbackVO>>>('/api/feedback/admin/list', { params })
   return response.data
 }
@@ -935,6 +943,18 @@ export const closeFeedback = async (feedbackId: string, status: string = 'RESOLV
   return response.data
 }
 
+/** 获取单条反馈详情 */
+export const getFeedbackById = async (feedbackId: string): Promise<ApiResponse<FeedbackVO>> => {
+  const response = await api.get<ApiResponse<FeedbackVO>>(`/api/feedback/${feedbackId}`)
+  return response.data
+}
+
+/** 清除未读数（打开弹窗时调用） */
+export const clearFeedbackUnread = async (feedbackId: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/feedback/${feedbackId}/clear-unread`, null, { _silent: true } as any)
+  return response.data
+}
+
 // ==================== 通知模块接口 ====================
 
 export interface NotificationVO {
@@ -943,6 +963,10 @@ export interface NotificationVO {
   title: string
   content: string | null
   relatedId: string | null
+  relatedType: string | null
+  feedbackId: string | null
+  videoId: string | null
+  targetPath: string | null
   isRead: boolean
   gmtCreated: string
 }
@@ -968,5 +992,16 @@ export const markNotificationRead = async (id: string): Promise<ApiResponse<void
 /** 全部标记已读 */
 export const markAllNotificationsRead = async (): Promise<ApiResponse<void>> => {
   const response = await api.put<ApiResponse<void>>('/api/notification/read-all')
+  return response.data
+}
+
+/** 按上下文标记通知已读 */
+export const markNotificationsReadByContext = async (payload: {
+  relatedType?: string
+  feedbackId?: string
+  videoId?: string
+  targetPath?: string
+}): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>('/api/notification/read-context', payload)
   return response.data
 }

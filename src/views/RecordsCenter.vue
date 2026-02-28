@@ -258,7 +258,7 @@
     <!-- 重命名弹窗 -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div class="neu-overlay" v-if="renameState.visible" @click.self="renameState.visible = false">
+        <div class="neu-overlay" v-if="renameState.visible" @mousedown.self="onRenameOverlayMouseDown" @mouseup.self="onRenameOverlayMouseUp">
           <div class="neu-modal">
             <h3 class="modal-title">重命名</h3>
             <input v-model="renameState.title" class="neu-input" placeholder="请输入新标题" maxlength="200" @keyup.enter="confirmRename" />
@@ -274,7 +274,7 @@
     <!-- 删除确认 -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div class="neu-overlay" v-if="deleteState.visible" @click.self="deleteState.visible = false">
+        <div class="neu-overlay" v-if="deleteState.visible" @mousedown.self="onDeleteOverlayMouseDown" @mouseup.self="onDeleteOverlayMouseUp">
           <div class="neu-modal">
             <div class="confirm-header">
               <div class="confirm-icon"><el-icon><Warning /></el-icon></div>
@@ -334,7 +334,7 @@
     <!-- 移动到文件夹弹窗 -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div class="neu-overlay" v-if="moveToFolderState.visible" @click.self="moveToFolderState.visible = false">
+        <div class="neu-overlay" v-if="moveToFolderState.visible" @mousedown.self="onMoveToFolderOverlayMouseDown" @mouseup.self="onMoveToFolderOverlayMouseUp">
           <div class="neu-modal">
             <h3 class="modal-title">
               {{ moveToFolderState.videoIds.length > 1
@@ -392,6 +392,44 @@ const folderStore = useFolderStore()
 const favStore = useFavoritesStore()
 const { exportReportByUrl, exportReportsByUrls, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let renameOverlayMouseDown = false
+let deleteOverlayMouseDown = false
+let moveToFolderOverlayMouseDown = false
+
+const onRenameOverlayMouseDown = () => {
+  renameOverlayMouseDown = true
+}
+
+const onRenameOverlayMouseUp = () => {
+  if (renameOverlayMouseDown) {
+    renameState.visible = false
+  }
+  renameOverlayMouseDown = false
+}
+
+const onDeleteOverlayMouseDown = () => {
+  deleteOverlayMouseDown = true
+}
+
+const onDeleteOverlayMouseUp = () => {
+  if (deleteOverlayMouseDown) {
+    deleteState.visible = false
+  }
+  deleteOverlayMouseDown = false
+}
+
+const onMoveToFolderOverlayMouseDown = () => {
+  moveToFolderOverlayMouseDown = true
+}
+
+const onMoveToFolderOverlayMouseUp = () => {
+  if (moveToFolderOverlayMouseDown) {
+    moveToFolderState.visible = false
+  }
+  moveToFolderOverlayMouseDown = false
+}
 
 // 面包屑导航：当前激活文件夹的路径
 const activeFolderBreadcrumbs = computed(() => {

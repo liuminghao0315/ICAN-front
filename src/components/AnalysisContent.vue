@@ -1112,53 +1112,59 @@
                       <span>文本证据 ({{ textEvidences.length }})</span>
                     </div>
                     <div class="text-evidences-grid-inline">
-                      <div
+                      <el-tooltip
                         v-for="(evidence, index) in textEvidences"
                         :key="'text-' + index"
-                        class="text-evidence-item-inline"
-                        :data-description="evidence.description"
-                        @click="
-                          evidence.timestamp !== undefined &&
-                          jumpToTime(evidence.timestamp)
-                        "
+                        :content="evidence.description"
+                        placement="top"
+                        :show-after="100"
+                        popper-class="text-evidence-tooltip"
                       >
-                        <div class="text-keyword-inline">
-                          <!-- 情感标签（只对"对学校态度"卡片显示） -->
-                          <span
-                            v-if="
-                              currentCardId === 'attitude' &&
-                              evidence.sentimentScore !== undefined
-                            "
-                            class="sentiment-tag-inline"
-                            :class="
-                              'sentiment-' +
-                              getSentimentBySentimentScore(
-                                evidence.sentimentScore,
-                              )
-                            "
-                          >
-                            {{
-                              getSentimentText(
+                        <div
+                          class="text-evidence-item-inline"
+                          @click="
+                            evidence.timestamp !== undefined &&
+                            jumpToTime(evidence.timestamp)
+                          "
+                        >
+                          <div class="text-keyword-inline">
+                            <!-- 情感标签（只对"对学校态度"卡片显示） -->
+                            <span
+                              v-if="
+                                currentCardId === 'attitude' &&
+                                evidence.sentimentScore !== undefined
+                              "
+                              class="sentiment-tag-inline"
+                              :class="
+                                'sentiment-' +
                                 getSentimentBySentimentScore(
                                   evidence.sentimentScore,
-                                ),
-                              )
-                            }}
-                          </span>
-                          {{ evidence.keyword }}
+                                )
+                              "
+                            >
+                              {{
+                                getSentimentText(
+                                  getSentimentBySentimentScore(
+                                    evidence.sentimentScore,
+                                  ),
+                                )
+                              }}
+                            </span>
+                            {{ evidence.keyword }}
+                          </div>
+                          <div class="text-meta-inline">
+                            <span
+                              v-if="evidence.timestamp !== undefined"
+                              class="text-time-inline"
+                            >
+                              {{ formatTimeDisplay(evidence.timestamp) }}
+                            </span>
+                            <span class="confidence-badge-inline"
+                              >{{ evidence.confidence }}%</span
+                            >
+                          </div>
                         </div>
-                        <div class="text-meta-inline">
-                          <span
-                            v-if="evidence.timestamp !== undefined"
-                            class="text-time-inline"
-                          >
-                            {{ formatTimeDisplay(evidence.timestamp) }}
-                          </span>
-                          <span class="confidence-badge-inline"
-                            >{{ evidence.confidence }}%</span
-                          >
-                        </div>
-                      </div>
+                      </el-tooltip>
                     </div>
                   </div>
                 </div>
@@ -3617,12 +3623,12 @@ const initializeComponent = () => {
     updateTextEvidenceTooltipPosition();
   });
 
-  // 5. 【开发模式】验证事件流数据
-  if (import.meta.env.DEV && timelineEvents.value.length > 0) {
-    import("@/utils/verifyTimelineEvents").then(({ printValidationReport }) => {
-      printValidationReport();
-    });
-  }
+  // 5. 【开发模式】验证事件流数据（已禁用，避免控制台噪音）
+  // if (import.meta.env.DEV && timelineEvents.value.length > 0) {
+  //   import("@/utils/verifyTimelineEvents").then(({ printValidationReport }) => {
+  //     printValidationReport();
+  //   });
+  // }
 };
 
 // ==================== 其他方法 ====================
@@ -4206,14 +4212,6 @@ const calculateVideoDisplayArea = () => {
     containerHeight,
   };
 
-  console.log("[检测框定位] 计算完成:", {
-    视频原始尺寸: `${videoWidth}x${videoHeight}`,
-    容器尺寸: `${containerWidth}x${containerHeight}`,
-    视频宽高比: videoRatio.toFixed(3),
-    容器宽高比: containerRatio.toFixed(3),
-    显示区域: `${displayWidth.toFixed(1)}x${displayHeight.toFixed(1)}`,
-    偏移量: `(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`,
-  });
 };
 
 // 视频加载完成
@@ -6880,7 +6878,7 @@ $purple: #4b70e2;
       -8px -8px 16px $white;
     gap: 0; // 移除间距，让证据面板占满
     max-height: calc(806px - 15px); // 限制高度并预留底部10px间距
-    overflow: hidden; // 裁剪溢出内容
+    overflow: visible; // 改为visible，允许tooltip显示在外部
   }
 }
 
@@ -6891,7 +6889,7 @@ $purple: #4b70e2;
   height: 100%;
   min-height: 0; // 关键：允许 flex 子元素缩小
   gap: 12px;
-  overflow: hidden; // 裁剪溢出内容，让内部的 evidence-list-scroll 处理滚动
+  overflow: visible; // 改为visible，允许tooltip显示在外部
 }
 
 // ==================== 多模态融合区域 - 新拟态风格 ====================
@@ -7394,7 +7392,7 @@ $purple: #4b70e2;
   display: flex;
   flex-direction: column;
   min-height: 0; // 关键：允许缩小
-  overflow: hidden; // 裁剪溢出，让内部滚动
+  overflow: visible; // 改为visible，允许tooltip显示在外部
 }
 
 .section-title-inline {
@@ -7433,6 +7431,7 @@ $purple: #4b70e2;
   border-radius: 12px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  overflow: visible; // 允许tooltip悬浮窗超出容器显示
 }
 
 .group-title-inline {
@@ -7587,6 +7586,7 @@ $purple: #4b70e2;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
+  overflow: visible; // 允许tooltip悬浮窗超出容器显示
 }
 
 .text-evidence-item-inline {
@@ -7604,122 +7604,6 @@ $purple: #4b70e2;
     background: #f0f2f5;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  // 原生CSS tooltip
-  &::before {
-    content: attr(data-description);
-    position: absolute;
-    bottom: calc(100% + 12px);
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 14px 18px;
-    max-width: 320px;
-    width: max-content;
-    min-width: 180px;
-
-    // 玻璃态背景
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.95),
-      rgba(248, 250, 252, 0.98)
-    );
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-
-    // 样式
-    color: #1f2937;
-    font-size: 13px;
-    line-height: 1.7;
-    font-weight: 500;
-    border-radius: 12px;
-    border: 1px solid rgba(203, 213, 225, 0.8);
-    box-shadow:
-      0 8px 24px rgba(15, 23, 42, 0.08),
-      0 2px 8px rgba(15, 23, 42, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
-
-    // 隐藏状态
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    z-index: 9999;
-
-    // 动画
-    transition:
-      opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-      visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-      transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateX(-50%) translateY(4px);
-  }
-
-  // 箭头
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: calc(100% - 3.8px);
-    left: 50%;
-    transform: translateX(-50%);
-    border: 8px solid transparent;
-    border-top-color: rgba(255, 255, 255, 0.95);
-    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.04));
-
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    z-index: 9999;
-
-    transition:
-      opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-      visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  // 悬停显示
-  &:hover::before,
-  &:hover::after {
-    opacity: 1;
-    visibility: visible;
-    transition-delay: 0.1s;
-  }
-
-  &:hover::before {
-    transform: translateX(-50%) translateY(0);
-  }
-
-  // 每行最左侧元素 - 悬浮窗左对齐
-  &.tooltip-left {
-    &::before {
-      left: 0;
-      transform: translateX(0);
-    }
-
-    &::after {
-      left: 24px;
-      transform: translateX(0);
-    }
-
-    &:hover::before {
-      transform: translateX(0) translateY(0);
-    }
-  }
-
-  // 每行最右侧元素 - 悬浮窗右对齐
-  &.tooltip-right {
-    &::before {
-      left: auto;
-      right: 0;
-      transform: translateX(0);
-    }
-
-    &::after {
-      left: auto;
-      right: 24px;
-      transform: translateX(0);
-    }
-
-    &:hover::before {
-      transform: translateX(0) translateY(0);
-    }
   }
 }
 
@@ -11196,5 +11080,48 @@ $purple: #4b70e2;
   background: #ecf0f3 !important;
   border-color: transparent !important;
   box-shadow: 2px 2px 4px #d1d9e6 !important;
+}
+
+// 文本证据tooltip自定义样式
+:global(.text-evidence-tooltip.el-popper) {
+  max-width: 320px !important;
+  padding: 14px 18px !important;
+
+  // 玻璃态背景
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(248, 250, 252, 0.98)
+  ) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+
+  // 样式
+  color: #1f2937 !important;
+  font-size: 13px !important;
+  line-height: 1.7 !important;
+  font-weight: 500 !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(203, 213, 225, 0.8) !important;
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.08),
+    0 2px 8px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+:global(.text-evidence-tooltip.el-popper[data-popper-placement^="top"] .el-popper__arrow) {
+  bottom: -10px !important; // 向下移动5px (原来-8px，现在-13px)
+}
+
+:global(.text-evidence-tooltip.el-popper[data-popper-placement^="top"] .el-popper__arrow::before) {
+  background: transparent !important;
+  border-style: solid !important;
+  border-width: 8px 8px 0 8px !important;
+  border-top-color: #fbfcfd !important; // 改为指定颜色
+  border-right-color: transparent !important;
+  border-bottom-color: transparent !important;
+  border-left-color: transparent !important;
+  filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.04)) !important;
+  transform: rotate(0deg) !important; // 移除Element Plus默认的旋转
 }
 </style>

@@ -3,13 +3,16 @@
     <div class="page-header">
       <h2 class="page-title">反馈管理</h2>
       <div class="filter-bar">
-        <select v-model="statusFilter" class="filter-select" @change="loadFeedbacks">
-          <option value="">全部状态</option>
-          <option value="PENDING">待处理</option>
-          <option value="PROCESSING">处理中</option>
-          <option value="RESOLVED">已解决</option>
-          <option value="REJECTED">已驳回</option>
-        </select>
+        <NeuSelect
+          v-model="scopeFilter"
+          :options="scopeOptions"
+          placeholder="全部反馈"
+        />
+        <NeuSelect
+          v-model="statusFilter"
+          :options="statusOptions"
+          placeholder="全部状态"
+        />
       </div>
     </div>
 
@@ -33,6 +36,7 @@
             <div class="card-meta">{{ item.username }} · {{ formatTime(item.gmtCreated) }}</div>
           </div>
           <div class="card-right">
+            <span v-if="unreadMap[item.id]" class="unread-badge">{{ unreadMap[item.id] }}</span>
             <svg class="expand-arrow" :class="{ rotated: expandedId === item.id }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
           </div>
         </div>
@@ -66,24 +70,29 @@
 
             <!-- 查看完整分析按钮 -->
             <div class="view-analysis-row">
-              <button v-if="!item.videoDeleted" class="action-btn view-btn" @click.stop="goToAnalysis(item)">查看完整分析</button>
-              <span v-else class="deleted-hint">原视频已删除，仅可查看快照</span>
+              <template v-if="!item.videoDeleted">
+                <button class="action-btn view-btn" @click.stop="goToAnalysis(item)">查看完整分析</button>
+              </template>
+              <template v-else>
+                <span class="deleted-hint">原视频已删除，仅可查看快照</span>
+              </template>
             </div>
 
             <!-- 聊天记录 -->
             <div class="chat-section">
               <div class="chat-section-title">对话记录</div>
-              <div class="chat-messages">
-                <div v-for="(msg, idx) in parseMessages(item.content)" :key="idx" class="msg-wrap" :class="msg.role === 'user' ? 'msg-left' : 'msg-right'">
-                  <div class="msg-bubble" :class="'msg-' + msg.role">
-                    <div class="msg-meta" v-if="msg.type || msg.module">
-                      <span class="msg-tag" v-if="msg.type">{{ typeMap[msg.type] || msg.type }}</span>
-                      <span class="msg-tag" v-if="msg.module">{{ moduleMap[msg.module] || msg.module }}</span>
-                    </div>
-                    <p>{{ msg.text }}</p>
-                    <span class="msg-time">{{ formatTime(msg.time) }}</span>
+              <div class="chat-messages" :ref="el => setChatMessagesRef(el, item.id)">
+                <template v-for="(msg, idx) in parseMessages(item.content)">
+                  <div v-if="msg.role === 'system'" :key="'s' + idx" class="msg-system">
+                    <span>{{ msg.text }}</span>
                   </div>
-                </div>
+                  <div v-else :key="'m' + idx" class="msg-wrap" :class="msg.role === 'user' ? 'msg-left' : 'msg-right'">
+                    <div class="msg-bubble" :class="'msg-' + msg.role">
+                      <p>{{ msg.text }}</p>
+                      <span class="msg-time">{{ formatTime(msg.time) }}</span>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
 
@@ -120,23 +129,52 @@
 <!-- SCRIPT_SECTION -->
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick, watch, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores'
-import { getAdminFeedbackList, lockFeedback, replyFeedback, closeFeedback, type FeedbackVO, type FeedbackMessage } from '@/api'
+import { getAdminFeedbackList, lockFeedback, replyFeedback, closeFeedback, clearFeedbackUnread, type FeedbackVO, type FeedbackMessage } from '@/api'
 import { ElMessage } from 'element-plus'
+import { useWebSocket } from '@/composables/useWebSocket'
+import type { FeedbackNewData, FeedbackLockedData, FeedbackSyncData } from '@/types'
 
 const router = useRouter()
+const NeuSelect = defineAsyncComponent(() => import('../components/NeuSelect.vue').then((m: any) => m.default ?? m))
 const userStore = useUserStore()
 const currentUserId = computed(() => userStore.userInfo?.id ?? '')
+const { subscribeFeedbackNew, subscribeVideoDeleted, subscribeFeedbackLocked, subscribeFeedbackSync } = useWebSocket({ autoConnect: false })
 
 const loading = ref(false)
 const feedbacks = ref<FeedbackVO[]>([])
 const statusFilter = ref('')
+const scopeFilter = ref<'ALL' | 'MINE'>('ALL')
+const scopeOptions = [
+  { label: '全部反馈', value: 'ALL' },
+  { label: '我处理的反馈', value: 'MINE' }
+]
+const statusOptions = [
+  { label: '全部状态', value: '' },
+  { label: '待处理', value: 'PENDING' },
+  { label: '处理中', value: 'PROCESSING' },
+  { label: '已解决', value: 'RESOLVED' },
+  { label: '已驳回', value: 'REJECTED' }
+]
 const currentPage = ref(1)
 const pageSize = 10
 const total = ref(0)
 const expandedId = ref<string | null>(null)
+const unreadMap = ref<Record<string, number>>({})
+const chatMessagesRefs: Record<string, HTMLElement> = {}
+
+const setChatMessagesRef = (el: unknown, id: string) => {
+  if (el) chatMessagesRefs[id] = el as HTMLElement
+}
+
+const scrollChatToBottom = (id: string) => {
+  nextTick(() => {
+    const el = chatMessagesRefs[id]
+    if (el) el.scrollTop = el.scrollHeight
+  })
+}
 const replyText = ref('')
 const locking = ref(false)
 const replying = ref(false)
@@ -146,50 +184,71 @@ const statusMap: Record<string, string> = { PENDING: '待处理', PROCESSING: '�
 const typeMap: Record<string, string> = { INACCURATE: '分析不准确', MISSING: '信息缺失', OTHER: '其他' }
 const moduleMap: Record<string, string> = { sentiment: '情感分析', risk: '风险评估', speech: '语音识别', visual: '视觉分析', spread: '传播预测', other: '其他' }
 
+watch([scopeFilter, statusFilter], () => {
+  currentPage.value = 1
+  loadFeedbacks()
+})
+
 const loadFeedbacks = async () => {
   loading.value = true
   try {
-    const res = await getAdminFeedbackList(currentPage.value, pageSize, statusFilter.value || undefined)
-    if (res.code === 200 && res.data) { feedbacks.value = res.data.records; total.value = res.data.total }
+    const res = await getAdminFeedbackList(
+      currentPage.value,
+      pageSize,
+      statusFilter.value || undefined,
+      scopeFilter.value === 'MINE'
+    )
+    if (res.code === 200 && res.data) {
+      feedbacks.value = res.data.records
+      total.value = res.data.total
+      // 根据 DB adminUnread 恢复未读角标（页面重建后不丢失）
+      res.data.records.forEach((f: FeedbackVO) => {
+        if (f.adminUnread && f.adminUnread > 0 && expandedId.value !== f.id) {
+          unreadMap.value[f.id] = f.adminUnread
+        } else if (!f.adminUnread || f.adminUnread === 0) {
+          delete unreadMap.value[f.id]
+        }
+      })
+
+      // 对话展开状态下，列表刷新后自动滚到底部，确保最新消息可见
+      if (expandedId.value && res.data.records.some((f: FeedbackVO) => f.id === expandedId.value)) {
+        scrollChatToBottom(expandedId.value)
+      }
+    }
   } catch { /* silent */ }
   loading.value = false
 }
 
-const toggleExpand = (id: string) => { expandedId.value = expandedId.value === id ? null : id; replyText.value = '' }
+const toggleExpand = (id: string) => {
+  expandedId.value = expandedId.value === id ? null : id
+  replyText.value = ''
+  if (expandedId.value === id) {
+    if (unreadMap.value[id]) delete unreadMap.value[id]
+    scrollChatToBottom(id)
+  }
+}
 
-const parseMessages = (content: string): FeedbackMessage[] => {
+type AdminFeedbackMessage = FeedbackMessage | { role: 'system'; text: string; time: string }
+
+const parseMessages = (content: string): AdminFeedbackMessage[] => {
   if (!content) return []
   try { return JSON.parse(content) }
   catch { return [{ role: 'user', text: content, time: '' }] }
 }
 
 const goToAnalysis = async (item: FeedbackVO) => {
-  // 已被其他管理员接管，禁止进入完整分析
-  if (item.handlerId && item.handlerId !== currentUserId.value) {
-    ElMessage.warning(`该反馈已由 ${item.handlerName || '其他管理员'} 处理，无法进入完整分析`)
-    return
-  }
+  // readOnly: 未锁定 或 锁定者不是自己
+  const readOnly = !!(item.handlerId && item.handlerId !== currentUserId.value)
 
-  // 点击“查看完整分析”即自动锁定，进入处理模式
-  if (!item.handlerId) {
-    try {
-      const lockRes = await lockFeedback(item.id)
-      if (lockRes.code !== 200) {
-        ElMessage.error(lockRes.message || '锁定失败，无法进入完整分析')
-        await loadFeedbacks()
-        return
-      }
-    } catch {
-      ElMessage.error('锁定失败，可能已被其他管理员接管')
-      await loadFeedbacks()
-      return
-    }
+  // 只有自己是处理人时才清零 DB 未读数，避免影响其他管理员的红点
+  if (item.handlerId === currentUserId.value) {
+    await clearFeedbackUnread(item.id).catch(() => {/* silent */})
   }
 
   router.push({
     path: '/analysis',
-    query: { videoId: item.videoId, feedback: item.id, feedbackId: item.id },
-    state: { feedbackData: JSON.parse(JSON.stringify(item)) }
+    query: { videoId: item.videoId, feedbackId: item.id },
+    state: { feedbackData: JSON.parse(JSON.stringify(item)), readOnly }
   })
 }
 
@@ -256,7 +315,29 @@ const formatTime = (dateStr: string) => {
   return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-onMounted(() => { loadFeedbacks() })
+onMounted(() => {
+  loadFeedbacks()
+  subscribeFeedbackNew(async (_data: FeedbackNewData) => {
+    await loadFeedbacks()
+    // unreadMap 已由 loadFeedbacks 根据 DB adminUnread 字段重建，无需手动累加
+  })
+  // 视频删除后实时刷新列表，更新"已删除"状态
+  subscribeVideoDeleted(() => {
+    loadFeedbacks()
+  })
+  // 反馈被锁定后实时刷新列表（状态变为处理中、显示处理人）
+  subscribeFeedbackLocked((_data: FeedbackLockedData) => {
+    loadFeedbacks()
+    // unreadMap 由 loadFeedbacks 重建，锁定时后端已清零 adminUnread
+  })
+  // 其他管理员会话有更新时实时刷新（仅同步事实，不增加未读）
+  subscribeFeedbackSync((data: FeedbackSyncData) => {
+    const exists = feedbacks.value.some(f => f.id === data.feedbackId)
+    if (exists || !statusFilter.value) {
+      loadFeedbacks()
+    }
+  })
+})
 </script>
 
 <style scoped lang="scss">
@@ -273,11 +354,25 @@ $purple: #4b70e2;
 
   .page-header {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+
     .page-title { font-size: 22px; font-weight: 700; color: $black; margin: 0; }
-    .filter-select {
-      padding: 8px 16px; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px;
-      background: $neu-1; font-size: 14px; color: $black; outline: none; cursor: pointer;
-      &:focus { border-color: $purple; }
+
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px;
+      border-radius: 14px;
+      background: rgba($white, 0.65);
+      box-shadow: inset 2px 2px 4px rgba(163,177,198,0.18), inset -2px -2px 4px rgba(255,255,255,0.8);
+
+      :deep(.neu-select) {
+        min-width: 132px;
+      }
+
+      :deep(.neu-select-trigger) {
+        min-height: 38px;
+      }
     }
   }
 
@@ -313,6 +408,22 @@ $purple: #4b70e2;
 
   .expand-arrow { width: 18px; height: 18px; color: $gray; transition: transform 0.3s; &.rotated { transform: rotate(180deg); } }
 
+  .unread-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #f56c6c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
   .card-detail {
     padding: 0 20px 20px; border-top: 1px solid rgba(0,0,0,0.05);
 
@@ -338,6 +449,13 @@ $purple: #4b70e2;
     .chat-section { margin-top: 16px; }
     .chat-section-title { font-size: 13px; font-weight: 600; color: $gray; margin-bottom: 10px; letter-spacing: 0.5px; }
     .chat-messages { display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+    .msg-system {
+      display: flex; justify-content: center; align-items: center;
+      span {
+        font-size: 11px; color: $gray; background: rgba(0,0,0,0.04);
+        padding: 4px 12px; border-radius: 20px; font-style: italic;
+      }
+    }
     .msg-wrap {
       display: flex;
       &.msg-left { justify-content: flex-start; }
@@ -385,9 +503,39 @@ $purple: #4b70e2;
     }
     .page-info { font-size: 13px; color: $gray; }
   }
+
+  @media (max-width: 900px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+
+      .filter-bar {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      :deep(.neu-select) {
+        flex: 1;
+        min-width: 140px;
+      }
+    }
+  }
 }
 
-.expand-enter-active, .expand-leave-active { transition: all 0.3s ease; overflow: hidden; }
-.expand-enter-from, .expand-leave-to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+.expand-enter-active, .expand-leave-active {
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+}
+.expand-enter-from, .expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.expand-enter-to, .expand-leave-from {
+  opacity: 1;
+  max-height: 2000px;
+}
 </style>
 

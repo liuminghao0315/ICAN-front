@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div class="delete-dialog-overlay" v-if="visible" @click.self="handleCancel">
+      <div class="delete-dialog-overlay" v-if="visible" @mousedown.self="onOverlayMouseDown" @mouseup.self="onOverlayMouseUp">
         <div class="delete-dialog">
           <div class="dialog-header">
             <h3 class="dialog-title">确认删除</h3>
@@ -51,6 +51,20 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let mouseDownOnOverlay = false
+
+const onOverlayMouseDown = () => {
+  mouseDownOnOverlay = true
+}
+
+const onOverlayMouseUp = () => {
+  if (mouseDownOnOverlay) {
+    handleCancel()
+  }
+  mouseDownOnOverlay = false
+}
 
 const handleConfirm = () => {
   emit('confirm')

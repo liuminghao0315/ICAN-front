@@ -1,7 +1,7 @@
 import { onUnmounted, watch } from 'vue'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useUserStore } from '@/stores/user'
-import type { TaskProgressData, TaskCompletedData, TaskFailedData } from '@/types'
+import type { TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData } from '@/types'
 
 export interface UseWebSocketOptions {
   autoConnect?: boolean
@@ -40,7 +40,42 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     unsubscribers.push(unsubscribe)
     return unsubscribe
   }
+
+  // 订阅视频删除通知
+  function subscribeVideoDeleted(handler: (data: VideoDeletedData) => void) {
+    const unsubscribe = wsStore.onVideoDeleted(handler)
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
+  }
+
+  // 订阅反馈新消息（管理员用）
+  function subscribeFeedbackNew(handler: (data: FeedbackNewData) => void) {
+    const unsubscribe = wsStore.onFeedbackNew(handler)
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
+  }
+
+  // 订阅反馈更新（用户用）
+  function subscribeFeedbackUpdated(handler: (data: FeedbackUpdatedData) => void) {
+    const unsubscribe = wsStore.onFeedbackUpdated(handler)
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
+  }
+
+  // 订阅反馈被锁定（其他管理员用）
+  function subscribeFeedbackLocked(handler: (data: FeedbackLockedData) => void) {
+    const unsubscribe = wsStore.onFeedbackLocked(handler)
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
+  }
   
+  // 订阅反馈会话更新（其他管理员刷新用，不增加未读）
+  function subscribeFeedbackSync(handler: (data: FeedbackSyncData) => void) {
+    const unsubscribe = wsStore.onFeedbackSync(handler)
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
+  }
+
   // 监听登录状态变化，自动连接 WebSocket
   watch(
     () => userStore.isLoggedIn,
@@ -68,6 +103,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     send: wsStore.send,
     subscribeProgress,
     subscribeCompleted,
-    subscribeFailed
+    subscribeFailed,
+    subscribeVideoDeleted,
+    subscribeFeedbackNew,
+    subscribeFeedbackUpdated,
+    subscribeFeedbackLocked,
+    subscribeFeedbackSync
   }
 }

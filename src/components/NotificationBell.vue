@@ -1,11 +1,11 @@
 <template>
   <div class="notification-bell" ref="bellRef">
-    <button class="bell-btn" @click="togglePanel" :class="{ 'has-unread': unreadCount > 0 }">
+    <button class="bell-btn" @click="togglePanel" :class="{ 'has-unread': displayUnreadCount > 0 }">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
         <path d="M13.73 21a2 2 0 01-3.46 0"/>
       </svg>
-      <span class="badge" v-if="unreadCount > 0">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+      <span class="badge" v-if="displayUnreadCount > 0">{{ displayUnreadCount > 99 ? '99+' : displayUnreadCount }}</span>
     </button>
 
     <Teleport to="body">
@@ -14,7 +14,7 @@
           <div class="panel-header">
             <span class="panel-title">通知</span>
             <button
-              v-if="unreadCount > 0"
+              v-if="displayUnreadCount > 0"
               class="mark-all-btn"
               @click="handleMarkAllRead"
             >全部已读</button>
@@ -36,8 +36,8 @@
               >
                 <div class="item-dot" v-if="!item.isRead"></div>
                 <div class="item-content">
-                  <div class="item-title">{{ item.title }}</div>
-                  <div class="item-desc" v-if="item.content">{{ item.content }}</div>
+                  <div class="item-title" :title="item.title || ''">{{ item.title || '系统通知' }}</div>
+                  <div class="item-desc" v-if="item.content" :title="item.content">{{ item.content }}</div>
                   <div class="item-time">{{ formatTime(item.gmtCreated) }}</div>
                 </div>
               </div>
@@ -50,19 +50,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores'
+import { useWebSocket } from '@/composables/useWebSocket'
 import {
   getNotificationList,
   getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
+  markNotificationsReadByContext,
+  getVideoById,
   type NotificationVO
 } from '@/api'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
+const { subscribeFeedbackNew, subscribeFeedbackUpdated, subscribeVideoDeleted } = useWebSocket({ autoConnect: false })
 const bellRef = ref<HTMLElement | null>(null)
 const showPanel = ref(false)
 const loading = ref(false)
@@ -81,6 +87,9 @@ const panelStyle = computed(() => {
   }
 })
 
+const isFeedbackPage = computed(() => route.path === '/admin/feedback')
+const displayUnreadCount = computed(() => (isFeedbackPage.value ? 0 : unreadCount.value))
+
 const togglePanel = async () => {
   showPanel.value = !showPanel.value
   if (showPanel.value) {
@@ -91,9 +100,42 @@ const togglePanel = async () => {
 const fetchUnreadCount = async () => {
   if (!userStore.isLoggedIn) return
   try {
+    await markCurrentContextAsRead()
     const res = await getUnreadNotificationCount()
     if (res.code === 200) {
       unreadCount.value = res.data ?? 0
+    }
+  } catch { /* silent */ }
+}
+
+const shouldAutoRead = (item: NotificationVO) => {
+  if (item.targetPath === '/admin/feedback' && route.path === '/admin/feedback') return true
+  if (item.targetPath === '/analysis' && route.path === '/analysis') {
+    const currentVideoId = route.query.videoId as string | undefined
+    const currentFeedbackId = route.query.feedbackId as string | undefined
+    if (item.videoId && currentVideoId && item.videoId === currentVideoId) return true
+    if (item.feedbackId && currentFeedbackId && item.feedbackId === currentFeedbackId) return true
+  }
+  return false
+}
+
+const markCurrentContextAsRead = async () => {
+  try {
+    if (route.path === '/admin/feedback') {
+      await markNotificationsReadByContext({ targetPath: '/admin/feedback', relatedType: 'FEEDBACK' })
+      return
+    }
+    if (route.path === '/analysis') {
+      const videoId = route.query.videoId as string | undefined
+      const feedbackId = route.query.feedbackId as string | undefined
+      if (videoId || feedbackId) {
+        await markNotificationsReadByContext({
+          targetPath: '/analysis',
+          relatedType: 'FEEDBACK',
+          videoId,
+          feedbackId
+        })
+      }
     }
   } catch { /* silent */ }
 }
@@ -103,7 +145,7 @@ const fetchNotifications = async () => {
   try {
     const res = await getNotificationList(1, 30)
     if (res.code === 200 && res.data) {
-      notifications.value = res.data.records
+      notifications.value = res.data.records.filter((item: NotificationVO) => !shouldAutoRead(item))
     }
   } catch { /* silent */ }
   loading.value = false
@@ -119,10 +161,40 @@ const handleClickNotification = async (item: NotificationVO) => {
   }
   showPanel.value = false
 
+  if (item.targetPath === '/analysis') {
+    if (item.videoId) {
+      try {
+        const res = await getVideoById(item.videoId, true)
+        if (res.code !== 200 || !res.data) {
+          ElMessage.warning('该反馈对应的视频已被删除')
+          return
+        }
+      } catch {
+        ElMessage.warning('该反馈对应的视频已被删除')
+        return
+      }
+    }
+
+    router.push({
+      path: '/analysis',
+      query: {
+        ...(item.videoId ? { videoId: item.videoId } : {})
+      }
+    })
+    return
+  }
+  if (item.targetPath === '/admin/feedback') {
+    router.push({
+      path: '/admin/feedback',
+      query: {
+        ...(item.feedbackId ? { feedbackId: item.feedbackId } : {})
+      }
+    })
+    return
+  }
+
   if (item.type === 'FEEDBACK_NEW' && item.relatedId) {
     router.push('/admin/feedback')
-  } else if (item.type === 'FEEDBACK_REPLIED' && item.relatedId) {
-    // 普通用户点击反馈回复通知，暂时无专门页面，可以不跳转
   }
 }
 
@@ -135,6 +207,18 @@ const handleMarkAllRead = async () => {
 }
 
 const handleScroll = () => { /* 预留分页加载 */ }
+
+const refreshNotificationState = async () => {
+  await fetchUnreadCount()
+  if (showPanel.value) {
+    await fetchNotifications()
+  }
+}
+
+// WebSocket 实时通知：收到相关业务事件时立即刷新铃铛未读数
+subscribeFeedbackNew(() => { void refreshNotificationState() })
+subscribeFeedbackUpdated(() => { void refreshNotificationState() })
+subscribeVideoDeleted(() => { void refreshNotificationState() })
 
 const formatTime = (dateStr: string) => {
   const date = new Date(dateStr)
@@ -158,6 +242,14 @@ const handleClickOutside = (e: MouseEvent) => {
   if (panel?.contains(target)) return
   showPanel.value = false
 }
+
+watch(
+  () => route.fullPath,
+  async () => {
+    await fetchUnreadCount()
+    if (showPanel.value) await fetchNotifications()
+  }
+)
 
 onMounted(() => {
   fetchUnreadCount()

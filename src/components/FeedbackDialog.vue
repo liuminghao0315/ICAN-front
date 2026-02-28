@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div class="feedback-overlay" v-if="visible" @click.self="close">
+      <div class="feedback-overlay" v-if="visible" @mousedown.self="onOverlayMouseDown" @mouseup.self="onOverlayMouseUp">
         <div class="feedback-dialog" :class="{ 'chat-mode': isChatMode }">
           <!-- ===== 标题栏 ===== -->
           <div class="dialog-header">
@@ -29,24 +29,33 @@
                 <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                 <p>暂无对话记录</p>
               </div>
-              <div
-                v-for="(msg, idx) in allMessages"
-                :key="idx"
-                class="chat-bubble-wrap"
-                :class="isAdmin
-                  ? (msg.role === 'admin' ? 'bubble-right' : 'bubble-left')
-                  : (msg.role === 'user'  ? 'bubble-right' : 'bubble-left')"
-              >
-                <div class="chat-bubble" :class="[
-                  'bubble-' + msg.role,
-                  isAdmin
-                    ? (msg.role === 'admin' ? 'bubble-on-right' : 'bubble-on-left')
-                    : (msg.role === 'user'  ? 'bubble-on-right' : 'bubble-on-left')
-                ]">
-                  <p class="bubble-text">{{ msg.text }}</p>
-                  <span class="bubble-time">{{ formatTime(msg.time) }}</span>
+              <template v-for="(msg, idx) in allMessages">
+                <div
+                  v-if="msg.role === 'system'"
+                  :key="'s' + idx"
+                  class="chat-bubble-system"
+                >
+                  <span>{{ msg.text }}</span>
                 </div>
-              </div>
+                <div
+                  v-else
+                  :key="'m' + idx"
+                  class="chat-bubble-wrap"
+                  :class="useAdminLayout
+                    ? (msg.role === 'admin' ? 'bubble-right' : 'bubble-left')
+                    : (msg.role === 'user'  ? 'bubble-right' : 'bubble-left')"
+                >
+                  <div class="chat-bubble" :class="[
+                    'bubble-' + msg.role,
+                    useAdminLayout
+                      ? (msg.role === 'admin' ? 'bubble-on-right' : 'bubble-on-left')
+                      : (msg.role === 'user'  ? 'bubble-on-right' : 'bubble-on-left')
+                  ]">
+                    <p class="bubble-text">{{ msg.text }}</p>
+                    <span class="bubble-time">{{ formatTime(msg.time) }}</span>
+                  </div>
+                </div>
+              </template>
             </div>
 
             <!-- ===== 管理员操作区（仅在待处理/处理中时显示） ===== -->
@@ -93,6 +102,19 @@
               <div class="admin-closed-tip" v-else>
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span>此反馈已{{ currentStatus === 'RESOLVED' ? '解决' : '驳回' }}，等待用户回复后可继续处理</span>
+              </div>
+            </template>
+
+            <!-- ===== 只读管理员：未锁定时显示"开始处理"按钮 ===== -->
+            <template v-else-if="adminView">
+              <div class="admin-action-area" v-if="!feedbackData?.handlerId && isAdminActionable">
+                <button class="lock-action-btn" :disabled="locking" @click="emit('lock')">
+                  {{ locking ? '处理中...' : '开始处理' }}
+                </button>
+              </div>
+              <div class="admin-closed-tip" v-else-if="feedbackData?.handlerId">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>{{ feedbackData?.handlerName || '其他管理员' }} 处理中，您处于只读模式</span>
               </div>
             </template>
 
@@ -188,7 +210,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
-import { submitFeedback, replyFeedback, closeFeedback, type FeedbackVO, type FeedbackMessage } from '@/api'
+import { submitFeedback, replyFeedback, closeFeedback, getFeedbackById, type FeedbackVO, type FeedbackMessage } from '@/api'
+import { useWebSocket } from '@/composables/useWebSocket'
+import type { FeedbackUpdatedData, FeedbackNewData, FeedbackSyncData } from '@/types'
 
 const props = defineProps<{
   visible: boolean
@@ -197,13 +221,36 @@ const props = defineProps<{
   feedbackData: FeedbackVO | null
   readonly?: boolean
   isAdmin?: boolean
+  adminView?: boolean  // 只读管理员视角：气泡方向同 isAdmin，但无操作区
+  locking?: boolean    // 锁定中状态
 }>()
+
+// 气泡方向：isAdmin 或 adminView 时，admin 在右，user 在左
+const useAdminLayout = computed(() => props.isAdmin || props.adminView)
 
 const emit = defineEmits<{
   'update:visible': [val: boolean]
-  'submitted': [feedback?: FeedbackVO]
+  'submitted': [data?: FeedbackVO]
   'status-changed': [status: string]
+  'feedback-refreshed': [data: FeedbackVO]
+  'lock': []
 }>()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let mouseDownOnOverlay = false
+
+const onOverlayMouseDown = () => {
+  mouseDownOnOverlay = true
+}
+
+const onOverlayMouseUp = () => {
+  if (mouseDownOnOverlay) {
+    close()
+  }
+  mouseDownOnOverlay = false
+}
+
+const { subscribeFeedbackUpdated, subscribeFeedbackNew, subscribeFeedbackSync } = useWebSocket({ autoConnect: false })
 
 // ==================== 常量映射 ====================
 const statusMap: Record<string, string> = {
@@ -274,6 +321,9 @@ const toggleModuleDropdown = () => {
 /** 本次会话中管理员乐观追加的消息 */
 const localAdminMessages = ref<FeedbackMessage[]>([])
 
+/** 本次会话中用户乐观追加的消息（发送后立即显示，等 props 刷新后清空） */
+const localUserMessages = ref<FeedbackMessage[]>([])
+
 /** 本次会话中对状态的乐观更新（仅 UI 层） */
 const localStatus = ref<string | null>(null)
 
@@ -307,6 +357,7 @@ const baseMessages = computed<FeedbackMessage[]>(() => {
 const allMessages = computed<FeedbackMessage[]>(() => [
   ...baseMessages.value,
   ...localAdminMessages.value,
+  ...localUserMessages.value,
 ])
 
 const canSubmit = computed(() => {
@@ -323,6 +374,7 @@ const resetForm = () => {
   form.content = ''
   adminReplyText.value = ''
   localAdminMessages.value = []
+  localUserMessages.value = []
   localStatus.value = null
   moduleDropdownOpen.value = false
 }
@@ -370,15 +422,79 @@ const formatTime = (timeStr: string) => {
 // ==================== 监听 ====================
 watch(
   () => props.visible,
-  (val) => {
+  async (val) => {
     if (val) {
       resetForm()
+      // 打开弹窗时主动拉取最新数据，避免错过弹窗关闭期间的消息
+      if (props.feedbackData?.id) {
+        try {
+          const res = await getFeedbackById(props.feedbackData.id)
+          if (res.code === 200 && res.data) {
+            emit('feedback-refreshed', res.data)
+          }
+        } catch { /* silent */ }
+      }
       scrollToBottom()
     }
   }
 )
 
+// feedbackData 更新时（父组件刷新后），清空乐观消息避免重复
+watch(
+  () => props.feedbackData?.content,
+  () => {
+    localUserMessages.value = []
+    localAdminMessages.value = []
+  }
+)
+
 watch(allMessages, () => scrollToBottom())
+
+// 订阅反馈更新推送（管理员回复/状态变更时实时刷新聊天记录）
+subscribeFeedbackUpdated(async (data: FeedbackUpdatedData) => {
+  if (!props.visible || !props.feedbackData) return
+  if (data.feedbackId !== props.feedbackData.id) return
+  try {
+    const res = await getFeedbackById(data.feedbackId)
+    if (res.code === 200 && res.data) {
+      emit('feedback-refreshed', res.data)
+      // 同步乐观状态
+      if (localStatus.value && res.data.status !== localStatus.value) {
+        localStatus.value = null
+      }
+      // 清除本地乐观消息（服务端已包含）
+      localAdminMessages.value = []
+    }
+  } catch { /* silent */ }
+})
+
+// 管理员模式：订阅 feedback_new（用户发消息时），实时刷新对话记录
+subscribeFeedbackNew(async (data: FeedbackNewData) => {
+  if (!props.visible || !props.feedbackData || !props.isAdmin) return
+  if (data.feedbackId !== props.feedbackData.id) return
+  try {
+    const res = await getFeedbackById(data.feedbackId)
+    if (res.code === 200 && res.data) {
+      emit('feedback-refreshed', res.data)
+    }
+  } catch { /* silent */ }
+})
+
+// 管理员模式：订阅 feedback_sync（其他管理员回复/状态变更时），实时刷新对话记录但不增加未读
+subscribeFeedbackSync(async (data: FeedbackSyncData) => {
+  if (!props.visible || !props.feedbackData || (!props.isAdmin && !props.adminView)) return
+  if (data.feedbackId !== props.feedbackData.id) return
+  try {
+    const res = await getFeedbackById(data.feedbackId)
+    if (res.code === 200 && res.data) {
+      emit('feedback-refreshed', res.data)
+      localAdminMessages.value = []
+      if (localStatus.value && res.data.status !== localStatus.value) {
+        localStatus.value = null
+      }
+    }
+  } catch { /* silent */ }
+})
 
 // ==================== 用户提交（新建反馈 / 用户追加消息） ====================
 const handleSubmit = async () => {
@@ -387,32 +503,60 @@ const handleSubmit = async () => {
     ElMessage.warning('分析数据未加载完成')
     return
   }
+
+  const text = form.content.trim()
   submitting.value = true
+
+  // 聊天模式：乐观追加用户消息，立即显示
+  let optimisticMsg: FeedbackMessage | null = null
+  if (isChatMode.value) {
+    optimisticMsg = { role: 'user', text, time: new Date().toISOString() }
+    localUserMessages.value.push(optimisticMsg)
+    form.content = ''
+  }
+
   try {
     const params = isChatMode.value
       ? {
           taskId: props.taskId,
           videoId: props.videoId,
           feedbackType: props.feedbackData!.feedbackType,
-          content: form.content.trim(),
+          content: text,
         }
       : {
           taskId: props.taskId,
           videoId: props.videoId,
           feedbackType: form.feedbackType,
           ...(form.module ? { module: form.module } : {}),
-          content: form.content.trim(),
+          content: text,
         }
     const res = await submitFeedback(params)
     if (res.code === 200) {
       ElMessage.success(isChatMode.value ? '消息已发送' : '反馈已提交，感谢您的反馈！')
-      resetForm()
-      emit('submitted', res.data ?? undefined)
-      if (!isChatMode.value) close()
+      if (!isChatMode.value) {
+        resetForm()
+        emit('submitted', res.data)
+        close()
+      } else {
+        // 用返回数据更新父组件（含最新 status，如 PENDING reopen）
+        emit('submitted', res.data)
+        localStatus.value = null
+      }
     } else {
+      // 回滚乐观消息
+      if (optimisticMsg) {
+        const idx = localUserMessages.value.indexOf(optimisticMsg)
+        if (idx > -1) localUserMessages.value.splice(idx, 1)
+        form.content = text
+      }
       ElMessage.error(res.message || '提交失败')
     }
   } catch {
+    if (optimisticMsg) {
+      const idx = localUserMessages.value.indexOf(optimisticMsg)
+      if (idx > -1) localUserMessages.value.splice(idx, 1)
+      form.content = text
+    }
     ElMessage.error('提交失败，请稍后重试')
   } finally {
     submitting.value = false
@@ -501,6 +645,14 @@ const handleStatusChange = async (status: 'RESOLVED' | 'REJECTED') => {
     if (res.code === 200) {
       const label = status === 'RESOLVED' ? '已回复并标记为"已解决"' : '已回复并标记为"已驳回"'
       ElMessage.success(pendingReply ? label : label.replace('已回复并', ''))
+      // 重新拉取最新数据，显示系统消息
+      try {
+        const fresh = await getFeedbackById(props.feedbackData.id)
+        if (fresh.code === 200 && fresh.data) {
+          localAdminMessages.value = []
+          emit('feedback-refreshed', fresh.data)
+        }
+      } catch { /* silent */ }
       emit('submitted')
       emit('status-changed', status)
     } else {
@@ -662,6 +814,14 @@ $orange: #e6a23c;
     p { margin: 0; font-size: 14px; }
   }
 
+  .chat-bubble-system {
+    display: flex; justify-content: center; align-items: center; padding: 2px 0;
+    span {
+      font-size: 11px; color: #a0a5a8; background: rgba(0,0,0,0.04);
+      padding: 4px 12px; border-radius: 20px; font-style: italic;
+    }
+  }
+
   .chat-bubble-wrap {
     display: flex;
     &.bubble-right { justify-content: flex-end; }
@@ -798,6 +958,14 @@ $orange: #e6a23c;
 
     svg { flex-shrink: 0; opacity: 0.6; }
     span { line-height: 1.4; }
+  }
+
+  .lock-action-btn {
+    width: 100%; padding: 10px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+    color: #fff; font-size: 14px; cursor: pointer; transition: all 0.25s;
+    &:hover { opacity: 0.9; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 
   // ===== 用户回复区 =====

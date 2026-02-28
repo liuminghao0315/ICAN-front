@@ -66,7 +66,7 @@
     <!-- 移动文件夹弹窗 -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div class="neu-overlay" v-if="moveModalVisible" @click.self="moveModalVisible = false">
+        <div class="neu-overlay" v-if="moveModalVisible" @mousedown.self="onMoveOverlayMouseDown" @mouseup.self="onMoveOverlayMouseUp">
           <div class="neu-modal">
             <h3 class="modal-title">移动「{{ moveTargetName }}」到</h3>
             <div class="move-list">
@@ -97,7 +97,7 @@
     <!-- 删除确认弹窗 -->
     <Teleport to="body">
       <Transition name="modal-fade">
-        <div class="neu-overlay" v-if="deleteModalVisible" @click.self="deleteModalVisible = false">
+        <div class="neu-overlay" v-if="deleteModalVisible" @mousedown.self="onDeleteOverlayMouseDown" @mouseup.self="onDeleteOverlayMouseUp">
           <div class="neu-modal">
             <div class="confirm-header">
               <div class="confirm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
@@ -128,6 +128,32 @@ import FolderTreeNode from './FolderTreeNode.vue'
 
 const router = useRouter()
 const folderStore = useFolderStore()
+
+// 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
+let moveOverlayMouseDown = false
+let deleteOverlayMouseDown = false
+
+const onMoveOverlayMouseDown = () => {
+  moveOverlayMouseDown = true
+}
+
+const onMoveOverlayMouseUp = () => {
+  if (moveOverlayMouseDown) {
+    moveModalVisible.value = false
+  }
+  moveOverlayMouseDown = false
+}
+
+const onDeleteOverlayMouseDown = () => {
+  deleteOverlayMouseDown = true
+}
+
+const onDeleteOverlayMouseUp = () => {
+  if (deleteOverlayMouseDown) {
+    deleteModalVisible.value = false
+  }
+  deleteOverlayMouseDown = false
+}
 
 const loading = computed(() => folderStore.loading)
 const activeFolderId = computed(() => folderStore.activeFolderId)
