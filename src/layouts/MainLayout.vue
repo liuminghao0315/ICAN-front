@@ -12,7 +12,7 @@
           <!-- Logo -->
           <div class="logo" @click="router.push('/')">
             <div class="logo-icon">
-              <el-icon :size="24"><VideoCamera /></el-icon>
+              <img src="/logo.jpg" alt="SynSight" class="logo-img" />
             </div>
             <span v-show="!isCollapse" class="logo-text">SynSight</span>
           </div>
@@ -218,8 +218,12 @@
 
           <div class="user-dropdown" ref="userDropdownRef">
             <div class="user-info" ref="userInfoRef" @click="toggleDropdown">
-              <div class="user-avatar">
-                {{ (userStore.userInfo?.username || '用户').charAt(0).toUpperCase() }}
+              <div class="user-avatar" :class="{ 'has-photo': !!userStore.userInfo?.avatarUrl }">
+                <img v-if="userStore.userInfo?.avatarUrl"
+                     :src="userStore.userInfo.avatarUrl"
+                     alt="头像"
+                     class="user-avatar-img" />
+                <span v-else>{{ (userStore.userInfo?.username || '用户').charAt(0).toUpperCase() }}</span>
               </div>
               <span class="username">{{ userStore.userInfo?.username || '用户' }}</span>
               <svg class="dropdown-arrow" :class="{ 'is-open': isDropdownOpen }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -588,7 +592,8 @@
             id: res.data.id,
             username: res.data.username,
             email: res.data.email,
-            role: res.data.role
+            role: res.data.role,
+            avatarUrl: res.data.avatarUrl || ''
           })
         }
       }).catch(() => {})
@@ -680,14 +685,19 @@
       height: 42px;
       min-width: 42px;
       min-height: 42px;
-      background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff !important;
-      box-shadow: none;
+      overflow: hidden;
       flex-shrink: 0;
+
+      .logo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
     }
 
     .logo-text {
@@ -1448,6 +1458,23 @@
         cursor: default;
         user-select: none;
         box-shadow: none;
+        overflow: hidden;
+
+        &.has-photo {
+          background: transparent;
+        }
+
+        span {
+          color: #fff !important;
+        }
+      }
+
+      .user-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+        display: block;
       }
 
       .username {

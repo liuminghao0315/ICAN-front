@@ -847,9 +847,19 @@ export const changeEmail = async (newEmail: string, verifyCode: string): Promise
   return response.data
 }
 
-/** 获取当前登录用户信息（id / username / email / role） */
-export const getMe = async (): Promise<ApiResponse<{ id: string; username: string; email: string; role: string }>> => {
-  const response = await api.get<ApiResponse<{ id: string; username: string; email: string; role: string }>>('/account/me')
+/** 获取当前登录用户信息（id / username / email / role / avatarUrl） */
+export const getMe = async (): Promise<ApiResponse<{ id: string; username: string; email: string; role: string; avatarUrl?: string }>> => {
+  const response = await api.get<ApiResponse<{ id: string; username: string; email: string; role: string; avatarUrl?: string }>>('/account/me')
+  return response.data
+}
+
+/** 上传头像（multipart/form-data，字段名 avatar），返回头像访问 URL */
+export const uploadAvatar = async (blob: Blob, filename = 'avatar.png'): Promise<ApiResponse<{ avatarUrl: string }>> => {
+  const formData = new FormData()
+  formData.append('avatar', blob, filename)
+  const response = await api.post<ApiResponse<{ avatarUrl: string }>>('/account/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
   return response.data
 }
 

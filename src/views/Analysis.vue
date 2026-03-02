@@ -75,7 +75,16 @@
             @click="selectVideo(video)"
           >
             <div class="video-item-icon">
-              <el-icon :size="20"><VideoPlay /></el-icon>
+              <img
+                v-if="shouldShowDrawerThumbnail(video)"
+                :src="video.thumbnailUrl || ''"
+                :alt="video.title"
+                class="video-item-cover"
+                @error="handleDrawerThumbnailError(video.id)"
+              />
+              <div v-else class="video-item-cover-placeholder">
+                <el-icon :size="20"><VideoPlay /></el-icon>
+              </div>
             </div>
             <div class="video-item-info">
               <div class="video-item-title">{{ video.title }}</div>
@@ -264,6 +273,7 @@ function openReviewChatDialog() {
 const loading = ref(false)
 const selectedVideoId = ref<string>('')
 const videoList = ref<VideoInfo[]>([])
+const drawerThumbnailLoadFailedMap = ref<Record<string, boolean>>({})
 const analysisData = ref<any>(null)  // 分析结果数据
 const emptyMessage = ref('请选择一个视频')
 const showVideoDrawer = ref(false)
@@ -279,10 +289,19 @@ const fetchVideos = async () => {
     if (response.code === 200) {
       // 只显示已完成分析的视频
       videoList.value = response.data.records.filter(v => v.status === 'COMPLETED')
+      drawerThumbnailLoadFailedMap.value = {}
     }
   } catch {
     // 静默处理错误
   }
+}
+
+const shouldShowDrawerThumbnail = (video: VideoInfo) => {
+  return !!video.thumbnailUrl && !drawerThumbnailLoadFailedMap.value[video.id]
+}
+
+const handleDrawerThumbnailError = (videoId: string) => {
+  drawerThumbnailLoadFailedMap.value[videoId] = true
 }
 
 const selectVideo = (video: VideoInfo) => {
@@ -890,7 +909,29 @@ $purple: #409EFF;
       }
 
       .video-item-icon {
-        color: $purple;
+        width: 64px;
+        height: 40px;
+        border-radius: 8px;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 1px solid var(--border-color);
+        background: linear-gradient(135deg, #dce4f3, #eef2f8);
+
+        .video-item-cover {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .video-item-cover-placeholder {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: $purple;
+        }
       }
 
       .video-item-info {
@@ -1023,6 +1064,11 @@ $purple: #409EFF;
       color: #fff !important;
     }
   }
+}
+
+[data-theme='dark'] .analysis-page .video-drawer .video-item .video-item-icon {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
 }
 
   // 通用卡片样式

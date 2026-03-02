@@ -20,7 +20,16 @@
           <div class="archive-header">
             <div class="file-section">
               <div class="file-icon">
-                <el-icon :size="28"><VideoCamera /></el-icon>
+                <img
+                  v-if="analysisArchiveCoverUrl && !archiveCoverLoadFailed"
+                  :src="analysisArchiveCoverUrl"
+                  :alt="mockVideoArchive?.fileName || '视频封面'"
+                  class="file-cover-img"
+                  @error="handleArchiveCoverError"
+                />
+                <div v-else class="file-cover-placeholder">
+                  <el-icon :size="28"><VideoCamera /></el-icon>
+                </div>
               </div>
 
               <div class="file-info">
@@ -1626,6 +1635,26 @@ const analysisResult = computed(() => props.analysisResult);
 
 // 提取各个分析结果（便捷引用）
 const mockVideoArchive = computed(() => currentResult.value?.videoInfo || null);
+const analysisArchiveCoverUrl = computed(() => {
+  const videoInfo = (currentResult.value?.videoInfo || {}) as {
+    thumbnailUrl?: string | null;
+    coverUrl?: string | null;
+    posterUrl?: string | null;
+  };
+  return (
+    videoInfo.thumbnailUrl ||
+    videoInfo.coverUrl ||
+    videoInfo.posterUrl ||
+    ""
+  );
+});
+const archiveCoverLoadFailed = ref(false);
+const handleArchiveCoverError = () => {
+  archiveCoverLoadFailed.value = true;
+};
+watch(analysisArchiveCoverUrl, () => {
+  archiveCoverLoadFailed.value = false;
+});
 const mockIdentityAnalysis = computed(
   () => currentResult.value?.identity || null,
 );
@@ -6303,8 +6332,27 @@ $purple: #409eff;
           align-items: center;
           justify-content: center;
           color: white;
-          box-shadow: 0 4px 12px rgba(75, 112, 226, 0.3);
+          box-shadow: none;
+          border: 1px solid var(--border-color);
           margin-left: -10px;
+          overflow: hidden;
+
+          .file-cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+          }
+
+          .file-cover-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            background: linear-gradient(135deg, $purple, #7c9df7);
+          }
         }
 
         .file-info {

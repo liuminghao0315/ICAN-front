@@ -1,9 +1,11 @@
-﻿<template>
+<template>
   <div class="auth-wrapper">
     <Toast :message="toast.message.value" :type="toast.type.value" @close="toast.hideToast" />
     <div class="auth-page-header">
       <div class="brand-block">
-        <div class="brand-logo">S</div>
+        <div class="brand-logo">
+          <img src="/logo.jpg" alt="SynSight" class="brand-logo-img" />
+        </div>
         <div class="brand-text">
           <h1>SynSight</h1>
           <p>智能内容创作者行为分析平台</p>
@@ -379,7 +381,7 @@ const handleLogin = async () => {
       }
       try {
         const meRes = await getMe()
-        if (meRes.code === 200 && meRes.data) userStore.setUserInfo({ id: meRes.data.id, username: meRes.data.username, email: meRes.data.email })
+        if (meRes.code === 200 && meRes.data) userStore.setUserInfo({ id: meRes.data.id, username: meRes.data.username, email: meRes.data.email, avatarUrl: meRes.data.avatarUrl || '' })
       } catch {}
       router.push('/')
     } else loginError.value = response.message || '登录失败'
@@ -428,7 +430,8 @@ $transition: 1.25s;
 
 .auth-page-header { width: 1000px; min-width: 1000px; display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-radius: 8px; }
 .brand-block { display: flex; align-items: center; gap: 12px; }
-.brand-logo { width: 40px; height: 40px; border-radius: 8px; background: linear-gradient(135deg, #409eff 0%, #3072f6 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
+.brand-logo { width: 40px; height: 40px; min-width: 40px; min-height: 40px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.brand-logo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .brand-text h1 { font-size: 20px; line-height: 1.2; color: var(--text-primary, #181818); }
 .brand-text p { font-size: 12px; color: var(--text-secondary, #909399); margin-top: 2px; }
 .header-actions { display: flex; align-items: center; gap: 12px; }

@@ -15,6 +15,7 @@ export const useUserStore = defineStore('user', () => {
     username: string
     email: string
     role?: string
+    avatarUrl?: string
   } | null>(null)
 
   // 计算属性
@@ -40,6 +41,12 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = info
   }
 
+  const setAvatarUrl = (url: string) => {
+    if (userInfo.value) {
+      userInfo.value = { ...userInfo.value, avatarUrl: url }
+    }
+  }
+
   const logout = () => {
     token.value = null
     refreshToken.value = null
@@ -58,6 +65,7 @@ export const useUserStore = defineStore('user', () => {
     setRefreshToken,
     setTokens,
     setUserInfo,
+    setAvatarUrl,
     logout
   }
 }, {

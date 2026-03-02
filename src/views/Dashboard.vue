@@ -3,8 +3,12 @@
     <!-- 顶部欢迎横幅 -->
     <div class="welcome-banner">
       <div class="banner-left">
-        <div class="user-avatar">
-          {{ (userStore.userInfo?.username || '用户').charAt(0).toUpperCase() }}
+        <div class="user-avatar" :class="{ 'has-photo': !!userStore.userInfo?.avatarUrl }">
+          <img v-if="userStore.userInfo?.avatarUrl"
+               :src="userStore.userInfo.avatarUrl"
+               alt="头像"
+               class="user-avatar-img" />
+          <span v-else>{{ (userStore.userInfo?.username || '用户').charAt(0).toUpperCase() }}</span>
         </div>
         <div class="welcome-text">
           <h2>您好，{{ userStore.userInfo?.username || '用户' }}</h2>
@@ -146,8 +150,17 @@
               :key="video.id"
               @click="handleVideoClick(video)"
             >
-              <div class="video-icon">
-                <el-icon><VideoPlay /></el-icon>
+              <div class="video-cover" :class="{ 'is-placeholder': !shouldShowThumbnail(video) }">
+                <img
+                  v-if="shouldShowThumbnail(video)"
+                  :src="video.thumbnailUrl || ''"
+                  :alt="video.title"
+                  class="video-cover-img"
+                  @error="handleVideoThumbnailError(video)"
+                />
+                <div v-else class="video-cover-placeholder">
+                  <el-icon><VideoPlay /></el-icon>
+                </div>
               </div>
               <div class="video-info">
                 <div class="video-title">{{ video.title }}</div>
@@ -194,7 +207,14 @@
               <div class="task-info">
                 <div class="task-title">{{ task.videoTitle }}</div>
                 <div class="task-meta">
-                  {{ task.taskTypeDesc || getTaskTypeText(task.taskType) }} · {{ formatDate(task.gmtCreated) }}
+                  <span
+                    v-if="task.status === 'COMPLETED' && task.riskLevel"
+                    class="task-risk-tag"
+                    :class="getTaskRiskClass(task.riskLevel)"
+                  >
+                    {{ getTaskRiskText(task.riskLevel) }}
+                  </span>
+                  <span class="task-meta-date">{{ formatDate(task.gmtCreated) }}</span>
                 </div>
               </div>
               <div class="task-status">
@@ -272,7 +292,7 @@ import {
   type VideoInfo,
   type UploadTrendItem
 } from '@/api'
-import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskType, TaskStatus } from '@/types'
+import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskStatus } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { useWebSocket } from '@/composables/useWebSocket'
 
@@ -467,6 +487,14 @@ const handleVideoClick = (video: VideoInfo) => {
   }
 }
 
+const shouldShowThumbnail = (video: VideoInfo) => {
+  return (video.status as string) !== 'DOWNLOADING' && !!video.thumbnailUrl
+}
+
+const handleVideoThumbnailError = (video: VideoInfo) => {
+  video.thumbnailUrl = null
+}
+
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -492,6 +520,7 @@ const getStatusText = (status: string) => {
   const texts: Record<string, string> = {
     'UPLOADED': '待分析',
     'ANALYZING': '分析中',
+    'PROCESSING': '分析中',
     'COMPLETED': '已完成',
     'FAILED': '失败'
   }
@@ -502,20 +531,31 @@ const getStatusClass = (status: string) => {
   const classes: Record<string, string> = {
     'UPLOADED': 'pending',
     'ANALYZING': 'processing',
+    'PROCESSING': 'processing',
     'COMPLETED': 'completed',
     'FAILED': 'failed'
   }
   return classes[status] || 'pending'
 }
 
-const getTaskTypeText = (type: TaskType) => {
-  const texts: Record<TaskType, string> = {
-    'FULL_ANALYSIS': '完整分析',
-    'VIDEO_ONLY': '视频分析',
-    'AUDIO_ONLY': '音频分析',
-    'TEXT_ONLY': '文字分析'
+const getTaskRiskText = (riskLevel: AnalysisTaskVO['riskLevel']) => {
+  const texts: Record<'HIGH' | 'MEDIUM' | 'LOW', string> = {
+    HIGH: '高风险',
+    MEDIUM: '中风险',
+    LOW: '低风险'
   }
-  return texts[type] || type
+  if (!riskLevel) return '未知风险'
+  return texts[riskLevel] || '未知风险'
+}
+
+const getTaskRiskClass = (riskLevel: AnalysisTaskVO['riskLevel']) => {
+  const classes: Record<'HIGH' | 'MEDIUM' | 'LOW', string> = {
+    HIGH: 'risk-high',
+    MEDIUM: 'risk-medium',
+    LOW: 'risk-low'
+  }
+  if (!riskLevel) return 'risk-low'
+  return classes[riskLevel] || 'risk-low'
 }
 
 const getTaskStatusText = (status: TaskStatus) => {
@@ -785,13 +825,45 @@ subscribeProgress((data) => {
     task.progress = data.progress
     task.status = 'PROCESSING'
   }
+
+  // 对齐记录中心逻辑：下载完成后实时回填封面与视频地址
+  const video = recentVideos.value.find(v => v.id === data.videoId)
+  if (video) {
+    if (data.title) {
+      video.title = data.title
+    }
+    if (data.status) {
+      video.status = data.status as VideoInfo['status']
+    }
+    if (data.stage === 'PENDING' && data.videoUrl) {
+      video.videoUrl = data.videoUrl
+    }
+    if (data.stage === 'PENDING' && data.thumbnailUrl) {
+      video.thumbnailUrl = data.thumbnailUrl
+    }
+  }
 })
 
-subscribeCompleted(() => {
+subscribeCompleted((data) => {
+  const task = recentTasks.value.find(t => t.id === data.taskId)
+  if (task) {
+    task.status = 'COMPLETED'
+    task.progress = 100
+  }
+
+  // 完成后立即拉取一次任务列表，实时显示高/中/低风险
+  const video = recentVideos.value.find(v => v.id === data.videoId)
+  if (video) {
+    video.status = 'COMPLETED'
+  }
   fetchData()
 })
 
-subscribeFailed(() => {
+subscribeFailed((data) => {
+  const video = recentVideos.value.find(v => v.id === data.videoId)
+  if (video) {
+    video.status = 'FAILED'
+  }
   fetchData()
 })
 
@@ -823,6 +895,8 @@ onMounted(() => {
 <style scoped lang="scss">
 .dashboard {
   min-height: 100%;
+  width: 100%;
+  min-width: 0;
 
   // 修复最近上传/最近任务加载时的遮罩闪烁与边框
   :deep(.video-list .el-loading-mask),
@@ -867,6 +941,23 @@ onMounted(() => {
       box-shadow: none;
       cursor: default;
       user-select: none;
+      overflow: hidden;
+
+      &.has-photo {
+        background: transparent;
+      }
+
+      span {
+        color: #fff !important;
+      }
+    }
+
+    .user-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
     }
 
     .welcome-text {
@@ -1048,15 +1139,52 @@ onMounted(() => {
 // 主内容网格
 .main-content-grid {
   display: grid;
-  grid-template-columns: 1fr 1.5fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 24px;
-  
-  @media (max-width: 1400px) {
-    grid-template-columns: 1fr 1.2fr 1fr;
+
+  @media (max-width: 1600px) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
   }
-  
-  @media (max-width: 1100px) {
-    grid-template-columns: 1fr;
+
+  @media (max-width: 1450px) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+
+  @media (max-width: 1200px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.left-section,
+.center-section,
+.right-section {
+  min-width: 0;
+}
+
+.center-section {
+  overflow: hidden;
+}
+
+@media (max-width: 1450px) {
+  .right-section {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+
+    .neu-card {
+      margin-bottom: 0;
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  .right-section {
+    display: block;
+
+    .neu-card {
+      margin-bottom: 24px;
+    }
   }
 }
 
@@ -1078,10 +1206,15 @@ onMounted(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     padding: 18px 24px;
     border-bottom: 1px solid var(--border-color);
 
     .card-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-size: 15px;
       font-weight: 600;
       color: var(--text-primary);
@@ -1139,8 +1272,8 @@ onMounted(() => {
   }
 
   &.primary-btn {
-    background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
-    border: none;
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
     color: #fff !important;
     padding: 10px 24px;
     font-size: 13px;
@@ -1148,13 +1281,15 @@ onMounted(() => {
     box-shadow: none;
 
     &:hover {
-      background: linear-gradient(135deg, #66B1FF 0%, #4A8EFF 100%);
+      background: #66b1ff;
+      border-color: #66b1ff;
       box-shadow: none;
       transform: translateY(-1px);
     }
 
     &:active {
-      background: linear-gradient(135deg, #3A8EE6 0%, #2862D6 100%);
+      background: #3a8ee6;
+      border-color: #3a8ee6;
       transform: translateY(0);
     }
   }
@@ -1260,6 +1395,7 @@ onMounted(() => {
 .video-list {
   max-height: 300px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
 
   // 美化滚动条
@@ -1286,6 +1422,10 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 16px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
     padding: 16px;
     border-radius: 8px;
     cursor: pointer;
@@ -1303,24 +1443,48 @@ onMounted(() => {
       margin-bottom: 0;
     }
 
-    .video-icon {
+    .video-cover {
       width: 48px;
       height: 48px;
       border-radius: 8px;
-      background: var(--color-primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff !important;
-      font-size: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
       flex-shrink: 0;
+
+      .video-cover-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .video-cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: #fff !important;
+        background: var(--color-primary);
+      }
+
+      &.is-placeholder {
+        border-color: transparent;
+      }
     }
 
     .video-info {
-      flex: 1;
+      flex: 1 1 0;
+      width: 0;
       min-width: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
 
       .video-title {
+        display: block;
+        max-width: 100%;
         font-size: 14px;
         font-weight: 600;
         color: var(--text-primary);
@@ -1333,10 +1497,14 @@ onMounted(() => {
       .video-meta {
         font-size: 12px;
         color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
     }
 
     .video-status {
+      margin-left: auto;
       flex-shrink: 0;
     }
   }
@@ -1372,6 +1540,8 @@ onMounted(() => {
     display: flex;
     align-items: center;
     gap: 14px;
+    width: 100%;
+    min-width: 0;
     padding: 14px;
     border-radius: 8px;
     cursor: pointer;
@@ -1442,10 +1612,48 @@ onMounted(() => {
       .task-meta {
         font-size: 11px;
         color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        .task-risk-tag {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-size: 10px;
+          font-weight: 600;
+
+          &.risk-high {
+            color: #f56c6c;
+            background: rgba(245, 108, 108, 0.12);
+          }
+
+          &.risk-medium {
+            color: #e6a23c;
+            background: rgba(230, 162, 60, 0.14);
+          }
+
+          &.risk-low {
+            color: #52c41a;
+            background: rgba(82, 196, 26, 0.14);
+          }
+        }
+
+        .task-meta-date {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
       }
     }
 
     .task-status {
+      margin-left: auto;
       flex-shrink: 0;
       text-align: right;
 
@@ -1472,6 +1680,7 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 
   &.pending {
     background: rgba(160, 165, 168, 0.12);
@@ -1520,6 +1729,46 @@ onMounted(() => {
   p {
     margin: 16px 0 20px;
     font-size: 14px;
+  }
+}
+
+@media (max-width: 1600px) {
+  .welcome-banner {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 24px;
+
+    .banner-left {
+      flex: 1 1 320px;
+      min-width: 0;
+    }
+
+    .banner-stats {
+      flex: 1 1 100%;
+      order: 3;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 18px;
+
+      .stat-item {
+        padding: 12px 14px;
+      }
+    }
+
+    .banner-charts {
+      margin-left: auto;
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  .welcome-banner {
+    .banner-charts {
+      width: 100%;
+      margin-left: 0;
+      justify-content: flex-start;
+    }
   }
 }
 </style>
