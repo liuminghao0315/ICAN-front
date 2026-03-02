@@ -10,7 +10,7 @@
       <Transition name="sidebar-switch" mode="out-in">
         <div v-if="!isAnalysisDetail" key="normal-nav" class="sidebar-normal">
           <!-- Logo -->
-          <div class="logo" @click="router.push('/')">
+          <div class="logo" @click="router.push('/dashboard')">
             <div class="logo-icon">
               <img src="/logo.jpg" alt="SynSight" class="logo-img" />
             </div>
@@ -190,7 +190,7 @@
       <el-header class="header">
         <div class="header-left">
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>

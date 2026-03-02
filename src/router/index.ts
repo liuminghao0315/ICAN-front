@@ -5,6 +5,14 @@ import Dashboard from '@/views/Dashboard.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    // 公开首页（大创答辩/路演展示）
+    {
+      path: '/',
+      name: 'Landing',
+      component: () => import('@/views/Home.vue'),
+      meta: { requiresAuth: false, title: '首页' }
+    },
+
     // 登录/注册相关页面（无需登录）
     {
       path: '/login',
@@ -32,66 +40,62 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         {
-          path: '',
-          redirect: '/dashboard'
-        },
-        {
-          path: 'dashboard',
+          path: '/dashboard',
           name: 'Dashboard',
           component: Dashboard,
           meta: { title: '工作台' }
         },
         {
-          path: 'records',
+          path: '/records',
           name: 'Records',
           component: () => import('@/views/RecordsCenter.vue'),
           meta: { title: '记录中心' }
         },
         // 保留旧路由兼容（重定向到记录中心）
         {
-          path: 'videos',
+          path: '/videos',
           redirect: '/records'
         },
         {
-          path: 'upload',
+          path: '/upload',
           redirect: '/records'
         },
         {
-          path: 'tasks',
+          path: '/tasks',
           redirect: '/records'
         },
         {
-          path: 'analysis/:resultId?',
+          path: '/analysis/:resultId?',
           name: 'Analysis',
           component: () => import('@/views/Analysis.vue'),
           meta: { title: '分析结果' }
         },
         {
-          path: 'favorites',
+          path: '/favorites',
           name: 'Favorites',
           component: () => import('@/views/Favorites.vue'),
           meta: { title: '我的收藏' }
         },
         {
-          path: 'risk-dictionary',
+          path: '/risk-dictionary',
           name: 'RiskDictionary',
           component: () => import('@/views/RiskWordLibrary.vue'),
           meta: { title: '风险词库管理' }
         },
         {
-          path: 'settings',
+          path: '/settings',
           name: 'Settings',
           component: () => import('@/views/Settings.vue'),
           meta: { title: '设置' }
         },
         {
-          path: 'help',
+          path: '/help',
           name: 'Help',
           component: () => import('@/views/Help.vue'),
           meta: { title: '帮助与文档' }
         },
         {
-          path: 'admin/feedback',
+          path: '/admin/feedback',
           name: 'AdminFeedback',
           component: () => import('@/views/AdminFeedback.vue'),
           meta: { title: '反馈管理', requiresAdmin: true }

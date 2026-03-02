@@ -383,7 +383,7 @@ const handleLogin = async () => {
         const meRes = await getMe()
         if (meRes.code === 200 && meRes.data) userStore.setUserInfo({ id: meRes.data.id, username: meRes.data.username, email: meRes.data.email, avatarUrl: meRes.data.avatarUrl || '' })
       } catch {}
-      router.push('/')
+      router.push('/dashboard')
     } else loginError.value = response.message || '登录失败'
   } catch (error: any) {
     if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) loginError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
