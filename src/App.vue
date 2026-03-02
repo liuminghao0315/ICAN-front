@@ -5,7 +5,7 @@
 <script setup lang="ts" name="App">
 </script>
 
-<style>
+<style lang="scss">
 @import '@/assets/fonts/montserrat.css';
 
 * {
@@ -17,12 +17,13 @@
 html {
   font-family: 'Montserrat', sans-serif;
   overflow-x: hidden !important;
-  overflow-y: scroll; /* 强制显示滚动条，避免抖动（兼容性后备） */
-  scrollbar-gutter: stable; /* 现代浏览器：预留滚动条空间 */
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   width: 100%;
   max-width: 100vw;
   margin: 0;
   padding: 0;
+  background: var(--bg-page);
 }
 
 body {
@@ -32,37 +33,38 @@ body {
   max-width: 100vw;
   margin: 0;
   padding: 0;
+  background: var(--bg-page);
 }
 
-/* 全局滚动条美化 - 柔和风格 */
+/* 全局滚动条美化 - 扁平风格 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #e8ecef;
+  background: var(--bg-page);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c5cdd5;
+  background: var(--text-tertiary);
   border-radius: 4px;
   transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8b4c0;
+  background: var(--text-secondary);
 }
 
 ::-webkit-scrollbar-corner {
-  background: #e8ecef;
+  background: var(--bg-page);
 }
 
 /* Firefox 滚动条 */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #c5cdd5 #e8ecef;
+  scrollbar-color: var(--text-tertiary) var(--bg-page);
 }
 
 body {
@@ -75,16 +77,16 @@ body {
   overflow-x: hidden;
 }
 
-/* 美化 ElMessage 消息弹出框 - 新拟态风格 */
+/* 美化 ElMessage 消息弹出框 - 扁平化风格 */
 .el-message {
   min-width: 320px;
   padding: 12px 24px;
-  border-radius: 16px;
-  box-shadow: 8px 8px 20px rgba(209, 217, 230, 0.5), -8px -8px 20px rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  box-shadow: none;
   font-family: 'Montserrat', sans-serif;
-  animation: messageSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: messageSlideIn 0.3s ease;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -92,84 +94,60 @@ body {
 
 @keyframes messageSlideIn {
   0% {
-    transform: translateY(-30px) scale(0.9);
+    transform: translateY(-20px);
     opacity: 0;
   }
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
 }
 
 .el-message--success {
-  background: linear-gradient(135deg, #f0f9f4 0%, #e8f5e9 100%);
-  color: #2e7d32;
+  background: #f0f9ff;
+  border-color: #67C23A;
+  color: #67C23A;
 }
 
 .el-message--success .el-message__icon {
-  color: #4caf50;
-  font-size: 22px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(76, 175, 80, 0.15);
+  color: #67C23A;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
 .el-message--error {
-  background: linear-gradient(135deg, #fef0f0 0%, #fde8e8 100%);
-  color: #c62828;
+  background: #fef0f0;
+  border-color: #F56C6C;
+  color: #F56C6C;
 }
 
 .el-message--error .el-message__icon {
-  color: #f44336;
-  font-size: 22px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(244, 67, 54, 0.15);
+  color: #F56C6C;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
 .el-message--warning {
-  background: linear-gradient(135deg, #fff8e8 0%, #fff3e0 100%);
-  color: #e65100;
+  background: #fdf6ec;
+  border-color: #E6A23C;
+  color: #E6A23C;
 }
 
 .el-message--warning .el-message__icon {
-  color: #ff9800;
-  font-size: 22px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(255, 152, 0, 0.15);
+  color: #E6A23C;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
 .el-message--info {
-  background: linear-gradient(135deg, #e8f4f8 0%, #e3f2fd 100%);
-  color: #1565c0;
+  background: #f4f4f5;
+  border-color: #909399;
+  color: #909399;
 }
 
 .el-message--info .el-message__icon {
-  color: #2196f3;
-  font-size: 22px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(33, 150, 243, 0.15);
+  color: #909399;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
@@ -178,41 +156,40 @@ body {
   font-weight: 500;
   line-height: 1.6;
   flex: 1;
+  color: #303133;
 }
 
 .el-message__closeBtn {
-  color: inherit;
-  opacity: 0.5;
-  font-size: 18px;
+  color: #909399;
+  opacity: 0.8;
+  font-size: 16px;
   transition: all 0.2s;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .el-message__closeBtn:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.05);
-  transform: scale(1.1);
+  color: #606266;
 }
 
-/* ===== 全局主题 CSS 变量 ===== */
+/* ===== 全局主题 CSS 变量 - 扁平化 ===== */
 :root,
 [data-theme='light'] {
-  --bg-page: #f5f6fa;
-  --bg-card: #ffffff;
-  --bg-hover: #f8f9fc;
-  --bg-input: #fafbfd;
-  --bg-icon: #f0f2f8;
-  --border-color: #e8eaf0;
-  --text-primary: #1a1d2e;
-  --text-secondary: #5a5f7a;
-  --text-tertiary: #8b8fa8;
-  --color-primary: #5b6af0;
+  --bg-page: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F5F7FA;
+  --bg-input: #FFFFFF;
+  --bg-icon: #F5F7FA;
+  --border-color: #EBEEF5;
+  --text-primary: #303133;
+  --text-secondary: #606266;
+  --text-tertiary: #909399;
+  --color-primary: #409EFF;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-primary: 0 2px 8px rgba(64, 158, 255, 0.3);
 }
 
 [data-theme='dark'] {
@@ -225,6 +202,81 @@ body {
   --text-primary: #e8eaf6;
   --text-secondary: #9ba3c4;
   --text-tertiary: #5a6080;
-  --color-primary: #7b8ff5;
+  --color-primary: #409EFF;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-primary: 0 0 0 1px rgba(64, 158, 255, 0.3);
+
+  /* 主内容区背景 */
+  .main-content,
+  .el-main {
+    background-color: var(--bg-page) !important;
+  }
+
+  /* 所有卡片和面板 */
+  .welcome-banner,
+  .stat-container,
+  .chart-card,
+  .quick-actions,
+  .card-item,
+  .list-item,
+  .sidebar,
+  .header {
+    background-color: var(--bg-card) !important;
+  }
+
+  /* 所有文本颜色 */
+  h1, h2, h3, h4, h5, h6,
+  .stat-label,
+  .chart-title,
+  .username,
+  .nav-label {
+    color: var(--text-primary) !important;
+  }
+
+  p, span, div {
+    color: var(--text-secondary);
+  }
+
+  /* 边框颜色 */
+  .welcome-banner,
+  .chart-card,
+  .card-item,
+  .sidebar,
+  .header {
+    border-color: var(--border-color) !important;
+  }
+
+  /* 输入框 */
+  input, textarea, select {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+  }
+}
+
+/* Dashboard 首屏防闪：在路由级 scoped 样式注入前，先给关键块提供稳定底色 */
+.dashboard .welcome-banner,
+.dashboard .neu-card,
+.dashboard .video-item,
+.dashboard .task-item,
+.dashboard .action-btn,
+.dashboard .neu-btn {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.dashboard .card-title,
+.dashboard .video-title,
+.dashboard .task-title {
+  color: var(--text-primary);
+}
+
+.dashboard .video-meta,
+.dashboard .task-meta,
+.dashboard .chart-label,
+.dashboard .count {
+  color: var(--text-secondary);
 }
 </style>

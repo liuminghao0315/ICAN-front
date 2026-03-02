@@ -102,7 +102,12 @@
     </div>
     
     <!-- 加载中 -->
-    <div class="neu-card" v-loading="loading" v-if="loading">
+    <div
+      class="neu-card"
+      v-loading="loading"
+      :element-loading-background="'var(--analysis-loading-mask-bg)'"
+      v-if="loading"
+    >
       <div style="height: 400px;"></div>
     </div>
     
@@ -623,14 +628,14 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色变量
-$bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
+// 扁平化配色变量（映射 CSS 自定义属性，自动适配深色模式）
+$bg: var(--bg-page);
+$neu-1: var(--bg-hover);
+$neu-2: var(--border-color);
+$white: var(--bg-card);
+$gray: var(--text-secondary);
+$black: var(--text-primary);
+$purple: #409EFF;
 
 // 全局图标向下微调0.5px，改善视觉对齐
 .el-icon {
@@ -640,6 +645,14 @@ $purple: #4b70e2;
 
 .analysis-page {
   min-height: 100vh;
+
+  // 分析页 loading 遮罩跟随全局主题变量，避免浅色闪黑/深色闪白
+  :deep(.el-loading-mask) {
+    background-color: var(--analysis-loading-mask-bg, rgba(255, 255, 255, 0.78)) !important;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    border: none !important;
+  }
   
   // 头部操作栏
   .header-actions {
@@ -688,21 +701,20 @@ $purple: #4b70e2;
       padding: 4px;
       background: $neu-1;
       border-radius: 8px;
-      box-shadow: 
-        inset 2px 2px 4px rgba(163, 177, 198, 0.3),
-        inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+      border: 1px solid $neu-2;
+      box-shadow: none;
       
       button {
         padding: 6px 12px;
         background: transparent;
         box-shadow: none;
+        border-color: transparent;
         
         &.active {
           background: $purple;
-          color: white;
-          box-shadow: 
-            3px 3px 8px rgba(75, 112, 226, 0.3),
-            -2px -2px 6px rgba(255, 255, 255, 0.5);
+          color: white !important;
+          border-color: $purple;
+          box-shadow: none;
         }
       }
     }
@@ -742,7 +754,7 @@ $purple: #4b70e2;
 
     .lock-btn {
       background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-      color: #fff;
+      color: #fff !important;
       border: none;
       box-shadow: none;
       &:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -768,12 +780,12 @@ $purple: #4b70e2;
       padding: 0 5px;
       border-radius: 10px;
       background: #f56c6c;
-      color: #fff;
+      color: #fff !important;
       font-size: 12px;
       font-weight: 600;
       line-height: 20px;
       text-align: center;
-      border: 2px solid $neu-1;
+      border: 2px solid var(--bg-card);
       pointer-events: none;
     }
   }
@@ -804,30 +816,31 @@ $purple: #4b70e2;
     width: 400px;
     height: 100vh;
     background: $white;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
+    border-left: 1px solid $neu-2;
     z-index: 1001;
     transition: right 0.3s ease;
     display: flex;
     flex-direction: column;
-    
+
     &.active {
       right: 0;
     }
-    
+
     .drawer-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 20px 24px;
       border-bottom: 1px solid $neu-2;
-      
+
       h3 {
         margin: 0;
         font-size: 18px;
         font-weight: 600;
         color: $black;
       }
-      
+
       .close-btn {
         background: none;
         border: none;
@@ -835,59 +848,55 @@ $purple: #4b70e2;
         color: $gray;
         font-size: 20px;
         padding: 4px;
-        
+
         &:hover {
           color: $black;
         }
       }
     }
-    
+
     .drawer-content {
       flex: 1;
       overflow-y: auto;
       padding: 16px;
     }
-    
+
     .video-list-container {
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
-    
+
     .video-item {
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 12px;
-      background: $neu-1;
-      border-radius: 12px;
+      background: $white;
+      border: 1px solid $neu-2;
+      border-radius: 8px;
       cursor: pointer;
       transition: all 0.3s;
-      box-shadow: 
-        2px 2px 4px rgba(163, 177, 198, 0.3),
-        -2px -2px 4px rgba(255, 255, 255, 0.8);
-      
+      box-shadow: none;
+
       &:hover {
-        box-shadow: 
-          3px 3px 6px rgba(163, 177, 198, 0.4),
-          -3px -3px 6px rgba(255, 255, 255, 0.9);
+        border-color: $purple;
+        box-shadow: none;
       }
-      
+
       &.active {
-        box-shadow: 
-          inset 2px 2px 4px rgba(163, 177, 198, 0.4),
-          inset -2px -2px 4px rgba(255, 255, 255, 0.8);
-        background: darken($neu-1, 2%);
+        border-color: $purple;
+        background: rgba(64, 158, 255, 0.05);
       }
-      
+
       .video-item-icon {
         color: $purple;
       }
-      
+
       .video-item-info {
         flex: 1;
         min-width: 0;
-        
+
         .video-item-title {
           font-size: 14px;
           font-weight: 500;
@@ -897,30 +906,30 @@ $purple: #4b70e2;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        
+
         .video-item-meta {
           font-size: 12px;
           color: $gray;
         }
       }
-      
+
       .video-item-status {
         .status-badge {
           padding: 2px 8px;
           border-radius: 4px;
           font-size: 11px;
           font-weight: 500;
-          
+
           &.status-completed {
             background: rgba(82, 196, 26, 0.1);
             color: #52c41a;
           }
-          
+
           &.status-processing {
             background: rgba(250, 173, 20, 0.1);
             color: #faad14;
           }
-          
+
           &.status-failed {
             background: rgba(245, 108, 108, 0.1);
             color: #f56c6c;
@@ -928,7 +937,7 @@ $purple: #4b70e2;
         }
       }
     }
-    
+
     .empty-video-list {
       display: flex;
       flex-direction: column;
@@ -936,12 +945,12 @@ $purple: #4b70e2;
       justify-content: center;
       padding: 60px 20px;
       color: $gray;
-      
+
       .el-icon {
         margin-bottom: 16px;
         color: $gray;
       }
-      
+
       p {
         margin: 0 0 20px 0;
         font-size: 14px;
@@ -980,12 +989,12 @@ $purple: #4b70e2;
 
   // 通用按钮样式
   .neu-btn {
-  background: $neu-1;
-  border: none;
-  border-radius: 12px;
+  background: $white;
+  border: 1px solid $neu-2;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+  box-shadow: none;
   color: $gray;
   font-family: 'Montserrat', sans-serif;
   padding: 12px 24px;
@@ -993,35 +1002,36 @@ $purple: #4b70e2;
   display: flex;
   align-items: center;
   gap: 8px;
-  
+
   &:hover {
-    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    border-color: $purple;
     color: $purple;
   }
-  
+
   &:active {
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    transform: translateY(1px);
   }
-  
+
   &.primary-btn {
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
-    
+    background: $purple;
+    border-color: $purple;
+    color: #fff !important;
+
     &:hover {
-      box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-      color: #fff;
+      background: #66b1ff;
+      border-color: #66b1ff;
+      color: #fff !important;
     }
   }
 }
 
   // 通用卡片样式
   .neu-card {
-    background: $neu-1;
-    border-radius: 16px;
+    background: $white;
+    border: 1px solid $neu-2;
+    border-radius: 12px;
     padding: 20px;
-    box-shadow:
-      6px 6px 12px rgba(163, 177, 198, 0.4),
-      -6px -6px 12px rgba(255, 255, 255, 0.9);
+    box-shadow: none;
     margin-bottom: 20px;
   }
 }
@@ -1038,13 +1048,14 @@ $purple: #4b70e2;
 }
 
 .video-deleted-modal {
-  background: $neu-1;
-  border-radius: 20px;
+  background: $white;
+  border: 1px solid #EBEEF5;
+  border-radius: 12px;
   padding: 48px 40px 40px;
   text-align: center;
   max-width: 420px;
   width: 90%;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  box-shadow: none;
 
   .modal-icon {
     font-size: 44px;
@@ -1077,26 +1088,27 @@ $purple: #4b70e2;
   }
 
   .back-btn {
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
-    border: none;
-    border-radius: 12px;
+    background: $purple;
+    color: #fff !important;
+    border: 1px solid $purple;
+    border-radius: 8px;
     padding: 12px 32px;
     font-size: 14px;
     font-family: 'Montserrat', sans-serif;
     cursor: pointer;
-    box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+    box-shadow: none;
     transition: all 0.25s;
     display: inline-flex;
     align-items: center;
     gap: 6px;
 
     &:hover {
-      opacity: 0.92;
+      background: #66b1ff;
+      border-color: #66b1ff;
     }
 
     &:active {
-      box-shadow: inset 2px 2px 4px rgba(0,0,0,0.15);
+      transform: translateY(1px);
     }
   }
 }
@@ -1105,22 +1117,22 @@ $purple: #4b70e2;
 <!-- 自定义 Tooltip 样式（全局，非scoped） -->
 <style lang="scss">
 .custom-tooltip.el-popper {
-  background: rgba(255, 255, 255, 0.98) !important;
+  background: var(--bg-card) !important;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid var(--border-color) !important;
   border-radius: 8px !important;
   padding: 10px 14px !important;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: var(--shadow-md) !important;
   font-size: 12px !important;
-  color: #303133 !important;
+  color: var(--text-primary) !important;
   line-height: 1.6 !important;
   max-width: 280px;
 }
 
 .custom-tooltip .el-popper__arrow::before {
-  background: rgba(255, 255, 255, 0.98) !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 // 交互模式下移除main标签左padding

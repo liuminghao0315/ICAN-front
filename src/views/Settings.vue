@@ -322,21 +322,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ===== 新拟态风格变量 ===== */
-.settings-page {
-  --bg-page: #e8ecf4;
-  --bg-card: #e8ecf4;
-  --text-primary: #2c3e50;
-  --text-secondary: #5a6c7d;
-  --text-tertiary: #8b95a5;
-  --color-primary: #5b6af0;
-  --color-primary-hover: #4a59df;
-  --color-success: #52c41a;
-  --color-error: #ff4d4f;
-  --shadow-light: #ffffff;
-  --shadow-dark: rgba(174, 184, 204, 0.4);
-}
-
 /* ===== 页面布局 ===== */
 .settings-page {
   min-height: 100vh;
@@ -349,15 +334,18 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 
-/* ===== 新拟态卡片 ===== */
+/* ===== 扁平化卡片 ===== */
 .settings-card {
   background: var(--bg-card);
-  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
   margin-bottom: 24px;
-  box-shadow:
-    9px 9px 18px var(--shadow-dark),
-    -9px -9px 18px var(--shadow-light);
+  box-shadow: none;
   transition: all 0.3s ease;
+}
+
+.settings-card:hover {
+  border-color: var(--color-primary);
 }
 
 /* ===== 卡片头部 ===== */
@@ -380,14 +368,11 @@ onUnmounted(() => {
 .card-icon {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-card);
-  box-shadow:
-    inset 4px 4px 8px var(--shadow-dark),
-    inset -4px -4px 8px var(--shadow-light);
+  background: var(--bg-icon);
   color: var(--color-primary);
   flex-shrink: 0;
   margin-top: -2px;
@@ -464,21 +449,15 @@ onUnmounted(() => {
   padding: 0 18px;
   font-size: 14px;
   color: var(--text-primary);
-  background: var(--bg-card);
-  border: none;
-  border-radius: 14px;
-  box-shadow:
-    inset 3px 3px 7px var(--shadow-dark),
-    inset -3px -3px 7px var(--shadow-light);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   transition: all 0.2s ease;
   outline: none;
 }
 
 .form-group input:focus {
-  box-shadow:
-    inset 4px 4px 9px var(--shadow-dark),
-    inset -4px -4px 9px var(--shadow-light),
-    0 0 0 3px rgba(91, 106, 240, 0.12);
+  border-color: var(--color-primary);
 }
 
 .form-group input::placeholder {
@@ -500,12 +479,10 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-primary);
-  background: var(--bg-card);
-  border: none;
-  border-radius: 14px;
-  box-shadow:
-    5px 5px 10px var(--shadow-dark),
-    -5px -5px 10px var(--shadow-light);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: none;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -514,17 +491,12 @@ onUnmounted(() => {
 }
 
 .btn-send:hover:not(:disabled) {
-  box-shadow:
-    3px 3px 6px var(--shadow-dark),
-    -3px -3px 6px var(--shadow-light);
-  transform: translateY(1px);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
 }
 
 .btn-send:active:not(:disabled) {
-  box-shadow:
-    inset 3px 3px 6px var(--shadow-dark),
-    inset -3px -3px 6px var(--shadow-light);
-  transform: translateY(2px);
+  transform: translateY(1px);
 }
 
 .btn-send:disabled {
@@ -542,9 +514,9 @@ onUnmounted(() => {
 .form-error {
   padding: 14px 18px;
   font-size: 13px;
-  color: var(--color-error);
-  background: rgba(255, 77, 79, 0.06);
-  border-radius: 12px;
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+  border-radius: 8px;
   margin-bottom: 18px;
   line-height: 1.5;
 }
@@ -562,8 +534,8 @@ onUnmounted(() => {
   height: 46px;
   font-size: 14px;
   font-weight: 600;
-  border: none;
-  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   letter-spacing: -0.01em;
@@ -571,48 +543,35 @@ onUnmounted(() => {
 
 .btn-secondary {
   color: var(--text-secondary);
-  background: var(--bg-card);
-  box-shadow:
-    5px 5px 10px var(--shadow-dark),
-    -5px -5px 10px var(--shadow-light);
+  background: var(--bg-input);
+  box-shadow: none;
 }
 
 .btn-secondary:hover {
-  box-shadow:
-    3px 3px 6px var(--shadow-dark),
-    -3px -3px 6px var(--shadow-light);
-  transform: translateY(1px);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
 }
 
 .btn-secondary:active {
-  box-shadow:
-    inset 3px 3px 6px var(--shadow-dark),
-    inset -3px -3px 6px var(--shadow-light);
-  transform: translateY(2px);
+  transform: translateY(1px);
 }
 
 .btn-primary {
   color: #ffffff;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-  box-shadow:
-    5px 5px 10px var(--shadow-dark),
-    -5px -5px 10px var(--shadow-light),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: none;
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow:
-    3px 3px 6px var(--shadow-dark),
-    -3px -3px 6px var(--shadow-light),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transform: translateY(1px);
+  background: #66b1ff;
+  border-color: #66b1ff;
+  transform: translateY(-1px);
 }
 
 .btn-primary:active:not(:disabled) {
-  box-shadow:
-    inset 3px 3px 6px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transform: translateY(2px);
+  transform: translateY(1px);
 }
 
 .btn-primary:disabled {
@@ -633,7 +592,7 @@ onUnmounted(() => {
 .success-icon {
   width: 68px;
   height: 68px;
-  color: var(--color-success);
+  color: #52c41a;
   margin: 0 auto 18px;
 }
 

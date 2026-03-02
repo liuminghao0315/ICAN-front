@@ -93,13 +93,13 @@ watch(() => props.visible, (newVal) => {
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色变量
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
+// 扁平化配色变量
+$neu-1: #F5F7FA;
+$neu-2: #DCDFE6;
+$white: #FFFFFF;
 $gray: #a0a5a8;
 $black: #181818;
-$purple: #4b70e2;
+$purple: #409EFF;
 $danger: #f56c6c;
 
 .delete-dialog-overlay {
@@ -117,13 +117,10 @@ $danger: #f56c6c;
 }
 
 .delete-dialog {
-  background: $neu-1;
-  border-radius: 20px;
-  box-shadow: 
-    8px 8px 20px rgba(209, 217, 230, 0.6),
-    -8px -8px 20px rgba(255, 255, 255, 1),
-    0 12px 40px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(209, 217, 230, 0.3);
+  background: $white;
+  border-radius: 12px;
+  box-shadow: none;
+  border: 1px solid #EBEEF5;
   min-width: 420px;
   max-width: 500px;
   width: 100%;
@@ -152,29 +149,25 @@ $danger: #f56c6c;
       justify-content: center;
       width: 32px;
       height: 32px;
-      border: none;
-      border-radius: 10px;
-      background: $neu-1;
+      border: 1px solid $neu-2;
+      border-radius: 8px;
+      background: $white;
       color: $gray;
       cursor: pointer;
       transition: all 0.25s ease;
-      box-shadow: 
-        3px 3px 6px rgba(163, 177, 198, 0.4),
-        -3px -3px 6px rgba(255, 255, 255, 0.9);
-      
+
       .el-icon {
         font-size: 16px;
       }
-      
+
       &:hover {
         color: $purple;
+        border-color: $purple;
         transform: rotate(90deg);
       }
-      
+
       &:active {
-        box-shadow: 
-          inset 3px 3px 6px rgba(163, 177, 198, 0.5),
-          inset -3px -3px 6px rgba(255, 255, 255, 0.8);
+        background: $neu-1;
       }
     }
   }
@@ -187,15 +180,13 @@ $danger: #f56c6c;
       width: 72px;
       height: 72px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(250, 173, 20, 0.12), rgba(250, 173, 20, 0.08));
+      background: rgba(250, 173, 20, 0.1);
+      border: 1px solid rgba(250, 173, 20, 0.3);
       display: flex;
       align-items: center;
       justify-content: center;
       margin: 0 auto 24px;
       color: #faad14;
-      box-shadow: 
-        4px 4px 8px rgba(209, 217, 230, 0.4),
-        -4px -4px 8px rgba(255, 255, 255, 0.9);
     }
     
     .dialog-message {
@@ -229,14 +220,13 @@ $danger: #f56c6c;
   }
 }
 
-// 新拟态按钮
+// 扁平化按钮
 .neu-btn {
-  background: $neu-1;
-  border: none;
-  border-radius: 12px;
+  background: $white;
+  border: 1px solid $neu-2;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
   color: $gray;
   font-family: 'Montserrat', sans-serif;
   padding: 12px 24px;
@@ -247,43 +237,40 @@ $danger: #f56c6c;
   gap: 8px;
   min-width: 100px;
   justify-content: center;
-  
+
   &:hover {
-    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    border-color: $purple;
+    color: $purple;
+    transform: translateY(-1px);
   }
-  
+
   &:active {
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    transform: translateY(0);
+    background: $neu-1;
   }
-  
+
   &.cancel-btn {
     color: $gray;
-    
+
     &:hover {
       color: $black;
+      border-color: $black;
     }
   }
-  
+
   &.delete-btn {
-    background: linear-gradient(135deg, #ff7875 0%, $danger 100%);
-    color: #fff;
-    box-shadow: 
-      4px 4px 10px rgba(245, 108, 108, 0.25),
-      -2px -2px 6px rgba(255, 255, 255, 0.1);
-    
+    background: $danger;
+    color: #fff !important;
+    border: none;
+
     &:hover {
-      background: linear-gradient(135deg, $danger 0%, #e74c3c 100%);
-      box-shadow: 
-        4px 4px 12px rgba(245, 108, 108, 0.35),
-        -2px -2px 6px rgba(255, 255, 255, 0.1);
+      background: #f78989;
       transform: translateY(-1px);
     }
-    
+
     &:active {
       transform: translateY(0);
-      box-shadow: 
-        inset 2px 2px 4px rgba(0, 0, 0, 0.2),
-        inset -2px -2px 4px rgba(255, 255, 255, 0.1);
+      background: #dd6161;
     }
   }
 }

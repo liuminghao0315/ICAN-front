@@ -61,7 +61,7 @@ $purple: #4b70e2;
   min-height: 300px;
   padding: 50px;
   background-color: $neu-1;
-  box-shadow: 10px 10px 10px $neu-2, -10px -10px 10px $white;
+  box-shadow: none;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -91,7 +91,7 @@ $purple: #4b70e2;
   padding: 15px;
   background-color: $white;
   border-radius: 8px;
-  box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+  box-shadow: none;
   font-size: 12px;
   color: #666;
 }
@@ -104,20 +104,20 @@ $purple: #4b70e2;
   font-size: 14px;
   letter-spacing: 1.15px;
   background-color: $purple;
-  color: white;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  color: white !important;
+  box-shadow: none;
   border: none;
   outline: none;
   cursor: pointer;
   transition: 0.25s;
 
   &:hover {
-    box-shadow: 6px 6px 10px $neu-2, -6px -6px 10px $white;
+    box-shadow: none;
     transform: scale(0.985);
   }
 
   &:active {
-    box-shadow: 2px 2px 6px $neu-2, -2px -2px 6px $white;
+    box-shadow: none;
     transform: scale(0.97);
   }
 }

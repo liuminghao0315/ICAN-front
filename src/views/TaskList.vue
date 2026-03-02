@@ -632,14 +632,14 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色变量
-$bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
+// 扁平化配色变量
+$bg: #F5F7FA;
+$neu-1: #F5F7FA;
+$neu-2: #DCDFE6;
+$white: #FFFFFF;
+$gray: #909399;
+$black: #303133;
+$purple: #409EFF;
 
 .task-list-page {
   .header-actions {
@@ -647,7 +647,7 @@ $purple: #4b70e2;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
-    
+
     .page-title {
       font-size: 22px;
       font-weight: 700;
@@ -655,7 +655,7 @@ $purple: #4b70e2;
       color: $black;
     }
   }
-  
+
   // 美化的筛选工具栏
   .filter-toolbar {
     display: flex;
@@ -663,18 +663,17 @@ $purple: #4b70e2;
     gap: 20px;
     padding: 16px 24px;
     margin-bottom: 20px;
-    background: linear-gradient(145deg, #f5f7fa, #e8ecef);
-    border-radius: 16px;
-    box-shadow: 
-      6px 6px 12px rgba(163, 177, 198, 0.35),
-      -6px -6px 12px rgba(255, 255, 255, 0.8);
+    background: $white;
+    border: 1px solid #EBEEF5;
+    border-radius: 12px;
+    box-shadow: none;
     flex-wrap: wrap;
-    
+
     .filter-group {
       display: flex;
       align-items: center;
       gap: 12px;
-      
+
       .filter-label {
         display: flex;
         align-items: center;
@@ -683,100 +682,95 @@ $purple: #4b70e2;
         font-size: 13px;
         font-weight: 500;
         white-space: nowrap;
-        
+
         .el-icon {
           font-size: 14px;
         }
       }
-      
+
       .filter-chips {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
       }
-      
+
       .filter-chip {
         padding: 6px 14px;
-        border-radius: 20px;
+        border-radius: 8px;
         font-size: 12px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        background: $neu-1;
+        background: $white;
         color: $gray;
-        box-shadow: 
-          3px 3px 6px rgba(163, 177, 198, 0.4),
-          -3px -3px 6px rgba(255, 255, 255, 0.9);
+        border: 1px solid #DCDFE6;
+        box-shadow: none;
         display: flex;
         align-items: center;
         gap: 6px;
         user-select: none;
-        
+
         .chip-dot {
           width: 8px;
           height: 8px;
           border-radius: 50%;
-          
+
           &.success { background: #67c23a; }
           &.warning { background: #e6a23c; }
           &.info { background: #909399; }
           &.danger { background: #f56c6c; }
         }
-        
+
         &:hover {
           transform: translateY(-1px);
-          box-shadow: 
-            4px 4px 8px rgba(163, 177, 198, 0.5),
-            -4px -4px 8px rgba(255, 255, 255, 1);
+          border-color: $purple;
         }
-        
+
         &.active {
-          background: linear-gradient(135deg, $purple, #6b8be8);
-          color: white;
-          box-shadow: 
-            inset 2px 2px 4px rgba(0, 0, 0, 0.1),
-            0 4px 12px rgba(75, 112, 226, 0.3);
-          
+          background: $purple;
+          border-color: $purple;
+          color: white !important;
+
           .chip-dot {
             background: white;
-            box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
           }
         }
-        
+
         &.risk-high.active {
-          background: linear-gradient(135deg, #f56c6c, #e74c3c);
+          background: #f56c6c;
+          border-color: #f56c6c;
         }
-        
+
         &.risk-medium.active {
-          background: linear-gradient(135deg, #e6a23c, #f39c12);
+          background: #e6a23c;
+          border-color: #e6a23c;
         }
-        
+
         &.risk-low.active {
-          background: linear-gradient(135deg, #67c23a, #27ae60);
+          background: #67c23a;
+          border-color: #67c23a;
         }
       }
-      
+
       .sort-buttons {
         display: flex;
         gap: 8px;
-        
+
         .sort-btn {
           position: relative;
           display: flex;
           align-items: center;
           gap: 6px;
           padding: 8px 16px;
-          border: 2px solid transparent;
-          border-radius: 12px;
+          border: 1px solid #DCDFE6;
+          border-radius: 8px;
           font-size: 13px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          background: $neu-1;
+          background: $white;
           color: $gray;
-          box-shadow: 
-            4px 4px 8px rgba(163, 177, 198, 0.4),
-            -4px -4px 8px rgba(255, 255, 255, 0.9);
+          box-shadow: none;
           min-width: 90px;
           justify-content: space-between;
           
@@ -841,41 +835,36 @@ $purple: #4b70e2;
               inset 3px 3px 6px rgba(163, 177, 198, 0.5),
               inset -3px -3px 6px rgba(255, 255, 255, 0.8);
           }
-          
+
           &.active {
-            background: linear-gradient(135deg, $purple, #6b8be8);
-            color: white;
+            background: $purple;
+            color: white !important;
             border-color: $purple;
-            box-shadow: 
-              inset 2px 2px 4px rgba(0, 0, 0, 0.15),
-              0 6px 16px rgba(75, 112, 226, 0.4),
-              0 0 0 2px rgba(255, 255, 255, 0.1);
-            
+
             .el-icon {
-              color: white;
+              color: white !important;
             }
-            
+
             .sort-indicator {
               background: rgba(255, 255, 255, 0.25);
-              backdrop-filter: blur(4px);
-              
+
               .el-icon {
-                color: white;
+                color: white !important;
                 animation: bounce 0.6s ease;
               }
             }
-            
+
             &.sort-desc .sort-indicator .el-icon {
               animation: bounceDown 0.6s ease;
             }
-            
+
             &.sort-asc .sort-indicator .el-icon {
               animation: bounceUp 0.6s ease;
             }
           }
         }
       }
-      
+
       @keyframes pulse {
         0%, 100% {
           opacity: 1;
@@ -886,7 +875,7 @@ $purple: #4b70e2;
           transform: scale(0.95);
         }
       }
-      
+
       @keyframes bounce {
         0%, 100% {
           transform: translateY(0);
@@ -895,7 +884,7 @@ $purple: #4b70e2;
           transform: translateY(-3px);
         }
       }
-      
+
       @keyframes bounceDown {
         0%, 100% {
           transform: translateY(0);
@@ -904,7 +893,7 @@ $purple: #4b70e2;
           transform: translateY(3px);
         }
       }
-      
+
       @keyframes bounceUp {
         0%, 100% {
           transform: translateY(0);
@@ -914,32 +903,30 @@ $purple: #4b70e2;
         }
       }
     }
-    
+
     .filter-divider {
       width: 1px;
       height: 32px;
-      background: linear-gradient(to bottom, transparent, rgba(160, 165, 168, 0.3), transparent);
+      background: #EBEEF5;
     }
-    
+
     .filter-actions {
       margin-left: auto;
-      
+
       .refresh-btn {
         display: flex;
         align-items: center;
         justify-content: center;
         width: 40px;
         height: 40px;
-        border: none;
-        border-radius: 12px;
+        border: 1px solid #DCDFE6;
+        border-radius: 8px;
         cursor: pointer;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        background: $neu-1;
+        background: $white;
         color: $gray;
-        box-shadow: 
-          4px 4px 8px rgba(163, 177, 198, 0.4),
-          -4px -4px 8px rgba(255, 255, 255, 0.9);
-        
+        box-shadow: none;
+
         .el-icon {
           font-size: 18px;
         }
@@ -963,7 +950,7 @@ $purple: #4b70e2;
 .neu-card {
   background: $neu-1;
   border-radius: 20px;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  box-shadow: none;
   overflow: hidden;
   
   .card-header {
@@ -988,14 +975,14 @@ $purple: #4b70e2;
   }
 }
 
-// 新拟态按钮
+// 扁平化按钮
 .neu-btn {
-  background: $neu-1;
-  border: none;
-  border-radius: 10px;
+  background: $white;
+  border: 1px solid #DCDFE6;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+  box-shadow: none;
   color: $gray;
   font-family: 'Montserrat', sans-serif;
   display: flex;
@@ -1003,57 +990,59 @@ $purple: #4b70e2;
   gap: 6px;
   padding: 10px 18px;
   font-size: 13px;
-  
+
   &:hover {
-    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    border-color: $purple;
     color: $purple;
   }
-  
+
   &:active {
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    transform: translateY(1px);
   }
-  
+
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
-  
+
   &.icon-btn {
     width: 40px;
     height: 40px;
     padding: 0;
     justify-content: center;
     font-size: 16px;
-    
+
     &.small {
       width: 34px;
       height: 34px;
       font-size: 14px;
     }
-    
+
     &.primary {
       color: $purple;
     }
-    
+
     &.success {
       color: #52c41a;
     }
-    
+
     &.warning {
       color: #e6a23c;
     }
   }
-  
+
   &.primary-btn {
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
-    
+    background: $purple;
+    border-color: $purple;
+    color: #fff !important;
+
     &:hover {
-      box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-      color: #fff;
+      background: #66b1ff;
+      border-color: #66b1ff;
+      color: #fff !important;
     }
   }
-  
+
   &.page-btn {
     width: 36px;
     height: 36px;
@@ -1066,18 +1055,19 @@ $purple: #4b70e2;
 // 任务列表
 .task-list {
   padding: 16px;
-  
+
   .task-item {
     display: flex;
     align-items: center;
     gap: 16px;
     padding: 18px 20px;
-    border-radius: 16px;
+    border-radius: 12px;
     transition: all 0.3s;
     margin-bottom: 12px;
-    background: $neu-1;
-    box-shadow: 4px 4px 10px $neu-2, -4px -4px 10px $white;
-    
+    background: $white;
+    border: 1px solid #EBEEF5;
+    box-shadow: none;
+
     &:last-child {
       margin-bottom: 0;
     }
@@ -1238,12 +1228,12 @@ $purple: #4b70e2;
         height: 8px;
         background: $neu-1;
         border-radius: 4px;
-        box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+        box-shadow: none;
         overflow: hidden;
         
         .progress-fill {
           height: 100%;
-          background: linear-gradient(135deg, #e6a23c 0%, #f5a55c 100%);
+          background: #e6a23c;
           border-radius: 4px;
           transition: width 0.3s;
         }
@@ -1432,13 +1422,15 @@ $purple: #4b70e2;
     }
 
     .danger-btn {
-      background: linear-gradient(135deg, #e6a23c 0%, #f5a55c 100%);
-      color: #fff;
-      box-shadow: 4px 4px 8px rgba(230, 162, 60, 0.3), -2px -2px 6px $white;
+      background: #e6a23c;
+      color: #fff !important;
+      border-color: #e6a23c;
+      box-shadow: none;
 
       &:hover {
-        box-shadow: 4px 4px 12px rgba(230, 162, 60, 0.45), -2px -2px 6px $white;
-        color: #fff;
+        background: #ebb563;
+        border-color: #ebb563;
+        color: #fff !important;
       }
     }
   }

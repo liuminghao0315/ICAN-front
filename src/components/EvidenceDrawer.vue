@@ -292,8 +292,8 @@ const handleJumpToTime = (timestamp: number) => {
   right: 0;
   bottom: 0;
   width: 480px;
-  background: linear-gradient(135deg, #f0f2f5 0%, #f5f7fa 100%);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  background: #F5F7FA;
+  box-shadow: none;
   z-index: 1001;
   display: flex;
   flex-direction: column;
@@ -307,8 +307,8 @@ const handleJumpToTime = (timestamp: number) => {
   align-items: center;
   padding: 24px;
   border-bottom: 1px solid #e8ecef;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #409EFF;
+  color: white !important;
   flex-shrink: 0;
 }
 
@@ -342,7 +342,7 @@ const handleJumpToTime = (timestamp: number) => {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 4px 0;
-  color: white;
+  color: white !important;
 }
 
 .drawer-subtitle {
@@ -358,7 +358,7 @@ const handleJumpToTime = (timestamp: number) => {
   border-radius: 8px;
   border: none;
   background: rgba(255, 255, 255, 0.2);
-  color: white;
+  color: white !important;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -385,7 +385,7 @@ const handleJumpToTime = (timestamp: number) => {
   background: white;
   border-radius: 12px;
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .confidence-label {
@@ -397,7 +397,7 @@ const handleJumpToTime = (timestamp: number) => {
 .confidence-value {
   font-size: 32px;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #409EFF;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 12px;
@@ -412,7 +412,7 @@ const handleJumpToTime = (timestamp: number) => {
 
 .confidence-fill {
   height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: #409EFF;
   border-radius: 4px;
   transition: width 0.6s ease;
 }
@@ -447,13 +447,13 @@ const handleJumpToTime = (timestamp: number) => {
   padding: 20px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .timeline-bar {
   position: relative;
   height: 40px;
-  background: #d1d9e6;
+  background: #DCDFE6;
   border-radius: 20px;
   margin: 20px 0;
 }
@@ -481,7 +481,7 @@ const handleJumpToTime = (timestamp: number) => {
   border-radius: 50%;
   border: 3px solid white;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .mark-video .mark-dot {
@@ -506,7 +506,7 @@ const handleJumpToTime = (timestamp: number) => {
   background: white;
   padding: 4px 8px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   white-space: nowrap;
   opacity: 0;
   transition: all 0.2s;
@@ -530,7 +530,7 @@ const handleJumpToTime = (timestamp: number) => {
   background: white;
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .group-title {
@@ -574,11 +574,11 @@ const handleJumpToTime = (timestamp: number) => {
     width: 80px;
     height: 60px;
     border-radius: 8px;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: #f093fb;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: white !important;
     flex-shrink: 0;
   }
 }
@@ -590,7 +590,7 @@ const handleJumpToTime = (timestamp: number) => {
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
-  background: #d1d9e6;
+  background: #DCDFE6;
 
   img {
     width: 100%;
@@ -614,7 +614,7 @@ const handleJumpToTime = (timestamp: number) => {
   bottom: 4px;
   right: 4px;
   background: rgba(0, 0, 0, 0.7);
-  color: white;
+  color: white !important;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;
@@ -685,7 +685,7 @@ const handleJumpToTime = (timestamp: number) => {
   &:hover {
     background: #f0f2f5;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
   }
 }
 

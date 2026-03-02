@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import MainLayout from '@/layouts/MainLayout.vue'
+import Dashboard from '@/views/Dashboard.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,7 +28,7 @@ const router = createRouter({
     // 主布局下的页面（需要登录）
     {
       path: '/',
-      component: () => import('@/layouts/MainLayout.vue'),
+      component: MainLayout,
       meta: { requiresAuth: true },
       children: [
         {
@@ -36,7 +38,7 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'Dashboard',
-          component: () => import('@/views/Dashboard.vue'),
+          component: Dashboard,
           meta: { title: '工作台' }
         },
         {
@@ -81,6 +83,12 @@ const router = createRouter({
           name: 'Settings',
           component: () => import('@/views/Settings.vue'),
           meta: { title: '设置' }
+        },
+        {
+          path: 'help',
+          name: 'Help',
+          component: () => import('@/views/Help.vue'),
+          meta: { title: '帮助与文档' }
         },
         {
           path: 'admin/feedback',

@@ -307,16 +307,27 @@ const handleAddChild = async (parentId: string, name: string) => {
 // ── 行内重命名 ──
 const editingId = ref<string | null>(null)
 const editingName = ref('')
+const editingOriginalName = ref('')
 
 const startRename = (id: string, currentName: string) => {
   editingId.value = id
   editingName.value = currentName
+  editingOriginalName.value = currentName
 }
 const confirmRename = async () => {
   if (!editingId.value || !editingName.value.trim()) { cancelRename(); return }
   const id = editingId.value
   const name = editingName.value.trim()
+  const originalName = editingOriginalName.value.trim()
+
+  // 名称无变化：不调用接口，不提示成功
+  if (name === originalName) {
+    cancelRename()
+    return
+  }
+
   editingId.value = null  // 先关闭，防止 blur 重复触发
+  editingOriginalName.value = ''
   try {
     await folderStore.rename(id, name)
     ElMessage.success('重命名成功')
@@ -324,7 +335,10 @@ const confirmRename = async () => {
     ElMessage.error(e.message || '重命名失败')
   }
 }
-const cancelRename = () => { editingId.value = null }
+const cancelRename = () => {
+  editingId.value = null
+  editingOriginalName.value = ''
+}
 
 // ── 更多菜单 ──
 const moreMenuVisible = ref(false)
@@ -357,12 +371,24 @@ const moveOptions = computed(() => folderStore.flatFolders().filter(f => f.depth
 const handleCtxMove = () => {
   moveTargetId.value = moreMenuTargetId.value
   moveTargetName.value = moreMenuTargetName.value
-  moveDestId.value = null
+  // 默认选中“当前父级位置”，避免未改动也触发成功提示
+  const node = moveTargetId.value ? findNode(folderStore.tree, moveTargetId.value) : null
+  moveDestId.value = node?.parentId ?? null
   moveModalVisible.value = true
   closeMoreMenu()
 }
 const confirmMoveFolder = async () => {
   if (!moveTargetId.value) return
+
+  const node = findNode(folderStore.tree, moveTargetId.value)
+  const currentParentId = node?.parentId ?? null
+
+  // 位置无变化：不调用接口，不提示成功
+  if (currentParentId === moveDestId.value) {
+    moveModalVisible.value = false
+    return
+  }
+
   try {
     await folderStore.move(moveTargetId.value, moveDestId.value)
     ElMessage.success('移动成功')
@@ -424,12 +450,12 @@ const handleGlobalClick = () => { closeMoreMenu() }
 </script>
 
 <style scoped lang="scss">
-$purple: #4b70e2;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
+$purple: #409EFF;
+$neu-1: var(--bg-hover);
+$neu-2: var(--border-color);
+$white: var(--bg-card);
+$gray: var(--text-secondary);
+$black: var(--text-primary);
 
 .folder-tree {
   padding: 0 10px 10px;
@@ -518,7 +544,7 @@ $black: #181818;
 
   &.active {
     background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+    box-shadow: none;
     .folder-row { color: #fff; }
     .folder-icon { color: #fff; }
     .folder-name { color: #fff; }
@@ -536,7 +562,7 @@ $black: #181818;
   border: 2px solid $purple;
   border-radius: 8px;
   font-size: 13px;
-  background: #fff;
+  background: $white;
   outline: none;
   color: $black;
 }
@@ -551,22 +577,22 @@ $black: #181818;
 
 <!-- 全局样式（Teleport 弹窗） -->
 <style lang="scss">
-$purple: #4b70e2;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
+$purple: #409EFF;
+$neu-1: var(--bg-hover);
+$neu-2: var(--border-color);
+$white: var(--bg-card);
+$gray: var(--text-secondary);
+$black: var(--text-primary);
 
 .folder-ctx-menu {
   position: fixed;
   z-index: 3000;
   min-width: 160px;
   background: $white;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 6px;
-  box-shadow: 8px 8px 24px rgba(209,217,230,0.9), -8px -8px 24px rgba(255,255,255,1), 0 8px 32px rgba(0,0,0,0.12);
-  border: 1px solid rgba(255,255,255,0.9);
+  box-shadow: none;
+  border: 1px solid $neu-2;
 
   .ctx-item {
     display: flex;
@@ -582,7 +608,7 @@ $black: #181818;
     cursor: pointer;
     transition: all 0.15s;
     svg { width: 16px; height: 16px; flex-shrink: 0; color: $gray; }
-    &:hover { background: rgba($purple, 0.08); svg { color: $purple; } }
+    &:hover { background: $neu-1; svg { color: $purple; } }
     &.danger { color: #ef4444; svg { color: #ef4444; } }
     &.danger:hover { background: rgba(239,68,68,0.08); }
   }
@@ -598,10 +624,10 @@ $black: #181818;
   max-height: 300px;
   overflow-y: auto;
   margin: 12px 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: $neu-1;
   padding: 6px;
-  box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+  border: 1px solid $neu-2;
 
   .move-option {
     display: block;
@@ -616,7 +642,7 @@ $black: #181818;
     text-align: left;
     transition: all 0.15s;
     &:hover { background: rgba($purple, 0.08); }
-    &.active { background: linear-gradient(135deg, $purple, #7c9df7); color: #fff; }
+    &.active { background: $purple; color: #fff; }
     &.disabled { opacity: 0.4; cursor: not-allowed; }
   }
 }
@@ -634,13 +660,14 @@ $black: #181818;
 
 // 通用弹窗卡片
 .neu-modal {
-  background: $neu-1;
-  border-radius: 18px;
+  background: $white;
+  border-radius: 12px;
   padding: 28px 28px 22px;
   min-width: 320px;
   max-width: 420px;
   width: 90vw;
-  box-shadow: 12px 12px 28px darken($neu-2, 8%), -12px -12px 28px $white;
+  box-shadow: none;
+  border: 1px solid $neu-2;
 
   .modal-title {
     font-size: 16px;
@@ -669,7 +696,7 @@ $black: #181818;
 
   .confirm-desc {
     font-size: 13px;
-    color: #666;
+    color: $gray;
     margin: 0 0 16px;
     line-height: 1.6;
   }
@@ -685,30 +712,43 @@ $black: #181818;
 // 通用按钮
 .ctrl-btn {
   padding: 8px 18px;
-  border-radius: 10px;
-  border: none;
+  border-radius: 8px;
+  border: 1px solid $neu-2;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  background: $neu-1;
+  background: $white;
   color: $black;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
 
-  &:hover { box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white; }
-  &:active { box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white; }
+  &:hover {
+    border-color: $purple;
+    color: $purple;
+    transform: translateY(-1px);
+  }
+  &:active {
+    background: $neu-1;
+    transform: translateY(0);
+  }
 
   &.primary {
-    background: linear-gradient(135deg, $purple, #7c9df7);
-    color: #fff;
-    box-shadow: 4px 4px 10px rgba($purple, 0.4);
-    &:hover { box-shadow: 2px 2px 6px rgba($purple, 0.5); }
+    background: $purple;
+    color: #fff !important;
+    border-color: $purple;
+    &:hover {
+      background: #66b1ff;
+      border-color: #66b1ff;
+    }
   }
 
   &.danger {
-    background: linear-gradient(135deg, #ef4444, #f87171);
-    color: #fff;
-    box-shadow: 4px 4px 10px rgba(239, 68, 68, 0.3);
+    background: #ef4444;
+    color: #fff !important;
+    border-color: #ef4444;
+    &:hover {
+      background: #f87171;
+      border-color: #f87171;
+    }
   }
 
   &:disabled { opacity: 0.5; cursor: not-allowed; }

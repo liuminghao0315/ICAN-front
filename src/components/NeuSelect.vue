@@ -162,14 +162,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-$neu-1: #ecf0f3;
-$neu-2: #c8d0e7;
-$white: #ffffff;
-$gray: #8a9bb0;
-$black: #1a1f2e;
-$purple: #4b70e2;
-$purple-light: #7c9df7;
-
 // 触发器
 .neu-select {
   position: relative;
@@ -182,11 +174,10 @@ $purple-light: #7c9df7;
   gap: 8px;
   padding: 8px 14px 8px 12px;
   min-width: 120px;
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
-  border-radius: 11px;
-  background: linear-gradient(145deg, #ffffff, #dcdcdc);
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-  color: #4d5d7d;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
   font-family: 'Montserrat', sans-serif;
@@ -196,15 +187,13 @@ $purple-light: #7c9df7;
   outline: none;
 
   &:hover {
-    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
-    filter: drop-shadow(0 2px 6px rgba(100, 130, 200, 0.18));
-    color: $black;
+    border-color: #409EFF;
+    color: var(--text-primary);
   }
 
   .open & {
-    box-shadow: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
-    border-color: rgba($purple, 0.3);
-    color: $purple;
+    border-color: #409EFF;
+    color: var(--color-primary);
   }
 
   .disabled & {
@@ -229,34 +218,30 @@ $purple-light: #7c9df7;
   text-overflow: ellipsis;
 
   &.placeholder {
-    color: $gray;
+    color: var(--text-tertiary);
   }
 }
 
 .trigger-arrow {
   display: flex;
   align-items: center;
-  color: #4d5d7d;
+  color: var(--text-secondary);
   transition: transform 0.25s;
   flex-shrink: 0;
 
   .open & {
     transform: rotate(180deg);
-    color: $purple;
+    color: var(--color-primary);
   }
 }
 
 // 弹出面板
 .neu-select-dropdown {
-  background: $neu-1;
-  border-radius: 14px;
+  background: var(--bg-card);
+  border-radius: 8px;
   padding: 6px;
-  box-shadow:
-    10px 10px 24px darken($neu-2, 8%),
-    -10px -10px 24px $white,
-    0 4px 16px rgba(0, 0, 0, 0.1);
-  border: 1.5px solid rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
+  box-shadow: none;
+  border: 1px solid var(--border-color);
   overflow: hidden;
 }
 
@@ -274,7 +259,7 @@ $purple-light: #7c9df7;
     background: transparent;
   }
   &::-webkit-scrollbar-thumb {
-    background: rgba($neu-2, 0.6);
+    background: var(--text-tertiary);
     border-radius: 2px;
   }
 }
@@ -286,10 +271,10 @@ $purple-light: #7c9df7;
   gap: 10px;
   width: 100%;
   padding: 9px 13px;
-  border: none;
-  border-radius: 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
-  color: $black;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 500;
   font-family: 'Montserrat', sans-serif;
@@ -298,23 +283,23 @@ $purple-light: #7c9df7;
   transition: all 0.2s;
 
   &:hover {
-    background: $neu-1;
-    box-shadow: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
-    color: $purple;
+    background: var(--bg-hover);
+    border-color: #409EFF;
+    color: var(--color-primary);
   }
 
   &.active {
-    background: linear-gradient(135deg, rgba($purple, 0.08), rgba($purple-light, 0.06));
-    color: $purple;
+    background: rgba(64, 158, 255, 0.08);
+    color: var(--color-primary);
     font-weight: 600;
-    box-shadow: inset 2px 2px 5px rgba($neu-2, 0.5), inset -2px -2px 5px rgba($white, 0.8);
+    border-color: #409EFF;
   }
 }
 
 .option-check {
   display: flex;
   align-items: center;
-  color: $purple;
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 

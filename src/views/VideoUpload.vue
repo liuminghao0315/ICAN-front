@@ -397,19 +397,19 @@ const getUploadButtonText = () => {
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色变量
-$bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
+// 扁平化配色变量
+$bg: #F5F7FA;
+$neu-1: #F5F7FA;
+$neu-2: #DCDFE6;
+$white: #FFFFFF;
+$gray: #909399;
+$black: #303133;
+$purple: #409EFF;
 
 .video-upload-page {
   max-width: 800px;
   margin: 0 auto;
-  
+
   .upload-container {
     display: flex;
     flex-direction: column;
@@ -417,17 +417,18 @@ $purple: #4b70e2;
   }
 }
 
-// 新拟态卡片
+// 扁平化卡片
 .neu-card {
-  background: $neu-1;
-  border-radius: 20px;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  background: $white;
+  border: 1px solid #EBEEF5;
+  border-radius: 12px;
+  box-shadow: none;
   overflow: hidden;
-  
+
   .card-header {
     padding: 20px 24px;
-    border-bottom: 1px solid rgba($neu-2, 0.5);
-    
+    border-bottom: 1px solid #EBEEF5;
+
     .card-title {
       font-size: 16px;
       font-weight: 600;
@@ -436,7 +437,7 @@ $purple: #4b70e2;
       align-items: center;
       gap: 8px;
     }
-    
+
     .card-subtitle {
       display: block;
       font-size: 13px;
@@ -449,38 +450,38 @@ $purple: #4b70e2;
 // 上传区域
 .upload-area {
   padding: 24px;
-  
+
   .video-uploader {
     width: 100%;
-    
+
     :deep(.el-upload-dragger) {
       width: 100%;
       height: 260px;
-      border: none;
-      border-radius: 16px;
-      background: $neu-1;
-      box-shadow: inset 4px 4px 8px $neu-2, inset -4px -4px 8px $white;
+      border: 2px dashed #DCDFE6;
+      border-radius: 8px;
+      background: $white;
       transition: all 0.3s;
-      
+
       &:hover {
-        box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+        border-color: $purple;
+        background: rgba(64, 158, 255, 0.02);
       }
     }
   }
-  
+
   .upload-content {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100%;
-    
+
     .upload-icon {
       width: 80px;
       height: 80px;
       border-radius: 50%;
       background: $neu-1;
-      box-shadow: 6px 6px 12px $neu-2, -6px -6px 12px $white;
+      box-shadow: none;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -523,7 +524,7 @@ $purple: #4b70e2;
     padding: 18px 20px;
     background: $neu-1;
     border-radius: 16px;
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    box-shadow: none;
     margin-bottom: 20px;
     
     .file-icon {
@@ -534,7 +535,7 @@ $purple: #4b70e2;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
+      color: #fff !important;
       flex-shrink: 0;
     }
     
@@ -567,7 +568,7 @@ $purple: #4b70e2;
       height: 8px;
       background: $neu-1;
       border-radius: 4px;
-      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+      box-shadow: none;
       overflow: hidden;
       
       .progress-fill {
@@ -621,13 +622,13 @@ $purple: #4b70e2;
   background: $neu-1;
   border: none;
   border-radius: 12px;
-  box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+  box-shadow: none;
   outline: none;
   font-family: 'Montserrat', sans-serif;
   transition: all 0.25s;
   
   &:focus {
-    box-shadow: inset 3px 3px 6px $neu-2, inset -3px -3px 6px $white;
+    box-shadow: none;
   }
   
   &::placeholder {
@@ -667,19 +668,19 @@ $purple: #4b70e2;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+  box-shadow: none;
   color: $gray;
   font-family: 'Montserrat', sans-serif;
   padding: 14px 28px;
   font-size: 14px;
   
   &:hover {
-    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    box-shadow: none;
     color: $purple;
   }
   
   &:active {
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    box-shadow: none;
   }
   
   &:disabled {
@@ -703,14 +704,14 @@ $purple: #4b70e2;
   
   &.primary-btn {
     background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
+    color: #fff !important;
     display: flex;
     align-items: center;
     gap: 8px;
     
     &:hover {
-      box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-      color: #fff;
+      box-shadow: none;
+      color: #fff !important;
     }
   }
 }
@@ -728,9 +729,9 @@ $purple: #4b70e2;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: #fff !important;
     margin: 0 auto 20px;
-    box-shadow: 6px 6px 12px $neu-2, -6px -6px 12px $white;
+    box-shadow: none;
   }
   
   h3 {

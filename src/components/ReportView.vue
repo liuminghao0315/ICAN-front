@@ -407,7 +407,7 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
 @page { size: A4 portrait; margin: 20mm; }
 
 .report-view {
-  background: #f5f5f5;
+  background: var(--bg-page);
   min-height: 100vh;
   padding: 24px;
   position: relative;
@@ -426,19 +426,19 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 16px; background: #4461f2; border: none; border-radius: 6px;
   font-size: 13px; font-weight: 500; color: #fff; cursor: pointer;
-  box-shadow: 0 2px 10px rgba(68, 97, 242, 0.35);
+  box-shadow: none;
   transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
   letter-spacing: 0.5px;
   .el-icon { font-size: 14px; color: #fff; }
-  &:hover { background: #3451d1; box-shadow: 0 4px 16px rgba(68, 97, 242, 0.45); transform: scale(1.02); }
-  &:active { transform: scale(0.98); box-shadow: 0 1px 6px rgba(68, 97, 242, 0.25); }
+  &:hover { background: #3451d1; box-shadow: none; transform: scale(1.02); }
+  &:active { transform: scale(0.98); box-shadow: none; }
 }
 
 .report-paper {
   position: relative; max-width: 794px; min-height: 297mm;
   margin: 0 auto; transform: translateY(-50px);
-  background: #ffffff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  padding: 20mm; color: #333333;
+  background: var(--bg-card); box-shadow: var(--shadow-md);
+  padding: 20mm; color: var(--text-primary);
   font-size: 14px; line-height: 1.8;
   font-family: "SimSun", "Songti SC", "Microsoft YaHei", "PingFang SC", serif;
 }
@@ -448,32 +448,32 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
   text-align: center; padding-top: 60px; margin-bottom: 0;
   page-break-after: always; break-after: page;
 }
-.cover-rule-thick { height: 3px; background: #333; }
-.cover-rule-thin { height: 1px; background: #333; margin-top: 2px; margin-bottom: 2px; }
-.cover-confidential { margin-top: 40px; font-size: 13.3px; color: #888; letter-spacing: 6px; }
+.cover-rule-thick { height: 3px; background: var(--text-primary); }
+.cover-rule-thin { height: 1px; background: var(--text-primary); margin-top: 2px; margin-bottom: 2px; }
+.cover-confidential { margin-top: 40px; font-size: 13.3px; color: var(--text-tertiary); letter-spacing: 6px; }
 .cover-title {
   font-size: 29.3px; font-weight: 800; letter-spacing: 8px;
-  margin: 36px 0 8px; color: #000;
+  margin: 36px 0 8px; color: var(--text-primary);
   font-family: "SimHei", "Microsoft YaHei", sans-serif;
 }
-.cover-subtitle { font-size: 13.3px; color: #999; letter-spacing: 2px; margin-bottom: 52px; }
+.cover-subtitle { font-size: 13.3px; color: var(--text-tertiary); letter-spacing: 2px; margin-bottom: 52px; }
 .cover-info { display: flex; justify-content: center; margin-bottom: 52px; }
 .cover-table {
   border-collapse: collapse; font-size: 14px; text-align: left;
-  td { padding: 10px 8px; color: #333; }
-  .ct-key { font-weight: 600; color: #1a1a1a; white-space: nowrap; text-align: right; padding-right: 0; letter-spacing: 1px; }
-  .ct-sep { padding: 10px 10px 10px 4px; color: #999; width: 20px; }
+  td { padding: 10px 8px; color: var(--text-secondary); }
+  .ct-key { font-weight: 600; color: var(--text-primary); white-space: nowrap; text-align: right; padding-right: 0; letter-spacing: 1px; }
+  .ct-sep { padding: 10px 10px 10px 4px; color: var(--text-tertiary); width: 20px; }
 }
-.cover-org { font-size: 14.7px; font-weight: 600; color: #333; letter-spacing: 2px; margin-bottom: 6px; }
-.cover-version { font-size: 13.3px; color: #999; margin-bottom: 40px; }
+.cover-org { font-size: 14.7px; font-weight: 600; color: var(--text-secondary); letter-spacing: 2px; margin-bottom: 6px; }
+.cover-version { font-size: 13.3px; color: var(--text-tertiary); margin-bottom: 40px; }
 .text-link { color: #1565c0; text-decoration: none; word-break: break-all; &:hover { text-decoration: underline; } }
 
 // ===== 通用区块 =====
 .section { margin-bottom: 20px; page-break-inside: avoid; break-inside: avoid; }
 .page-break { page-break-before: always; break-before: page; }
 .section-heading {
-  font-size: 17.3px; font-weight: 700; color: #000;
-  border-bottom: 2px solid #333; padding-bottom: 6px;
+  font-size: 17.3px; font-weight: 700; color: var(--text-primary);
+  border-bottom: 2px solid var(--text-primary); padding-bottom: 6px;
   margin: 24px 0 12px; letter-spacing: 1px;
   font-family: "SimHei", "Microsoft YaHei", sans-serif;
   &:first-child, &.first { margin-top: 8px; }
@@ -481,20 +481,20 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
 }
 .sub-block { margin-bottom: 12px; }
 .sub-heading {
-  font-size: 14.7px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; margin-top: 10px;
+  font-size: 14.7px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; margin-top: 10px;
   &.center { text-align: center; }
 }
-.body-text { font-size: 14px; color: #333; line-height: 1.8; margin: 0 0 6px; }
+.body-text { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin: 0 0 6px; }
 .indent-text { text-indent: 2em; }
 
 // ===== 三线表 =====
 .info-table {
   width: 100%; border-collapse: collapse; font-size: 14px;
   line-height: 1.8; margin-bottom: 10px;
-  border-top: 2px solid #333; border-bottom: 2px solid #333;
+  border-top: 2px solid var(--border-color); border-bottom: 2px solid var(--border-color);
   th, td { border: none; padding: 10px 10px; text-align: left; vertical-align: top; }
-  th { border-bottom: 1px solid #333; background: none; font-weight: 600; color: #000; padding: 8px 10px; }
-  .it-key { background: none; font-weight: 600; color: #1a1a1a; white-space: nowrap; width: 100px; }
+  th { border-bottom: 1px solid var(--border-color); background: none; font-weight: 600; color: var(--text-primary); padding: 8px 10px; }
+  .it-key { background: none; font-weight: 600; color: var(--text-primary); white-space: nowrap; width: 100px; }
 }
 
 // ===== 风险标签 =====
@@ -509,10 +509,10 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
 // ===== 关键词 =====
 .kw-list { display: flex; flex-wrap: wrap; gap: 3px 4px; width: 100%; align-items: center; }
 .kw-item {
-  padding: 1px 6px; font-size: 12px; border: 1px solid #d0d0d0;
-  color: #333; flex-shrink: 0; white-space: nowrap;
+  padding: 1px 6px; font-size: 12px; border: 1px solid var(--border-color);
+  color: var(--text-secondary); flex-shrink: 0; white-space: nowrap;
 }
-.kw-highlight { border-color: #333; font-weight: 700; color: #000; }
+.kw-highlight { border-color: var(--text-primary); font-weight: 700; color: var(--text-primary); }
 
 // ===== 两栏布局 =====
 .two-col {
@@ -530,17 +530,17 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
 // ===== 雷达数据表 =====
 .radar-table {
   width: 100%; border-collapse: collapse; font-size: 13.3px;
-  border-top: 1.5pt solid #333; border-bottom: 1.5pt solid #333; margin-top: 8px;
+  border-top: 1.5pt solid var(--border-color); border-bottom: 1.5pt solid var(--border-color); margin-top: 8px;
   th {
-    padding: 6px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
-    border-bottom: 1pt solid #333; border-top: none;
+    padding: 6px 8px; text-align: left; font-weight: 700; color: var(--text-primary);
+    border-bottom: 1pt solid var(--border-color); border-top: none;
   }
   td { padding: 5px 8px; border: none; }
   .bar-cell { width: 45%; }
   .score-cell { text-align: center; font-weight: 600; }
 }
-.radar-bar-bg { background: #eee; height: 8px; width: 100%; }
-.radar-bar-fill { height: 8px; background: #555; }
+.radar-bar-bg { background: var(--bg-hover); height: 8px; width: 100%; }
+.radar-bar-fill { height: 8px; background: var(--text-secondary); }
 
 // ===== 贡献度 =====
 .contrib-list {
@@ -552,33 +552,33 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
   display: grid; grid-template-columns: 60px 1fr 50px;
   align-items: center; gap: 6px; padding: 8px 6px;
 }
-.contrib-label { font-size: 13.3px; font-weight: 600; color: #1a1a1a; white-space: nowrap; }
-.contrib-bar { height: 8px; background: #eee; min-width: 0; }
+.contrib-label { font-size: 13.3px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.contrib-bar { height: 8px; background: var(--bg-hover); min-width: 0; }
 .contrib-fill { height: 100%; }
 .fill-video { background: #444; }
 .fill-audio { background: #777; }
 .fill-text  { background: #aaa; }
-.contrib-num { font-size: 12px; color: #555; text-align: right; }
+.contrib-num { font-size: 12px; color: var(--text-secondary); text-align: right; }
 
 // ===== 风险走势表 =====
 .trend-table {
   width: 100%; border-collapse: collapse; font-size: 13.3px; line-height: 1.8;
-  border-top: 1.5pt solid #333; border-bottom: 1.5pt solid #333;
+  border-top: 1.5pt solid var(--border-color); border-bottom: 1.5pt solid var(--border-color);
   thead {
-    background: #f9f9f9;
+    background: var(--bg-hover);
     th {
-      padding: 6px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
-      background: #f9f9f9; border: none;
-      border-bottom: 1pt solid #333;
+      padding: 6px 8px; text-align: left; font-weight: 700; color: var(--text-primary);
+      background: var(--bg-hover); border: none;
+      border-bottom: 1pt solid var(--border-color);
     }
   }
   tbody {
     tr { page-break-inside: avoid; break-inside: avoid; }
-    td { padding: 4px 8px; border: none; color: #333; vertical-align: middle; }
+    td { padding: 4px 8px; border: none; color: var(--text-secondary); vertical-align: middle; }
   }
   .bar-cell { width: 40%; }
 }
-.trend-bar-bg { background: #eee; height: 6px; width: 100%; }
+.trend-bar-bg { background: var(--bg-hover); height: 6px; width: 100%; }
 .trend-bar-fill { height: 6px; }
 .trend-fill-low  { background: #2e7d32; }
 .trend-fill-mid  { background: #e8a000; }
@@ -587,8 +587,8 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
 // ===== 提示框 =====
 .note-box {
   margin-top: 12px; padding: 10px 14px;
-  border-left: 3px solid #C00000; background: none;
-  font-size: 14px; color: #333; line-height: 1.8;
+   background: none;
+  font-size: 14px; color: var(--text-secondary); line-height: 1.8;
   page-break-inside: avoid; break-inside: avoid;
   strong { color: #C00000; }
 }
@@ -596,71 +596,71 @@ const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'a
 // ===== 六大维度卡片 =====
 .dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 16px; }
 .dim-card {
-  border-top: 1px solid #e0e0e0; padding-top: 6px;
+  border-top: 1px solid var(--border-color); padding-top: 6px;
   page-break-inside: avoid; break-inside: avoid;
 }
 .dim-header {
   margin-bottom: 4px;
 }
-.dim-title { font-size: 14px; font-weight: 700; color: #000; }
+.dim-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .dim-score { font-size: 12px; font-weight: 600; padding: 1px 6px; margin-left: 8px; }
 .sc-high { background: #f5e0e0; color: #C00000; }
 .sc-mid  { background: #fdf0d5; color: #9a5f00; }
 .sc-low  { background: #e0f0e0; color: #1b5e20; }
 .dim-body { padding: 4px 0 0; font-size: 13.3px; line-height: 1.8; }
 .dim-row { margin-bottom: 3px; }
-.dim-row-key { font-weight: 600; color: #333; margin-right: 4px; }
+.dim-row-key { font-weight: 600; color: var(--text-secondary); margin-right: 4px; }
 .dim-modality {
   display: flex; gap: 14px; margin-top: 6px;
-  font-size: 12px; color: #555;
+  font-size: 12px; color: var(--text-secondary);
 }
-.dim-evidence { text-align: right; font-size: 12px; color: #999; margin-top: 3px; }
+.dim-evidence { text-align: right; font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
 
 // ===== 证据表格 =====
 .ev-table {
   width: 100%; border-collapse: collapse; font-size: 13.3px; line-height: 1.8;
-  border-top: 1.5pt solid #333; border-bottom: 1.5pt solid #333;
+  border-top: 1.5pt solid var(--border-color); border-bottom: 1.5pt solid var(--border-color);
   thead {
-    background: #f9f9f9;
+    background: var(--bg-hover);
     th {
-      padding: 8px 8px; text-align: left; font-weight: 700; color: #1a1a1a;
-      background: #f9f9f9; border: none;
-      border-bottom: 1.5pt solid #333;
+      padding: 8px 8px; text-align: left; font-weight: 700; color: var(--text-primary);
+      background: var(--bg-hover); border: none;
+      border-bottom: 1.5pt solid var(--border-color);
     }
   }
   tbody {
     tr { page-break-inside: avoid; break-inside: avoid; }
-    td { padding: 8px 8px; border: none; color: #333; vertical-align: top; }
+    td { padding: 8px 8px; border: none; color: var(--text-secondary); vertical-align: top; }
   }
   .center { text-align: center; vertical-align: middle; }
 }
 .center { text-align: center; }
 .tag-danger {
-  display: inline; padding: 1px 4px; background: #C00000; color: #fff;
+  display: inline; padding: 1px 4px; background: #C00000; color: #fff !important;
   font-size: 10.7px; font-weight: 700; margin-right: 4px;
 }
-.ev-kw { color: #777; font-size: 12px; }
+.ev-kw { color: var(--text-tertiary); font-size: 12px; }
 .score-critical { font-weight: 700; color: #C00000; }
 
 // ===== 人物特征 =====
-.char-item { font-size: 14px; color: #333; line-height: 1.8; margin: 0 0 2px; }
-.char-key { font-weight: 700; color: #1a1a1a; }
+.char-item { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin: 0 0 2px; }
+.char-key { font-weight: 700; color: var(--text-primary); }
 
 // ===== 签章区 =====
 .sign-area {
-  margin-top: 40px; padding-top: 20px; border-top: 1px solid #999;
+  margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color);
   page-break-inside: avoid; break-inside: avoid;
 }
 .sign-table {
   width: 100%; border-collapse: collapse;
   td { padding: 10px 0; width: 50%; }
 }
-.sign-label { font-size: 14px; font-weight: 600; color: #1a1a1a; white-space: nowrap; }
+.sign-label { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
 
 // ===== 页脚 =====
 .report-foot { margin-top: 30px; page-break-inside: avoid; break-inside: avoid; }
-.foot-rule { height: 1px; background: #999; margin-bottom: 6px; }
-.foot-row { font-size: 10.7px; color: #999; margin-bottom: 2px; }
+.foot-rule { height: 1px; background: var(--border-color); margin-bottom: 6px; }
+.foot-row { font-size: 10.7px; color: var(--text-tertiary); margin-bottom: 2px; }
 
 // ===== 打印 =====
 @media print {

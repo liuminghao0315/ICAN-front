@@ -38,10 +38,10 @@ const handleClose = () => {
 </script>
 
 <style scoped lang="scss">
-$white: #f9f9f9;
+$white: #FFFFFF;
 $gray: #a0a5a8;
 $black: #181818;
-$purple: #4b70e2;
+$purple: #409EFF;
 
 .toast-container {
   position: fixed;
@@ -60,12 +60,13 @@ $purple: #4b70e2;
   padding: 16px 20px;
   background-color: $white;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #EBEEF5;
+  box-shadow: none;
   pointer-events: auto;
   animation: slideInRight 0.3s ease-out;
 
   &.success {
-    border-left: 4px solid #27ae60;
+    
     
     .toast-icon {
       background-color: rgba(39, 174, 96, 0.1);
@@ -74,7 +75,7 @@ $purple: #4b70e2;
   }
 
   &.error {
-    border-left: 4px solid #e74c3c;
+    
     
     .toast-icon {
       background-color: rgba(231, 76, 60, 0.1);
@@ -84,9 +85,9 @@ $purple: #4b70e2;
 
   &.info {
     border-left: 4px solid $purple;
-    
+
     .toast-icon {
-      background-color: rgba(75, 112, 226, 0.1);
+      background-color: rgba(64, 158, 255, 0.1);
       color: $purple;
     }
   }

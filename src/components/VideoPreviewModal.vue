@@ -434,8 +434,8 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 // ── 设计令牌（与系统保持一致） ──────────────────────
-$purple: #4b70e2;
-$purple-light: #7c9df7;
+$purple: #409EFF;
+$purple-light: #66b1ff;
 
 // ── 遮罩层：玻璃拟态 ────────────────────────────────
 .preview-overlay {
@@ -673,7 +673,7 @@ $purple-light: #7c9df7;
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, $purple, $purple-light);
+  background: $purple;
   border-radius: 2px;
   pointer-events: none;
   position: relative;
@@ -688,7 +688,7 @@ $purple-light: #7c9df7;
   height: 14px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: none;
   opacity: 0;
   transition: opacity 0.15s, transform 0.15s;
   pointer-events: none;
@@ -774,7 +774,7 @@ $purple-light: #7c9df7;
   svg { width: 18px; height: 18px; }
 
   &:hover {
-    color: #fff;
+    color: #fff !important;
     background: rgba(255, 255, 255, 0.1);
   }
 }
@@ -812,7 +812,7 @@ $purple-light: #7c9df7;
     height: 12px;
     border-radius: 50%;
     background: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: none;
     cursor: pointer;
   }
 

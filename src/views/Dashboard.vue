@@ -86,13 +86,17 @@
             <span class="card-title">快捷操作</span>
           </div>
           <div class="action-buttons">
-            <button class="action-btn primary" @click="router.push('/records')">
+            <button class="action-btn" @click="goCreateTask">
               <el-icon><Plus /></el-icon>
               <span>新建任务</span>
             </button>
-            <button class="action-btn" @click="router.push('/records')">
-              <el-icon><List /></el-icon>
-              <span>记录中心</span>
+            <button class="action-btn" @click="goFailedRecords">
+              <el-icon><CircleCloseFilled /></el-icon>
+              <span>失败记录</span>
+            </button>
+            <button class="action-btn" @click="goHighRiskRecords">
+              <el-icon><WarningFilled /></el-icon>
+              <span>高风险记录</span>
             </button>
           </div>
         </div>
@@ -131,7 +135,11 @@
             <button class="neu-btn text-btn" @click="router.push('/records')">查看全部</button>
           </div>
           
-          <div class="video-list" v-loading="loading">
+          <div
+            class="video-list"
+            v-loading="loading"
+            :element-loading-background="dashboardLoadingMaskBg"
+          >
             <div 
               class="video-item" 
               v-for="video in recentVideos" 
@@ -169,7 +177,11 @@
             <button class="neu-btn text-btn" @click="router.push('/records')">查看全部</button>
           </div>
           
-          <div class="task-list" v-loading="tasksLoading">
+          <div
+            class="task-list"
+            v-loading="tasksLoading"
+            :element-loading-background="dashboardLoadingMaskBg"
+          >
             <div 
               class="task-item" 
               v-for="task in recentTasks" 
@@ -229,7 +241,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -245,18 +257,20 @@ import {
   VideoPlay,
   TrendCharts,
   Warning,
-  Upload,
   DataAnalysis,
-  Refresh
+  Refresh,
+  Plus,
+  CircleCloseFilled,
+  WarningFilled
 } from '@element-plus/icons-vue'
-import { 
-  getVideoList, 
-  getUploadTrend, 
+import {
+  getVideoList,
+  getUploadTrend,
   getAnalysisTaskList,
   getAnalysisStats,
   getRiskDistribution,
-  type VideoInfo, 
-  type UploadTrendItem 
+  type VideoInfo,
+  type UploadTrendItem
 } from '@/api'
 import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskType, TaskStatus } from '@/types'
 import { useUserStore } from '@/stores/user'
@@ -279,6 +293,9 @@ const userStore = useUserStore()
 
 // WebSocket - 使用 composable，自动处理订阅和取消订阅
 const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
+
+// 主题变化触发器
+const themeVersion = ref(0)
 
 const loading = ref(false)
 const tasksLoading = ref(false)
@@ -421,6 +438,27 @@ const fetchData = async () => {
   }
 }
 
+const goCreateTask = () => {
+  router.push({
+    path: '/records',
+    query: { action: 'newTask' }
+  })
+}
+
+const goFailedRecords = () => {
+  router.push({
+    path: '/records',
+    query: { status: 'FAILED' }
+  })
+}
+
+const goHighRiskRecords = () => {
+  router.push({
+    path: '/records',
+    query: { risk: 'HIGH' }
+  })
+}
+
 const handleVideoClick = (video: VideoInfo) => {
   if (video.status === 'COMPLETED') {
     router.push(`/analysis?videoId=${video.id}`)
@@ -444,7 +482,10 @@ const formatDate = (dateStr: string): string => {
 
 const formatPercent = (value: number | undefined | null): string => {
   if (value === undefined || value === null || isNaN(value)) return '0%'
-  return (value * 100).toFixed(1) + '%'
+
+  // 后端可能返回 0~1（比例）或 0~100（百分值），这里做兼容
+  const normalizedPercent = value <= 1 ? value * 100 : value
+  return `${normalizedPercent.toFixed(1)}%`
 }
 
 const getStatusText = (status: string) => {
@@ -479,6 +520,7 @@ const getTaskTypeText = (type: TaskType) => {
 
 const getTaskStatusText = (status: TaskStatus) => {
   const texts: Record<TaskStatus, string> = {
+    'DOWNLOADING': '下载中',
     'PENDING': '等待中',
     'PROCESSING': '处理中',
     'COMPLETED': '已完成',
@@ -490,6 +532,7 @@ const getTaskStatusText = (status: TaskStatus) => {
 
 const getTaskStatusClass = (status: TaskStatus) => {
   const classes: Record<TaskStatus, string> = {
+    'DOWNLOADING': 'pending',
     'PENDING': 'pending',
     'PROCESSING': 'processing',
     'COMPLETED': 'completed',
@@ -499,8 +542,27 @@ const getTaskStatusClass = (status: TaskStatus) => {
   return classes[status] || 'pending'
 }
 
+// 获取主题相关的颜色
+const getThemeColors = () => {
+  // 触发响应式依赖
+  themeVersion.value
+  const root = document.documentElement
+  const style = getComputedStyle(root)
+  return {
+    textPrimary: style.getPropertyValue('--text-primary').trim() || '#303133',
+    textSecondary: style.getPropertyValue('--text-secondary').trim() || '#909399',
+    borderColor: style.getPropertyValue('--border-color').trim() || '#EBEEF5',
+    bgCard: style.getPropertyValue('--bg-card').trim() || '#FFFFFF'
+  }
+}
+
+// Loading 遮罩背景：直接绑定到 v-loading，避免样式选择器覆盖不稳定导致闪黑/闪白
+const dashboardLoadingMaskBg = 'var(--dashboard-loading-mask-bg)'
+
 // 风险分布饼图
 const riskChartOption = computed(() => {
+  const colors = getThemeColors()
+
   // 优先使用风险分布API数据
   let data = []
   if (riskDistribution.value) {
@@ -525,16 +587,20 @@ const riskChartOption = computed(() => {
       { value: 1, name: '暂无数据', itemStyle: { color: '#d1d9e6' } }
     ]
   }
-  
+
   return {
     tooltip: {
       trigger: 'item',
-      formatter: '{b}: {c} ({d}%)'
+      formatter: '{b}: {c} ({d}%)',
+      backgroundColor: colors.bgCard,
+      borderColor: colors.borderColor,
+      borderWidth: 1,
+      textStyle: { color: colors.textPrimary }
     },
     legend: {
       bottom: 0,
       left: 'center',
-      textStyle: { color: '#a0a5a8' },
+      textStyle: { color: colors.textSecondary },
       itemGap: 16
     },
     series: [
@@ -545,13 +611,13 @@ const riskChartOption = computed(() => {
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 8,
-          borderColor: '#ecf0f3',
+          borderColor: colors.borderColor,
           borderWidth: 3
         },
         label: {
           show: true,
           formatter: '{b}\n{d}%',
-          color: '#181818'
+          color: colors.textPrimary
         },
         emphasis: {
           label: {
@@ -568,21 +634,27 @@ const riskChartOption = computed(() => {
 
 // 视频状态分布
 const statusChartOption = computed(() => {
+  const colors = getThemeColors()
+
   const data = [
     { value: stats.value.analyzedCount, name: '已完成', itemStyle: { color: '#4b70e2' } },
     { value: stats.value.analyzingCount, name: '分析中', itemStyle: { color: '#e6a23c' } },
     { value: stats.value.pendingCount, name: '待处理', itemStyle: { color: '#909399' } }
   ]
-  
+
   return {
     tooltip: {
       trigger: 'item',
-      formatter: '{b}: {c} ({d}%)'
+      formatter: '{b}: {c} ({d}%)',
+      backgroundColor: colors.bgCard,
+      borderColor: colors.borderColor,
+      borderWidth: 1,
+      textStyle: { color: colors.textPrimary }
     },
     legend: {
       bottom: 0,
       left: 'center',
-      textStyle: { color: '#a0a5a8' },
+      textStyle: { color: colors.textSecondary },
       itemGap: 16
     },
     series: [
@@ -593,13 +665,13 @@ const statusChartOption = computed(() => {
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 8,
-          borderColor: '#ecf0f3',
+          borderColor: colors.borderColor,
           borderWidth: 3
         },
         label: {
           show: true,
           formatter: '{b}\n{d}%',
-          color: '#181818',
+          color: colors.textPrimary,
           fontSize: 12,
           lineHeight: 16,
           position: 'outside'
@@ -625,9 +697,11 @@ const statusChartOption = computed(() => {
 
 // 上传趋势折线图
 const trendChartOption = computed(() => {
+  const colors = getThemeColors()
+
   const dates = uploadTrendData.value.map(item => item.displayDate)
   const values = uploadTrendData.value.map(item => item.count)
-  
+
   if (dates.length === 0) {
     const today = new Date()
     for (let i = 6; i >= 0; i--) {
@@ -637,10 +711,18 @@ const trendChartOption = computed(() => {
       values.push(0)
     }
   }
-  
+
   return {
     tooltip: {
-      trigger: 'axis'
+      trigger: 'axis',
+      backgroundColor: colors.bgCard,
+      borderColor: colors.borderColor,
+      borderWidth: 1,
+      textStyle: { color: colors.textPrimary },
+      axisPointer: {
+        type: 'line',
+        lineStyle: { color: colors.borderColor }
+      }
     },
     grid: {
       left: '3%',
@@ -653,14 +735,14 @@ const trendChartOption = computed(() => {
       type: 'category',
       boundaryGap: false,
       data: dates,
-      axisLine: { lineStyle: { color: '#d1d9e6' } },
-      axisLabel: { color: '#a0a5a8', fontSize: 11 }
+      axisLine: { lineStyle: { color: colors.borderColor } },
+      axisLabel: { color: colors.textSecondary, fontSize: 11 }
     },
     yAxis: {
       type: 'value',
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#e8edf3' } },
-      axisLabel: { color: '#a0a5a8', fontSize: 11 }
+      splitLine: { lineStyle: { color: colors.borderColor } },
+      axisLabel: { color: colors.textSecondary, fontSize: 11 }
     },
     series: [
       {
@@ -685,7 +767,7 @@ const trendChartOption = computed(() => {
         },
         itemStyle: {
           color: '#4b70e2',
-          borderColor: '#ecf0f3',
+          borderColor: colors.bgCard,
           borderWidth: 3
         },
         data: values
@@ -713,97 +795,122 @@ subscribeFailed(() => {
   fetchData()
 })
 
+// 监听主题变化
 onMounted(() => {
   fetchData()
+
+  // 监听 data-theme 属性变化
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+        themeVersion.value++
+      }
+    })
+  })
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  })
 })
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色变量
-$bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
-
 .dashboard {
   min-height: 100%;
+
+  // 修复最近上传/最近任务加载时的遮罩闪烁与边框
+  :deep(.video-list .el-loading-mask),
+  :deep(.task-list .el-loading-mask) {
+    background-color: var(--dashboard-loading-mask-bg, rgba(255, 255, 255, 0.78)) !important;
+    border: none !important;
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
+  }
 }
 
 // 欢迎横幅
 .welcome-banner {
-  background: linear-gradient(135deg, #e8f4fd 0%, $neu-1 100%);
-  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
   padding: 28px 36px;
   margin-bottom: 24px;
   display: flex;
   align-items: center;
   gap: 40px;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  box-shadow: none;
   overflow: visible;
-  
+
   .banner-left {
     display: flex;
     align-items: center;
     gap: 16px;
     flex-shrink: 0;
-    
+
     .user-avatar {
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-      color: #fff;
+      background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+      color: #fff !important;
       font-size: 26px;
       font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 4px 4px 10px $neu-2, -4px -4px 10px $white;
+      box-shadow: none;
       cursor: default;
       user-select: none;
     }
-    
+
     .welcome-text {
       h2 {
         font-size: 22px;
         font-weight: 700;
-        color: $black;
+        color: var(--text-primary);
         margin: 0 0 6px 0;
       }
-      
+
       p {
         font-size: 13px;
-        color: $gray;
+        color: var(--text-secondary);
         margin: 0;
-        
+
         strong {
-          color: $purple;
+          color: var(--color-primary);
           font-weight: 600;
         }
       }
     }
   }
-  
+
   .banner-stats {
     display: flex;
     gap: 36px;
     flex: 1;
     justify-content: center;
-    
+
     .stat-item {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 0 24px;
-      border-right: 1px solid rgba($neu-2, 0.6);
-      
+      padding: 16px 24px;
+      border-right: 1px solid var(--border-color);
+      background: transparent;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+      }
+
       &:last-child {
         border-right: none;
       }
-      
+
       .stat-icon {
         width: 44px;
         height: 44px;
@@ -812,37 +919,36 @@ $purple: #4b70e2;
         align-items: center;
         justify-content: center;
         font-size: 20px;
-        box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
-        
+
         &.danger {
           background: rgba(245, 108, 108, 0.12);
           color: #f56c6c;
         }
-        
+
         &.success {
           background: rgba(82, 196, 26, 0.12);
           color: #52c41a;
         }
-        
+
         &.primary {
-          background: rgba(75, 112, 226, 0.12);
-          color: $purple;
+          background: rgba(64, 158, 255, 0.12);
+          color: var(--color-primary);
         }
       }
-      
+
       .stat-content {
         .stat-label {
           font-size: 12px;
-          color: $gray;
+          color: var(--text-secondary);
           margin-bottom: 4px;
         }
-        
+
         .stat-value {
           font-size: 28px;
           font-weight: 700;
-          color: $black;
+          color: var(--text-primary);
           line-height: 1;
-          
+
           &.danger { color: #f56c6c; }
           &.success { color: #52c41a; }
         }
@@ -855,7 +961,7 @@ $purple: #4b70e2;
     gap: 24px;
     flex-shrink: 0;
     overflow: visible;
-    
+
     .mini-chart-item {
       display: flex;
       flex-direction: column;
@@ -863,7 +969,7 @@ $purple: #4b70e2;
       gap: 8px;
       padding: 4px 6px;
       overflow: visible;
-      
+
         .chart-ring {
           width: 64px;
           height: 64px;
@@ -871,65 +977,64 @@ $purple: #4b70e2;
           background: conic-gradient(
             #f56c6c 0deg,
             #f56c6c calc(var(--progress) * 3.6deg),
-            $neu-1 calc(var(--progress) * 3.6deg),
-            $neu-1 360deg
+            var(--bg-hover) calc(var(--progress) * 3.6deg),
+            var(--bg-hover) 360deg
           );
           display: flex;
           align-items: center;
           justify-content: center;
           position: relative;
-          box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+          box-shadow: none;
           overflow: visible;
-          
+
           &.risk-high {
             background: conic-gradient(
               #f56c6c 0deg,
               #f56c6c calc(var(--progress) * 3.6deg),
-              $neu-1 calc(var(--progress) * 3.6deg),
-              $neu-1 360deg
+              var(--bg-hover) calc(var(--progress) * 3.6deg),
+              var(--bg-hover) 360deg
             );
           }
-          
+
           &.risk-medium {
             background: conic-gradient(
               #e6a23c 0deg,
               #e6a23c calc(var(--progress) * 3.6deg),
-              $neu-1 calc(var(--progress) * 3.6deg),
-              $neu-1 360deg
+              var(--bg-hover) calc(var(--progress) * 3.6deg),
+              var(--bg-hover) 360deg
             );
           }
-          
+
           &.risk-low {
             background: conic-gradient(
               #52c41a 0deg,
               #52c41a calc(var(--progress) * 3.6deg),
-              $neu-1 calc(var(--progress) * 3.6deg),
-              $neu-1 360deg
+              var(--bg-hover) calc(var(--progress) * 3.6deg),
+              var(--bg-hover) 360deg
             );
           }
-        
+
         &::before {
           content: '';
           position: absolute;
           width: 48px;
           height: 48px;
-          background: $neu-1;
+          background: var(--bg-card);
           border-radius: 50%;
-          box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
         }
-        
+
         .chart-value {
           position: relative;
           z-index: 1;
           font-size: 11px;
           font-weight: 700;
-          color: $black;
+          color: var(--text-primary);
         }
       }
-      
+
       .chart-label {
         font-size: 11px;
-        color: $gray;
+        color: var(--text-secondary);
       }
     }
   }
@@ -952,33 +1057,39 @@ $purple: #4b70e2;
 
 // 新拟态卡片
 .neu-card {
-  background: $neu-1;
-  border-radius: 20px;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
   margin-bottom: 24px;
-  
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+  }
+
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 18px 24px;
-    border-bottom: 1px solid rgba($neu-2, 0.5);
-    
+    border-bottom: 1px solid var(--border-color);
+
     .card-title {
       font-size: 15px;
       font-weight: 600;
-      color: $black;
-      
+      color: var(--text-primary);
+
       .count {
         font-size: 12px;
-        color: $gray;
+        color: var(--text-secondary);
         font-weight: 400;
         margin-left: 8px;
       }
     }
   }
-  
+
   .chart {
     height: 270px;
     width: 100%;
@@ -989,24 +1100,25 @@ $purple: #4b70e2;
 
 // 新拟态按钮
 .neu-btn {
-  background: $neu-1;
-  border: none;
-  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-  color: $gray;
+  box-shadow: none;
+  color: var(--text-secondary);
   font-family: 'Montserrat', sans-serif;
-  
+
   &:hover {
-    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
-    color: $purple;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    box-shadow: none;
   }
-  
+
   &:active {
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    background: var(--bg-hover);
   }
-  
+
   &.icon-btn {
     width: 36px;
     height: 36px;
@@ -1015,21 +1127,30 @@ $purple: #4b70e2;
     justify-content: center;
     font-size: 16px;
   }
-  
+
   &.text-btn {
     padding: 8px 16px;
     font-size: 12px;
   }
-  
+
   &.primary-btn {
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
+    background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+    border: none;
+    color: #fff !important;
     padding: 10px 24px;
     font-size: 13px;
     font-weight: 500;
-    
+    box-shadow: none;
+
     &:hover {
-      box-shadow: 2px 2px 6px $neu-2, -2px -2px 6px $white;
+      background: linear-gradient(135deg, #66B1FF 0%, #4A8EFF 100%);
+      box-shadow: none;
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      background: linear-gradient(135deg, #3A8EE6 0%, #2862D6 100%);
+      transform: translateY(0);
     }
   }
 }
@@ -1038,28 +1159,28 @@ $purple: #4b70e2;
 .analysis-stats {
   .stats-content {
     padding: 20px 24px;
-    
+
     .stats-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 12px 0;
-      border-bottom: 1px solid rgba($neu-2, 0.5);
-      
+      border-bottom: 1px solid var(--border-color);
+
       &:last-child {
         border-bottom: none;
       }
-      
+
       .label {
         font-size: 13px;
-        color: $gray;
+        color: var(--text-secondary);
       }
-      
+
       .value {
         font-size: 14px;
         font-weight: 600;
-        color: $black;
-        
+        color: var(--text-primary);
+
         &.positive { color: #52c41a; }
         &.negative { color: #f56c6c; }
       }
@@ -1073,7 +1194,7 @@ $purple: #4b70e2;
     display: flex;
     gap: 16px;
     padding: 20px 24px;
-    
+
     .action-btn {
       flex: 1;
       display: flex;
@@ -1081,40 +1202,49 @@ $purple: #4b70e2;
       align-items: center;
       gap: 10px;
       padding: 20px 12px;
-      background: $neu-1;
-      border: none;
-      border-radius: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
       cursor: pointer;
-      box-shadow: 6px 6px 12px $neu-2, -6px -6px 12px $white;
+      box-shadow: none;
       transition: all 0.3s;
-      color: $gray;
+      color: var(--text-secondary);
       font-family: 'Montserrat', sans-serif;
-      
+
       .el-icon {
         font-size: 24px;
       }
-      
+
       span {
         font-size: 12px;
         font-weight: 500;
       }
-      
+
       &:hover {
-        box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-        color: $purple;
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        box-shadow: none;
+        transform: translateY(-2px);
       }
-      
+
       &:active {
-        box-shadow: inset 3px 3px 6px $neu-2, inset -3px -3px 6px $white;
+        background: var(--bg-hover);
+        transform: translateY(0);
       }
-      
+
       &.primary {
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-        color: #fff;
-        box-shadow: 6px 6px 12px $neu-2, -4px -4px 10px $white;
-        
+        background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+        border: none;
+        color: #fff !important;
+        box-shadow: none;
+
         &:hover {
-          box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+          background: linear-gradient(135deg, #66B1FF 0%, #4A8EFF 100%);
+          box-shadow: none;
+        }
+
+        &:active {
+          background: linear-gradient(135deg, #3A8EE6 0%, #2862D6 100%);
         }
       }
     }
@@ -1126,80 +1256,81 @@ $purple: #4b70e2;
   max-height: 300px;
   overflow-y: auto;
   padding: 16px;
-  
+
   // 美化滚动条
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 3px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
-    background: rgba($neu-2, 0.5);
+    background: var(--text-tertiary);
     border-radius: 3px;
     transition: background 0.2s;
-    
+
     &:hover {
-      background: rgba($neu-2, 0.7);
+      background: var(--text-secondary);
     }
   }
-  
+
   .video-item {
     display: flex;
     align-items: center;
     gap: 16px;
     padding: 16px;
-    border-radius: 16px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s;
     margin-bottom: 12px;
-    background: $neu-1;
-    box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-    
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+
     &:hover {
-      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+      border-color: var(--color-primary);
+      box-shadow: none;
     }
-    
+
     &:last-child {
       margin-bottom: 0;
     }
-    
+
     .video-icon {
       width: 48px;
       height: 48px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+      border-radius: 8px;
+      background: var(--color-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
+      color: #fff !important;
       font-size: 20px;
       flex-shrink: 0;
     }
-    
+
     .video-info {
       flex: 1;
       min-width: 0;
-      
+
       .video-title {
         font-size: 14px;
         font-weight: 600;
-        color: $black;
+        color: var(--text-primary);
         margin-bottom: 4px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      
+
       .video-meta {
         font-size: 12px;
-        color: $gray;
+        color: var(--text-secondary);
       }
     }
-    
+
     .video-status {
       flex-shrink: 0;
     }
@@ -1211,47 +1342,48 @@ $purple: #4b70e2;
   max-height: 260px;
   overflow-y: auto;
   padding: 16px;
-  
+
   // 美化滚动条
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
     border-radius: 3px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
-    background: rgba($neu-2, 0.5);
+    background: var(--text-tertiary);
     border-radius: 3px;
     transition: background 0.2s;
-    
+
     &:hover {
-      background: rgba($neu-2, 0.7);
+      background: var(--text-secondary);
     }
   }
-  
+
   .task-item {
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 14px;
-    border-radius: 14px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s;
     margin-bottom: 10px;
-    background: $neu-1;
-    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
-    
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+
     &:hover {
-      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+      border-color: var(--color-primary);
+      box-shadow: none;
     }
-    
+
     &:last-child {
       margin-bottom: 0;
     }
-    
+
     .task-icon {
       width: 40px;
       height: 40px;
@@ -1261,67 +1393,67 @@ $purple: #4b70e2;
       justify-content: center;
       font-size: 18px;
       flex-shrink: 0;
-      
+
       &.pending {
-        background: rgba($gray, 0.12);
-        color: $gray;
+        background: rgba(160, 165, 168, 0.12);
+        color: var(--text-secondary);
       }
-      
+
       &.processing {
         background: rgba(230, 162, 60, 0.12);
         color: #e6a23c;
       }
-      
+
       &.completed {
-        background: rgba($purple, 0.12);
-        color: $purple;
+        background: rgba(64, 158, 255, 0.12);
+        color: var(--color-primary);
       }
-      
+
       &.failed {
         background: rgba(245, 108, 108, 0.12);
         color: #f56c6c;
       }
-      
+
       &.cancelled {
-        background: rgba($gray, 0.12);
-        color: $gray;
+        background: rgba(160, 165, 168, 0.12);
+        color: var(--text-secondary);
       }
     }
-    
+
     .task-info {
       flex: 1;
       min-width: 0;
-      
+
       .task-title {
         font-size: 13px;
         font-weight: 600;
-        color: $black;
+        color: var(--text-primary);
         margin-bottom: 4px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      
+
       .task-meta {
         font-size: 11px;
-        color: $gray;
+        color: var(--text-secondary);
       }
     }
-    
+
     .task-status {
       flex-shrink: 0;
       text-align: right;
-      
+
       .task-progress {
         margin-top: 6px;
         width: 60px;
-        
+
         :deep(.el-progress__outer) {
-          background: $neu-2;
+          background: var(--border-color);
         }
-        
+
         :deep(.el-progress__inner) {
-          background: linear-gradient(90deg, $purple 0%, #7c9df7 100%);
+          background: var(--color-primary);
         }
       }
     }
@@ -1332,33 +1464,33 @@ $purple: #4b70e2;
 .status-tag {
   display: inline-block;
   padding: 5px 14px;
-  border-radius: 20px;
+  border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
-  
+
   &.pending {
-    background: rgba($gray, 0.12);
-    color: $gray;
+    background: rgba(160, 165, 168, 0.12);
+    color: var(--text-secondary);
   }
-  
+
   &.processing {
     background: rgba(230, 162, 60, 0.12);
     color: #e6a23c;
   }
-  
+
   &.completed {
-    background: rgba($purple, 0.12);
-    color: $purple;
+    background: rgba(64, 158, 255, 0.12);
+    color: var(--color-primary);
   }
-  
+
   &.failed {
     background: rgba(245, 108, 108, 0.12);
     color: #f56c6c;
   }
-  
+
   &.cancelled {
-    background: rgba($gray, 0.12);
-    color: $gray;
+    background: rgba(160, 165, 168, 0.12);
+    color: var(--text-secondary);
   }
 }
 
@@ -1369,7 +1501,7 @@ $purple: #4b70e2;
   align-items: center;
   justify-content: center;
   padding: 48px 20px;
-  color: $gray;
+  color: var(--text-secondary);
   
   &.small {
     padding: 32px 20px;

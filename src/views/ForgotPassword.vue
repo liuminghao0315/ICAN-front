@@ -175,13 +175,13 @@ const handleResetPassword = async () => {
 </script>
 
 <style scoped lang="scss">
-$bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
+$bg: #F5F7FA;
+$neu-1: #F5F7FA;
+$neu-2: #DCDFE6;
+$white: #FFFFFF;
+$gray: #909399;
+$black: #303133;
+$purple: #409EFF;
 $green: #27ae60;
 
 .forgot-password-container {
@@ -200,8 +200,9 @@ $green: #27ae60;
   width: 500px;
   min-height: 400px;
   padding: 50px;
-  background-color: $neu-1;
-  box-shadow: 10px 10px 10px $neu-2, -10px -10px 10px $white;
+  background-color: $white;
+  border: 1px solid #EBEEF5;
+  box-shadow: none;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -239,31 +240,30 @@ $green: #27ae60;
   padding-left: 25px;
   font-size: 13px;
   letter-spacing: 0.15px;
-  border: none;
+  border: 1px solid #DCDFE6;
   outline: none;
   font-family: 'Montserrat', sans-serif;
-  background-color: $neu-1;
+  background-color: $white;
   transition: 0.25s ease;
   border-radius: 8px;
-  box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
 
   &:focus {
-    box-shadow: inset 4px 4px 4px $neu-2, inset -4px -4px 4px $white;
+    border-color: $purple;
   }
 }
 
 .form__button {
   width: 180px;
   height: 50px;
-  border-radius: 25px;
+  border-radius: 8px;
   margin-top: 30px;
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 1.15px;
   background-color: $purple;
   color: $white;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
-  border: none;
+  box-shadow: none;
+  border: 1px solid $purple;
   outline: none;
   cursor: pointer;
   transition: 0.25s;
@@ -273,13 +273,14 @@ $green: #27ae60;
   justify-content: center;
 
   &:hover:not(:disabled) {
-    box-shadow: 6px 6px 10px $neu-2, -6px -6px 10px $white;
+    background-color: #66b1ff;
+    border-color: #66b1ff;
     transform: scale(0.985);
   }
 
   &:active:not(:disabled),
   &:focus:not(:disabled) {
-    box-shadow: 2px 2px 6px $neu-2, -2px -2px 6px $white;
+    box-shadow: none;
     transform: scale(0.97);
   }
 
@@ -329,13 +330,13 @@ $green: #27ae60;
   height: 80px;
   border-radius: 50%;
   background-color: $green;
-  color: white;
+  color: white !important;
   font-size: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 20px;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+  box-shadow: none;
 }
 
 .success-title {

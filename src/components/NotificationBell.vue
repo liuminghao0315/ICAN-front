@@ -265,12 +265,12 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 $bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
+$neu-1: #F5F7FA;
+$neu-2: #DCDFE6;
+$white: #FFFFFF;
 $gray: #a0a5a8;
 $black: #181818;
-$purple: #4b70e2;
+$purple: #409EFF;
 
 .notification-bell {
   position: relative;
@@ -314,7 +314,7 @@ $purple: #4b70e2;
     padding: 0 4px;
     border-radius: 8px;
     background: #f56c6c;
-    color: #fff;
+    color: #fff !important;
     font-size: 10px;
     font-weight: 600;
     line-height: 16px;
@@ -334,12 +334,10 @@ $purple: #4b70e2;
 .notification-panel {
   width: 360px;
   max-height: 480px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(31, 38, 135, 0.12);
+  background: var(--bg-card, #FFFFFF);
+  border: 1px solid var(--border-color, #EBEEF5);
+  border-radius: 12px;
+  box-shadow: none;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -349,18 +347,18 @@ $purple: #4b70e2;
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px 12px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.06));
 
     .panel-title {
       font-size: 16px;
       font-weight: 600;
-      color: #181818;
+      color: var(--text-primary, #181818);
     }
 
     .mark-all-btn {
       background: none;
       border: none;
-      color: #4b70e2;
+      color: var(--color-primary, #409EFF);
       font-size: 13px;
       cursor: pointer;
       padding: 4px 8px;
@@ -368,7 +366,7 @@ $purple: #4b70e2;
       transition: background 0.2s;
 
       &:hover {
-        background: rgba(75, 112, 226, 0.08);
+        background: color-mix(in srgb, var(--color-primary, #409EFF) 12%, transparent);
       }
     }
   }
@@ -382,7 +380,7 @@ $purple: #4b70e2;
       width: 4px;
     }
     &::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.1);
+      background: var(--text-tertiary, rgba(0, 0, 0, 0.2));
       border-radius: 2px;
     }
   }
@@ -391,7 +389,7 @@ $purple: #4b70e2;
   .panel-empty {
     padding: 40px 20px;
     text-align: center;
-    color: #a0a5a8;
+    color: var(--text-secondary, #a0a5a8);
     font-size: 14px;
   }
 
@@ -404,11 +402,11 @@ $purple: #4b70e2;
     transition: background 0.2s;
 
     &:hover {
-      background: rgba(75, 112, 226, 0.04);
+      background: color-mix(in srgb, var(--color-primary, #409EFF) 8%, transparent);
     }
 
     &.unread {
-      background: rgba(75, 112, 226, 0.03);
+      background: color-mix(in srgb, var(--color-primary, #409EFF) 6%, transparent);
     }
 
     .item-dot {
@@ -416,7 +414,7 @@ $purple: #4b70e2;
       height: 8px;
       min-width: 8px;
       border-radius: 50%;
-      background: #4b70e2;
+      background: var(--color-primary, #409EFF);
       margin-top: 6px;
     }
 
@@ -427,14 +425,14 @@ $purple: #4b70e2;
       .item-title {
         font-size: 14px;
         font-weight: 500;
-        color: #181818;
+        color: var(--text-primary, #181818);
         margin-bottom: 4px;
         line-height: 1.4;
       }
 
       .item-desc {
         font-size: 13px;
-        color: #666;
+        color: var(--text-secondary, #666);
         margin-bottom: 4px;
         line-height: 1.4;
         overflow: hidden;
@@ -446,7 +444,7 @@ $purple: #4b70e2;
 
       .item-time {
         font-size: 12px;
-        color: #a0a5a8;
+        color: var(--text-tertiary, #a0a5a8);
       }
     }
   }

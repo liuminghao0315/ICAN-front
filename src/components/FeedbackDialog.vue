@@ -46,7 +46,7 @@
                     : (msg.role === 'user'  ? 'bubble-right' : 'bubble-left')"
                 >
                   <div class="chat-bubble" :class="[
-                    'bubble-' + msg.role,
+                    useAdminLayout ? (msg.role === 'admin' ? 'bubble-self' : 'bubble-other') : (msg.role === 'user' ? 'bubble-self' : 'bubble-other'),
                     useAdminLayout
                       ? (msg.role === 'admin' ? 'bubble-on-right' : 'bubble-on-left')
                       : (msg.role === 'user'  ? 'bubble-on-right' : 'bubble-on-left')
@@ -669,10 +669,10 @@ const handleStatusChange = async (status: 'RESOLVED' | 'REJECTED') => {
 </script>
 
 <style lang="scss">
-$purple: #4b70e2;
-$neu-bg: #ecf0f3;
-$black: #181818;
-$gray: #a0a5a8;
+$purple: #409EFF;
+$neu-bg: var(--bg-hover);
+$black: var(--text-primary);
+$gray: var(--text-tertiary);
 $green: #52c41a;
 $red: #f56c6c;
 $orange: #e6a23c;
@@ -692,10 +692,10 @@ $orange: #e6a23c;
   width: 520px;
   max-width: 90vw;
   max-height: 85vh;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -705,13 +705,13 @@ $orange: #e6a23c;
   }
 
   // ===== 标题栏 =====
-  .dialog-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px 16px;
-    flex-shrink: 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    .dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-color);
 
     .header-left {
       display: flex;
@@ -783,7 +783,7 @@ $orange: #e6a23c;
 
       svg { width: 18px; height: 18px; }
 
-      &:hover { color: $black; background: rgba(0, 0, 0, 0.05); }
+      &:hover { color: $black; background: var(--bg-hover); }
     }
   }
 
@@ -797,7 +797,7 @@ $orange: #e6a23c;
     gap: 12px;
 
     &::-webkit-scrollbar { width: 4px; }
-    &::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 2px; }
+    &::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
   }
 
   .chat-empty {
@@ -817,7 +817,7 @@ $orange: #e6a23c;
   .chat-bubble-system {
     display: flex; justify-content: center; align-items: center; padding: 2px 0;
     span {
-      font-size: 11px; color: #a0a5a8; background: rgba(0,0,0,0.04);
+      font-size: 11px; color: var(--text-tertiary); background: var(--bg-hover);
       padding: 4px 12px; border-radius: 20px; font-style: italic;
     }
   }
@@ -838,17 +838,45 @@ $orange: #e6a23c;
     &.bubble-on-left  { border-bottom-left-radius: 4px; }
 
     &.bubble-user {
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-      color: #fff;
+      background: $purple;
+      color: #fff !important;
       .bubble-time { color: rgba(255, 255, 255, 0.7); }
       .meta-tag { background: rgba(255, 255, 255, 0.2); color: #fff; }
     }
 
     &.bubble-admin {
-      background: $neu-bg;
+      background: var(--bg-hover);
       color: $black;
-      .bubble-time { color: $gray; }
-      .meta-tag { background: rgba($purple, 0.1); color: $purple; }
+      .bubble-time { color: var(--text-secondary); }
+      .meta-tag { background: rgba($purple, 0.12); color: $purple; }
+    }
+
+    // 通用：当前视角"自己"的消息 → 蓝色（深色模式增强对比度）
+    &.bubble-self {
+      background: #2f86e6;
+      color: #ffffff !important;
+
+      .bubble-text {
+        color: #ffffff !important;
+        text-shadow: 0 0 0 rgba(0, 0, 0, 0.01);
+      }
+
+      .bubble-time {
+        color: rgba(255, 255, 255, 0.92) !important;
+      }
+
+      .meta-tag {
+        background: rgba(255, 255, 255, 0.22);
+        color: #ffffff !important;
+      }
+    }
+
+    // 通用：当前视角"对方"的消息 → 灰色
+    &.bubble-other {
+      background: var(--bg-hover);
+      color: $black;
+      .bubble-time { color: var(--text-secondary); }
+      .meta-tag { background: rgba($purple, 0.12); color: $purple; }
     }
 
     .bubble-meta { display: flex; gap: 6px; margin-bottom: 6px; }
@@ -861,8 +889,8 @@ $orange: #e6a23c;
   .admin-action-area {
     flex-shrink: 0;
     padding: 12px 20px 16px;
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
-    background: #fafbfd;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-page);
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -908,7 +936,7 @@ $orange: #e6a23c;
         background: rgba($green, 0.15);
         border-color: rgba($green, 0.45);
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba($green, 0.2);
+        box-shadow: none;
       }
 
       &.is-active {
@@ -927,7 +955,7 @@ $orange: #e6a23c;
         background: rgba($red, 0.15);
         border-color: rgba($red, 0.45);
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba($red, 0.2);
+        box-shadow: none;
       }
 
       &.is-active {
@@ -951,8 +979,8 @@ $orange: #e6a23c;
     align-items: center;
     gap: 7px;
     padding: 10px 20px;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    background: #f5f6f8;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-hover);
     color: $gray;
     font-size: 12.5px;
 
@@ -962,7 +990,7 @@ $orange: #e6a23c;
 
   .lock-action-btn {
     width: 100%; padding: 10px; border: none; border-radius: 10px;
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+    background: $purple;
     color: #fff; font-size: 14px; cursor: pointer; transition: all 0.25s;
     &:hover { opacity: 0.9; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -972,7 +1000,7 @@ $orange: #e6a23c;
   .chat-input-area {
     flex-shrink: 0;
     padding: 12px 20px 16px;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    border-top: 1px solid var(--border-color);
   }
 
   .chat-send-row {
@@ -984,9 +1012,10 @@ $orange: #e6a23c;
   .chat-textarea {
     flex: 1;
     padding: 8px 12px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--border-color);
     border-radius: 10px;
     background: $neu-bg;
+    color: $black;
     font-size: 13px;
     font-family: inherit;
     resize: none;
@@ -1002,14 +1031,14 @@ $orange: #e6a23c;
     padding: 8px 18px;
     border: none;
     border-radius: 10px;
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
+    background: $purple;
+    color: #fff !important;
     font-size: 13px;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
     white-space: nowrap;
 
-    &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba($purple, 0.35); }
+    &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: none; }
     &:active:not(:disabled) { transform: scale(0.98); }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
   }
@@ -1042,26 +1071,26 @@ $orange: #e6a23c;
       cursor: pointer;
       background: $neu-bg;
       transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
-      box-shadow: 2px 2px 4px rgba(163, 177, 198, 0.3), -2px -2px 4px rgba(255, 255, 255, 0.8);
+      box-shadow: none;
 
       input { display: none; }
-      .radio-label { font-size: 13px; color: #666; }
+      .radio-label { font-size: 13px; color: var(--text-secondary); }
 
       &.active {
         background: $purple;
-        box-shadow: 2px 2px 6px rgba(75, 112, 226, 0.3), -2px -2px 4px rgba(255, 255, 255, 0.5);
+        box-shadow: none;
         .radio-label { color: #fff; }
       }
 
       &:hover:not(.active) {
-        box-shadow: 1px 1px 3px rgba(163, 177, 198, 0.4), -1px -1px 3px rgba(255, 255, 255, 0.9);
+        box-shadow: none;
       }
     }
 
     .form-select {
       width: 100%;
       padding: 10px 14px;
-      border: 1px solid rgba(0, 0, 0, 0.08);
+      border: 1px solid var(--border-color);
       border-radius: 10px;
       background: $neu-bg;
       font-size: 14px;
@@ -1084,7 +1113,7 @@ $orange: #e6a23c;
         align-items: center;
         justify-content: space-between;
         padding: 10px 14px;
-        border: 1.5px solid rgba(0, 0, 0, 0.08);
+        border: 1.5px solid var(--border-color);
         border-radius: 12px;
         background: $neu-bg;
         cursor: pointer;
@@ -1094,18 +1123,18 @@ $orange: #e6a23c;
 
         &:hover {
           border-color: rgba($purple, 0.3);
-          box-shadow: 0 2px 8px rgba($purple, 0.08);
+          box-shadow: none;
         }
 
         &:focus {
           border-color: $purple;
-          box-shadow: 0 0 0 3px rgba($purple, 0.1);
+          box-shadow: none;
         }
       }
 
       &.open .custom-select-trigger {
         border-color: $purple;
-        box-shadow: 0 0 0 3px rgba($purple, 0.1);
+        box-shadow: none;
       }
 
       &.has-value .select-value {
@@ -1140,7 +1169,7 @@ $orange: #e6a23c;
     .form-textarea {
       width: 100%;
       padding: 12px 14px;
-      border: 1px solid rgba(0, 0, 0, 0.08);
+      border: 1px solid var(--border-color);
       border-radius: 10px;
       background: $neu-bg;
       font-size: 14px;
@@ -1172,7 +1201,7 @@ $orange: #e6a23c;
     justify-content: flex-end;
     gap: 12px;
     padding: 16px 24px 20px;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    border-top: 1px solid var(--border-color);
 
     .btn {
       padding: 10px 24px;
@@ -1185,18 +1214,18 @@ $orange: #e6a23c;
 
     .btn-cancel {
       background: $neu-bg;
-      color: #666;
-      box-shadow: 2px 2px 4px rgba(163, 177, 198, 0.3), -2px -2px 4px rgba(255, 255, 255, 0.8);
+      color: var(--text-secondary);
+      box-shadow: none;
       &:hover { color: $black; }
     }
 
     .btn-submit {
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-      color: #fff;
-      box-shadow: 2px 2px 6px rgba(75, 112, 226, 0.3), -2px -2px 4px rgba(255, 255, 255, 0.5);
+      background: $purple;
+      color: #fff !important;
+      box-shadow: none;
 
       &:hover:not(:disabled) {
-        box-shadow: 3px 3px 8px rgba(75, 112, 226, 0.4), -2px -2px 6px rgba(255, 255, 255, 0.6);
+        box-shadow: none;
         transform: translateY(-1px);
       }
 
@@ -1219,18 +1248,18 @@ $orange: #e6a23c;
 
 // ===== Teleport 下拉面板（全局作用域） =====
 .module-dropdown-portal {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--bg-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-lg);
   padding: 6px;
   max-height: 240px;
   overflow-y: auto;
 
   &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
 
   .custom-select-option {
     display: flex;
@@ -1239,18 +1268,18 @@ $orange: #e6a23c;
     padding: 9px 12px;
     border-radius: 8px;
     font-size: 13.5px;
-    color: #555;
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
     user-select: none;
 
     &:hover {
-      background: rgba(#4b70e2, 0.06);
-      color: #181818;
+      background: rgba(#4b70e2, 0.12);
+      color: var(--text-primary);
     }
 
     &.active {
-      background: rgba(#4b70e2, 0.1);
+      background: rgba(#4b70e2, 0.16);
       color: #4b70e2;
       font-weight: 500;
     }

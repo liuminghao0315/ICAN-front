@@ -5,6 +5,61 @@
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vite App</title>
+    <script>
+      // 在 Vue 挂载前同步设置主题，避免刷新首屏出现深浅主题闪烁
+      ;(() => {
+        try {
+          const raw = localStorage.getItem('app-settings')
+          const parsed = raw ? JSON.parse(raw) : null
+          const mode = parsed?.themeMode || 'system'
+
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          const theme = mode === 'system' ? (prefersDark ? 'dark' : 'light') : mode
+
+          document.documentElement.setAttribute('data-theme', theme)
+          // 避免浏览器原生控件与滚动条短暂使用错误配色
+          document.documentElement.style.colorScheme = theme
+
+          // 关键主题变量预注入：防止路由组件/CSS 尚未完成加载时出现首帧白闪
+          const themeVars = theme === 'dark'
+            ? {
+                '--bg-page': '#0f1117',
+                '--bg-card': '#1a1d2e',
+                '--bg-hover': '#22263a',
+                '--bg-input': '#22263a',
+                '--bg-icon': '#22263a',
+                '--border-color': '#2e3248',
+                '--text-primary': '#e8eaf6',
+                '--text-secondary': '#9ba3c4',
+                '--text-tertiary': '#5a6080',
+                '--color-primary': '#409EFF',
+                '--dashboard-loading-mask-bg': 'rgba(15, 17, 23, 0.68)',
+                '--analysis-loading-mask-bg': 'rgba(15, 17, 23, 0.72)'
+              }
+            : {
+                '--bg-page': '#F5F7FA',
+                '--bg-card': '#FFFFFF',
+                '--bg-hover': '#F5F7FA',
+                '--bg-input': '#FFFFFF',
+                '--bg-icon': '#F5F7FA',
+                '--border-color': '#EBEEF5',
+                '--text-primary': '#303133',
+                '--text-secondary': '#606266',
+                '--text-tertiary': '#909399',
+                '--color-primary': '#409EFF',
+                '--dashboard-loading-mask-bg': 'rgba(255, 255, 255, 0.78)',
+                '--analysis-loading-mask-bg': 'rgba(255, 255, 255, 0.78)'
+              }
+
+          Object.entries(themeVars).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(key, value)
+          })
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light')
+          document.documentElement.style.colorScheme = 'light'
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

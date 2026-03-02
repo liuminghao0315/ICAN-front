@@ -1543,6 +1543,17 @@ import VChart from "vue-echarts";
 import { ElMessage } from "element-plus";
 import type { RiskLevel, SentimentLabel } from "@/types";
 
+// 主题版本号：用于触发图表 option 在主题切换时重新计算
+const themeVersion = ref(0);
+
+// Helper function to get CSS variable values for dark mode support
+const getCSSVar = (varName: string): string => {
+  if (typeof window !== 'undefined') {
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+  return '';
+};
+
 // 导入证据抽屉组件和数据
 import EvidenceDrawer from "@/components/EvidenceDrawer.vue";
 import type { CardData } from "@/components/EvidenceDrawer.vue";
@@ -2031,6 +2042,9 @@ let pageResizeObserver: ResizeObserver | null = null;
 // 图表容器 ResizeObserver，精准监听图表父容器尺寸变化
 let chartContainerResizeObserver: ResizeObserver | null = null;
 
+// 主题切换监听器（监听 html[data-theme] 变化）
+let themeMutationObserver: MutationObserver | null = null;
+
 // ==================== CV视觉模态：视频显示区域计算（精确定位检测框） ====================
 // 视频播放器ResizeObserver实例
 let videoResizeObserver: ResizeObserver | null = null;
@@ -2338,6 +2352,9 @@ const highRiskSegmentCount = computed(() => {
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
 const multiModalRadarOption = computed(() => {
+  // 建立主题响应依赖：深浅切换时强制重新计算 option
+  themeVersion.value;
+
   // 高校舆情分析维度说明映射
   const dimensionDesc: Record<string, string> = {
     身份置信度: "判定发布者为本校学生/校友的置信程度",
@@ -2368,17 +2385,17 @@ const multiModalRadarOption = computed(() => {
         return [mouseX - contentWidth - 15, mouseY - contentHeight - 15];
       },
       enterable: true,
-      backgroundColor: "rgba(255, 255, 255, 0.98)",
-      borderColor: "rgba(209, 217, 230, 0.4)",
+      backgroundColor: getCSSVar('--bg-card') || "rgba(255, 255, 255, 0.98)",
+      borderColor: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
       borderWidth: 1,
       padding: 16,
       textStyle: {
-        color: "#181818",
+        color: getCSSVar('--text-primary') || "#181818",
         fontSize: 13,
         lineHeight: 20,
       },
       extraCssText:
-        "box-shadow: 0 4px 20px rgba(0,0,0,0.12); border-radius: 12px; max-width: 340px; max-height: 550px; overflow-y: auto;",
+        "border-radius: 12px; max-width: 340px; max-height: 550px; overflow-y: auto;",
       formatter: (params: any) => {
         if (!params || !params.name) return "";
 
@@ -2394,7 +2411,7 @@ const multiModalRadarOption = computed(() => {
 
         let html = `
           <div style="min-width: 260px;">
-            <div style="font-size: 14px; font-weight: 600; color: #111827; margin-bottom: 8px; border-bottom: 1.5px solid #111827; padding-bottom: 6px;">
+            <div style="font-size: 14px; font-weight: 600; color: ${getCSSVar('--text-primary')}; margin-bottom: 8px; border-bottom: 1.5px solid ${getCSSVar('--border-color')}; padding-bottom: 6px;">
               <i class="fas fa-chart-area" style="margin-right: 4px;"></i>
               ${params.name}
             </div>
@@ -2419,13 +2436,13 @@ const multiModalRadarOption = computed(() => {
           }
 
           html += `
-            <div style="background: rgba(0,0,0,0.02); padding: 6px 8px; border-radius: 4px;">
+            <div style="background: ${getCSSVar('--bg-hover')}; padding: 6px 8px; border-radius: 4px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                <span style="font-weight: 600; color: #333; font-size: 12px;">${dim}</span>
+                <span style="font-weight: 600; color: ${getCSSVar('--text-primary')}; font-size: 12px;">${dim}</span>
                 <span style="font-weight: 700; font-size: 14px; color: ${levelColor};">${value}%</span>
               </div>
               <div style="display: flex; align-items: center; gap: 6px;">
-                <div style="flex: 1; height: 5px; background: rgba(0,0,0,0.08); border-radius: 2px; overflow: hidden;">
+                <div style="flex: 1; height: 5px; background: ${getCSSVar('--bg-page')}; border-radius: 2px; overflow: hidden;">
                   <div style="width: ${value}%; height: 100%; background: ${levelColor};"></div>
                 </div>
                 <span style="font-size: 10px; font-weight: 600; color: ${levelColor}; min-width: 40px; text-align: right;">${levelText}</span>
@@ -2460,8 +2477,8 @@ const multiModalRadarOption = computed(() => {
 
         html += `
             </div>
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8e8e8; text-align: center;">
-              <span style="font-size: 11px; color: #666;">综合风险：</span>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid ${getCSSVar('--border-color')}; text-align: center;">
+              <span style="font-size: 11px; color: ${getCSSVar('--text-secondary')};">综合风险：</span>
               <span style="font-size: 16px; font-weight: 700; color: ${overallColor}; margin-left: 4px;">
                 ${Math.round(avgRisk)}
               </span>
@@ -2490,23 +2507,23 @@ const multiModalRadarOption = computed(() => {
       splitNumber: 4,
       name: {
         textStyle: {
-          color: "#666",
+          color: getCSSVar('--text-secondary'),
           fontSize: 11,
         },
       },
       splitLine: {
         lineStyle: {
-          color: "rgba(209, 217, 230, 0.4)",
+          color: getCSSVar('--border-color'),
         },
       },
       splitArea: {
         areaStyle: {
-          color: ["rgba(236, 240, 243, 0.3)", "rgba(236, 240, 243, 0.5)"],
+          color: [getCSSVar('--bg-hover'), getCSSVar('--bg-page')],
         },
       },
       axisLine: {
         lineStyle: {
-          color: "rgba(209, 217, 230, 0.5)",
+          color: getCSSVar('--border-color'),
         },
       },
     },
@@ -2751,10 +2768,10 @@ const peakRiskRadarOption = computed(() => {
 // 新拟态配色
 const neuColors = {
   purple: "#4b70e2",
-  gray: "#a0a5a8",
-  black: "#181818",
-  neu1: "#ecf0f3",
-  neu2: "#d1d9e6",
+  gray: getCSSVar('--text-secondary') || "#a0a5a8",
+  black: getCSSVar('--text-primary') || "#181818",
+  neu1: getCSSVar('--bg-card') || "#ecf0f3",
+  neu2: getCSSVar('--border-color') || "#d1d9e6",
 };
 
 // 风险评分图表配置
@@ -2839,7 +2856,7 @@ const audienceChartOption = computed(() => {
       type: "value",
       max: 100,
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: "#e8edf3" } },
+      splitLine: { lineStyle: { color: getCSSVar('--border-color') || "#e8edf3" } },
       axisLabel: {
         color: neuColors.gray,
         fontSize: 11,
@@ -2878,6 +2895,9 @@ const audienceChartOption = computed(() => {
 
 // 多模态时间轴配置（交互视图专用 - 增强版）
 const multiModalTimelineOption = computed(() => {
+  // 建立主题响应依赖：深浅切换时强制重新计算 option
+  themeVersion.value;
+
   // 使用视频真实时长，确保时间轴与视频进度精确对齐（不依赖analysisData，使用mock数据）
   const duration = videoDuration.value;
   const timePoints: number[] = [];
@@ -2994,13 +3014,13 @@ const multiModalTimelineOption = computed(() => {
           },
         },
       },
-      backgroundColor: "rgba(255, 255, 255, 0.98)",
-      borderColor: "rgba(209, 217, 230, 0.4)",
+      backgroundColor: getCSSVar('--bg-card') || "rgba(255, 255, 255, 0.98)",
+      borderColor: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
       borderWidth: 1,
       padding: [8, 15],
-      textStyle: { color: "#181818", fontSize: 12 },
+      textStyle: { color: getCSSVar('--text-primary') || "#181818", fontSize: 12 },
       extraCssText:
-        "box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 10px;",
+        "border-radius: 10px;",
       formatter: (params: any) => {
         if (!params || params.length === 0) return "";
 
@@ -3024,14 +3044,14 @@ const multiModalTimelineOption = computed(() => {
           <div style="min-width: 200px; max-width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
             <!-- 综合风险标题 -->
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <span style="color: #111827; font-weight: 600; font-size: 15px; flex-shrink: 0; margin-right: 10px;">综合风险</span>
+              <span style="color: ${getCSSVar('--text-primary')}; font-weight: 600; font-size: 15px; flex-shrink: 0; margin-right: 10px;">综合风险</span>
               <div style="display: inline-flex; align-items: center; gap: 6px; background: ${riskBg}; padding: 5px 12px; border-radius: 6px;">
                 <div style="width: 6px; height: 6px; border-radius: 50%; background: ${riskColor};"></div>
                 <span style="color: ${riskColor}; font-weight: 700; font-size: 16px;">${comprehensiveScore.toFixed(0)}%</span>
               </div>
             </div>
-            
-            <div style="width: 100%; height: 1px; background: #e5e7eb; margin-bottom: 14px;"></div>
+
+            <div style="width: 100%; height: 1px; background: ${getCSSVar('--border-color')}; margin-bottom: 14px;"></div>
         `;
 
         // 1. 视频风险
@@ -3044,13 +3064,13 @@ const multiModalTimelineOption = computed(() => {
         html += `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span style="color: #374151; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">视频风险</span>
+              <span style="color: ${getCSSVar('--text-primary')}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">视频风险</span>
               <span style="color: ${videoColor}; font-weight: 700; font-size: 15px;">${data.videoScore.toFixed(0)}%</span>
             </div>
             ${
               data.videoRisk
-                ? `<div style="color: #6b7280; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${videoColor};">${data.videoRisk.reason}</div>`
-                : `<div style="color: #9ca3af; font-size: 12px; padding-left: 8px;">该时段画面正常</div>`
+                ? `<div style="color: ${getCSSVar('--text-secondary')}; font-size: 12px; line-height: 1.5; padding-left: 8px; ">${data.videoRisk.reason}</div>`
+                : `<div style="color: ${getCSSVar('--text-tertiary')}; font-size: 12px; padding-left: 8px;">该时段画面正常</div>`
             }
           </div>
         `;
@@ -3065,13 +3085,13 @@ const multiModalTimelineOption = computed(() => {
         html += `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span style="color: #374151; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">音频情绪</span>
+              <span style="color: ${getCSSVar('--text-primary')}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">音频情绪</span>
               <span style="color: ${audioColor}; font-weight: 700; font-size: 15px;">${data.audioScore.toFixed(0)}%</span>
             </div>
             ${
               data.audioEmotion
-                ? `<div style="color: #6b7280; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${audioColor};">${data.audioEmotion.reason}</div>`
-                : `<div style="color: #9ca3af; font-size: 12px; padding-left: 8px;">该时段情绪稳定</div>`
+                ? `<div style="color: ${getCSSVar('--text-secondary')}; font-size: 12px; line-height: 1.5; padding-left: 8px; ">${data.audioEmotion.reason}</div>`
+                : `<div style="color: ${getCSSVar('--text-tertiary')}; font-size: 12px; padding-left: 8px;">该时段情绪稳定</div>`
             }
           </div>
         `;
@@ -3086,20 +3106,20 @@ const multiModalTimelineOption = computed(() => {
         html += `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span style="color: #374151; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">文本内容</span>
+              <span style="color: ${getCSSVar('--text-primary')}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">文本内容</span>
               <span style="color: ${textColor}; font-weight: 700; font-size: 15px;">${data.textScore.toFixed(0)}%</span>
             </div>
             ${
               data.textSegment
-                ? `<div style="color: #6b7280; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${textColor};">${data.textSegment.reason}</div>`
-                : `<div style="color: #9ca3af; font-size: 12px; padding-left: 8px;">该时段内容正常</div>`
+                ? `<div style="color: ${getCSSVar('--text-secondary')}; font-size: 12px; line-height: 1.5; padding-left: 8px; ">${data.textSegment.reason}</div>`
+                : `<div style="color: ${getCSSVar('--text-tertiary')}; font-size: 12px; padding-left: 8px;">该时段内容正常</div>`
             }
           </div>
         `;
 
         html += `
             <!-- 底部操作提示 -->
-            <div style="margin-top: 14px; padding-top: 8px; border-top: 1px solid #e5e7eb; text-align: center;">
+            <div style="margin-top: 14px; padding-top: 8px; border-top: 1px solid ${getCSSVar('--border-color')}; text-align: center;">
               <span style="color: #6588ed; font-size: 14px; font-weight: 500;">点 击 跳 转</span>
             </div>
           </div>
@@ -3112,7 +3132,7 @@ const multiModalTimelineOption = computed(() => {
       data: ["视频风险", "音频情绪", "文本风险", "综合风险"],
       bottom: 5,
       textStyle: {
-        color: "#666",
+        color: getCSSVar('--text-secondary') || "#666",
         fontSize: 11,
         fontWeight: "normal",
       },
@@ -3143,7 +3163,7 @@ const multiModalTimelineOption = computed(() => {
       axisLine: {
         show: true,
         lineStyle: {
-          color: "rgba(209, 217, 230, 0.3)",
+          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.3)",
           width: 1,
         },
       },
@@ -3151,15 +3171,23 @@ const multiModalTimelineOption = computed(() => {
         show: true,
         length: 4,
         lineStyle: {
-          color: "rgba(209, 217, 230, 0.5)",
+          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.5)",
           width: 1,
         },
       },
       axisLabel: {
-        color: "#666",
+        color: getCSSVar('--text-secondary') || "#666",
         fontSize: 11,
         formatter: (value: number) => formatTimestamp(value),
         margin: 8,
+      },
+      splitLine: {
+        show: true,
+        lineStyle: {
+          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
+          type: "solid",
+          width: 1,
+        },
       },
       axisPointer: {
         snap: false, // 关键！让axisPointer不吸附到数据点，精确跟随鼠标
@@ -3197,7 +3225,7 @@ const multiModalTimelineOption = computed(() => {
       axisLine: {
         show: true,
         lineStyle: {
-          color: "rgba(209, 217, 230, 0.3)",
+          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.3)",
           width: 1,
         },
       },
@@ -3205,21 +3233,21 @@ const multiModalTimelineOption = computed(() => {
         show: true,
         length: 4,
         lineStyle: {
-          color: "rgba(209, 217, 230, 0.5)",
+          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.5)",
           width: 1,
         },
       },
       splitLine: {
         show: true,
         lineStyle: {
-          color: "rgba(209, 217, 230, 0.4)",
+          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
           type: "solid",
           width: 1,
         },
       },
       axisLabel: {
         show: true, // 显示Y轴标签（0%、20%、40%等）
-        color: "#666",
+        color: getCSSVar('--text-secondary') || "#666",
         fontSize: 11,
         formatter: "{value}%",
         margin: 8,
@@ -3424,6 +3452,9 @@ const multiModalTimelineOption = computed(() => {
 
 // 风险时间轴图表配置
 const riskTimelineOption = computed(() => {
+  // 建立主题响应依赖：深浅切换时强制重新计算 option
+  themeVersion.value;
+
   const timelineData = getRiskTimelineData();
   if (
     !timelineData ||
@@ -4077,19 +4108,17 @@ const updateProgressLine = (time: number) => {
     const s = Math.floor(time % 60);
     const timeLabel = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 
-    // 使用notMerge: false 保持其他配置，只更新markLine
+    // 只更新 series[3]（综合风险）的 markLine，其余 series 不传，避免覆盖 series[2] 的高/中风险线
     timelineChartRef.value.setOption(
       {
         series: [
-          { seriesIndex: 0 },
-          { seriesIndex: 1 },
-          { seriesIndex: 2 },
           {
-            seriesIndex: 3,
+            // series[3]: 综合风险 - 添加红色播放进度线
+            name: "综合风险",
             markLine: {
               symbol: "none",
               animation: false,
-              silent: true, // 关键：不触发事件
+              silent: true,
               data: [
                 [
                   { coord: [time, 0], symbol: "none" },
@@ -4502,12 +4531,12 @@ const exportToPdf = async () => {
     let pageContentHeight = 0;
 
     // 查找最接近但不超过目标高度的分页点
-    const findBestBreakPoint = (currentY: number, maxHeight: number) => {
+    const findBestBreakPoint = (currentY: number, maxHeight: number): number => {
       const targetY = currentY + maxHeight;
       // 找到小于targetY但最接近的breakPoint
       let bestPoint = targetY;
       for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
-        const bp = sortedBreakPoints[i];
+        const bp = sortedBreakPoints[i] as number;
         if (bp > currentY && bp <= targetY) {
           // 检查这个分页点会不会太小（至少要有一半页面内容）
           if (bp - currentY >= maxHeight * 0.4) {
@@ -4882,6 +4911,23 @@ onMounted(() => {
   // 初始化组件数据
   initializeComponent();
 
+  // 监听主题切换（data-theme / 内联 style 变量变化）
+  themeMutationObserver = new MutationObserver((mutations) => {
+    if (
+      mutations.some(
+        (m) =>
+          m.type === "attributes" &&
+          (m.attributeName === "data-theme" || m.attributeName === "style"),
+      )
+    ) {
+      themeVersion.value++;
+    }
+  });
+  themeMutationObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme", "style"],
+  });
+
   // 立即调用一次，确保初始状态正确
   updateContainerPadding();
 
@@ -4964,6 +5010,11 @@ onUnmounted(() => {
     videoResizeObserver = null;
   }
 
+  if (themeMutationObserver) {
+    themeMutationObserver.disconnect();
+    themeMutationObserver = null;
+  }
+
   // 清理容器 padding 控制
   const mainContent = document.querySelector(".main-content");
   if (mainContent) {
@@ -4978,14 +5029,14 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色变量
-$bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
+// 新拟态配色变量 - 使用CSS变量以支持深色模式
+$bg: var(--bg-page);
+$neu-1: var(--bg-card);
+$neu-2: var(--border-color);
+$white: var(--bg-card);
+$gray: var(--text-secondary);
+$black: var(--text-primary);
+$purple: #409EFF;
 
 // 全局图标向下微调0.5px，改善视觉对齐
 .el-icon {
@@ -5019,11 +5070,10 @@ $purple: #4b70e2;
       align-items: center;
       gap: 12px;
       padding: 8px 16px;
-      background: $neu-1;
+      background: $white;
       border-radius: 12px;
-      box-shadow:
-        2px 2px 6px $neu-2,
-        -2px -2px 6px $white;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-color);
 
       .stat-item-header {
         display: flex;
@@ -5061,20 +5111,15 @@ $purple: #4b70e2;
       gap: 8px;
       padding: 4px;
       background: $neu-1;
-      border-radius: 12px;
-      box-shadow:
-        inset 2px 2px 4px $neu-2,
-        inset -2px -2px 4px $white;
+      border-radius: 8px;
+      border: 1px solid $neu-2;
 
       .neu-btn {
-        background: $neu-1;
-        border: none;
-        border-radius: 12px;
+        background: $white;
+        border: 1px solid $neu-2;
+        border-radius: 8px;
         cursor: pointer;
         transition: all 0.25s;
-        box-shadow:
-          4px 4px 8px $neu-2,
-          -4px -4px 8px $white;
         color: $gray;
         font-family: "Montserrat", sans-serif;
         padding: 12px 24px;
@@ -5084,27 +5129,22 @@ $purple: #4b70e2;
         gap: 8px;
 
         &:hover {
-          box-shadow:
-            2px 2px 4px $neu-2,
-            -2px -2px 4px $white;
+          border-color: $purple;
           color: $purple;
         }
 
         &:active {
-          box-shadow:
-            inset 2px 2px 4px $neu-2,
-            inset -2px -2px 4px $white;
+          background: $neu-1;
         }
 
         &.primary-btn {
-          background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-          color: #fff;
+          background: $purple;
+          color: #fff !important;
+          border-color: $purple;
 
           &:hover {
-            box-shadow:
-              4px 4px 8px $neu-2,
-              -2px -2px 6px $white;
-            color: #fff;
+            background: #66b1ff;
+            color: #fff !important;
           }
         }
       }
@@ -5149,10 +5189,8 @@ $purple: #4b70e2;
     right: -420px;
     width: 400px;
     height: 100vh;
-    background: linear-gradient(145deg, #f5f7fa, #e8ecef);
-    box-shadow:
-      -8px 0 24px rgba(0, 0, 0, 0.15),
-      -4px 0 12px rgba(0, 0, 0, 0.1);
+    background: var(--bg-page);
+    box-shadow: var(--shadow-lg);
     z-index: 999;
     transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
@@ -5168,8 +5206,8 @@ $purple: #4b70e2;
       align-items: center;
       justify-content: space-between;
       padding: 20px 24px;
-      border-bottom: 1px solid rgba(209, 217, 230, 0.5);
-      background: rgba(255, 255, 255, 0.5);
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-card);
       backdrop-filter: blur(10px);
 
       h3 {
@@ -5191,9 +5229,7 @@ $purple: #4b70e2;
         color: $gray;
         cursor: pointer;
         transition: all 0.25s ease;
-        box-shadow:
-          3px 3px 6px rgba(163, 177, 198, 0.4),
-          -3px -3px 6px rgba(255, 255, 255, 0.9);
+        box-shadow: var(--shadow-sm);
 
         .el-icon {
           font-size: 18px;
@@ -5205,9 +5241,7 @@ $purple: #4b70e2;
         }
 
         &:active {
-          box-shadow:
-            inset 3px 3px 6px rgba(163, 177, 198, 0.5),
-            inset -3px -3px 6px rgba(255, 255, 255, 0.8);
+          background: $neu-1;
         }
       }
     }
@@ -5226,11 +5260,11 @@ $purple: #4b70e2;
       }
 
       &::-webkit-scrollbar-thumb {
-        background: rgba(160, 165, 168, 0.3);
+        background: var(--text-tertiary);
         border-radius: 3px;
 
         &:hover {
-          background: rgba(160, 165, 168, 0.5);
+          background: var(--text-secondary);
         }
       }
     }
@@ -5250,9 +5284,7 @@ $purple: #4b70e2;
       background: $neu-1;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow:
-        4px 4px 8px rgba(163, 177, 198, 0.3),
-        -4px -4px 8px rgba(255, 255, 255, 0.9);
+      box-shadow: var(--shadow-sm);
       border: 2px solid transparent;
 
       .video-item-icon {
@@ -5262,12 +5294,10 @@ $purple: #4b70e2;
         width: 40px;
         height: 40px;
         border-radius: 12px;
-        background: linear-gradient(135deg, $purple, #6b8be8);
-        color: white;
+        background: $purple;
+        color: white !important;
         flex-shrink: 0;
-        box-shadow:
-          0 4px 12px rgba(75, 112, 226, 0.3),
-          inset 0 1px 2px rgba(255, 255, 255, 0.2);
+        box-shadow: none;
       }
 
       .video-item-info {
@@ -5304,7 +5334,7 @@ $purple: #4b70e2;
 
           &.pending {
             background: rgba(144, 147, 153, 0.15);
-            color: #909399;
+            color: $gray;
           }
 
           &.processing {
@@ -5327,23 +5357,13 @@ $purple: #4b70e2;
       &:hover {
         transform: translateX(-4px);
         border-color: rgba($purple, 0.3);
-        box-shadow:
-          6px 6px 12px rgba(163, 177, 198, 0.4),
-          -6px -6px 12px rgba(255, 255, 255, 1),
-          0 0 0 3px rgba($purple, 0.1);
+        box-shadow: var(--shadow-md);
       }
 
       &.active {
-        background: linear-gradient(
-          135deg,
-          rgba($purple, 0.1),
-          rgba(107, 139, 232, 0.05)
-        );
+        background: rgba($purple, 0.08);
         border-color: $purple;
-        box-shadow:
-          inset 2px 2px 4px rgba(0, 0, 0, 0.05),
-          0 6px 16px rgba(75, 112, 226, 0.2),
-          0 0 0 2px rgba($purple, 0.15);
+        box-shadow: var(--shadow-primary);
 
         .video-item-icon {
           box-shadow:
@@ -5385,22 +5405,21 @@ $purple: #4b70e2;
   align-items: center;
   gap: 16px;
   padding: 18px 24px;
-  background: $neu-1;
-  border-radius: 16px;
-  box-shadow:
-    6px 6px 12px $neu-2,
-    -6px -6px 12px $white;
+  background: $white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
   margin-bottom: 24px;
 
   .video-icon {
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+    background: $purple;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: #fff !important;
   }
 
   .video-details {
@@ -5464,10 +5483,9 @@ $purple: #4b70e2;
 // 新拟态卡片
 .neu-card {
   background: $neu-1;
-  border-radius: 20px;
-  box-shadow:
-    8px 8px 16px $neu-2,
-    -8px -8px 16px $white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
   overflow: hidden;
 
   .card-header {
@@ -5492,10 +5510,10 @@ $purple: #4b70e2;
       padding: 2px 8px;
       font-size: 11px;
       font-weight: 500;
-      color: #909399;
-      background: rgba(0, 0, 0, 0.04);
+      color: var(--text-tertiary);
+      background: var(--bg-hover);
       border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.06);
+      border: 1px solid var(--border-color);
     }
   }
 
@@ -5507,14 +5525,11 @@ $purple: #4b70e2;
 }
 
 .neu-btn {
-  background: $neu-1;
-  border: none;
-  border-radius: 12px;
+  background: $white;
+  border: 1px solid $neu-2;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow:
-    4px 4px 8px $neu-2,
-    -4px -4px 8px $white;
   color: $gray;
   font-family: "Montserrat", sans-serif;
   padding: 12px 24px;
@@ -5524,27 +5539,22 @@ $purple: #4b70e2;
   gap: 8px;
 
   &:hover {
-    box-shadow:
-      2px 2px 4px $neu-2,
-      -2px -2px 4px $white;
+    border-color: $purple;
     color: $purple;
   }
 
   &:active {
-    box-shadow:
-      inset 2px 2px 4px $neu-2,
-      inset -2px -2px 4px $white;
+    background: $neu-1;
   }
 
   &.primary-btn {
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
+    background: $purple;
+    color: #fff !important;
+    border-color: $purple;
 
     &:hover {
-      box-shadow:
-        4px 4px 8px $neu-2,
-        -2px -2px 6px $white;
-      color: #fff;
+      background: #66b1ff;
+      color: #fff !important;
     }
   }
 }
@@ -5563,9 +5573,7 @@ $purple: #4b70e2;
       height: 100px;
       border-radius: 50%;
       background: $neu-1;
-      box-shadow:
-        8px 8px 16px $neu-2,
-        -8px -8px 16px $white;
+      box-shadow: var(--shadow-md);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -5610,7 +5618,7 @@ $purple: #4b70e2;
     padding: 24px;
 
     &.risk-low {
-      border-left: 4px solid #52c41a;
+      
       .risk-icon {
         background: rgba(82, 196, 26, 0.12);
         color: #52c41a;
@@ -5621,7 +5629,7 @@ $purple: #4b70e2;
     }
 
     &.risk-medium {
-      border-left: 4px solid #faad14;
+      
       .risk-icon {
         background: rgba(250, 173, 20, 0.12);
         color: #faad14;
@@ -5632,7 +5640,7 @@ $purple: #4b70e2;
     }
 
     &.risk-high {
-      border-left: 4px solid #f56c6c;
+      
       .risk-icon {
         background: rgba(245, 108, 108, 0.12);
         color: #f56c6c;
@@ -5824,8 +5832,8 @@ $purple: #4b70e2;
               -2px -2px 4px $white;
 
             &.primary {
-              background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-              color: #fff;
+              background: $purple;
+              color: #fff !important;
               box-shadow:
                 2px 2px 6px $neu-2,
                 -1px -1px 4px $white;
@@ -5873,8 +5881,8 @@ $purple: #4b70e2;
         -3px -3px 6px $white;
 
       &.primary {
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-        color: #fff;
+        background: $purple;
+        color: #fff !important;
         box-shadow:
           3px 3px 8px $neu-2,
           -2px -2px 6px $white;
@@ -6095,9 +6103,7 @@ $purple: #4b70e2;
         background: $neu-1;
         border-radius: 12px;
         margin-bottom: 8px;
-        box-shadow:
-          inset 2px 2px 4px $neu-2,
-          inset -2px -2px 4px $white;
+        box-shadow: var(--shadow-sm);
 
         .sensitive-word {
           color: #f56c6c;
@@ -6183,8 +6189,8 @@ $purple: #4b70e2;
       align-items: center;
       justify-content: space-between;
       padding: 8px 20px;
-      background: rgba(245, 247, 250, 0.6);
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      background: var(--bg-hover);
+      border-bottom: 1px solid var(--border-color);
 
       .source-label {
         display: flex;
@@ -6192,10 +6198,10 @@ $purple: #4b70e2;
         gap: 6px;
         font-size: 13px;
         font-weight: 500;
-        color: #606266;
+        color: var(--text-secondary);
 
         .el-icon {
-          color: #909399;
+          color: var(--text-tertiary);
         }
 
         .badge-source-link {
@@ -6216,7 +6222,7 @@ $purple: #4b70e2;
 
       .source-hint {
         font-size: 12px;
-        color: #909399;
+        color: var(--text-tertiary);
       }
     }
 
@@ -6238,12 +6244,12 @@ $purple: #4b70e2;
           width: 52px;
           height: 52px;
           border-radius: 14px;
-          background: linear-gradient(135deg, $purple, #7c9df7);
+          background: $purple;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
-          box-shadow: 0 4px 12px rgba(75, 112, 226, 0.3);
+          color: white !important;
+          box-shadow: none;
           margin-left: -10px;
         }
 
@@ -6296,7 +6302,7 @@ $purple: #4b70e2;
               &:not(:last-child)::after {
                 content: "|";
                 margin-left: 12px;
-                color: rgba(160, 165, 168, 0.3);
+                color: var(--border-color);
               }
             }
           }
@@ -6413,9 +6419,7 @@ $purple: #4b70e2;
         background: $neu-1;
         border-radius: 12px;
         padding: 14px 16px;
-        box-shadow:
-          2px 2px 6px $neu-2,
-          -2px -2px 6px $white;
+        box-shadow: var(--shadow-sm);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -6425,9 +6429,7 @@ $purple: #4b70e2;
 
         &:hover {
           transform: translateY(-2px);
-          box-shadow:
-            3px 3px 8px $neu-2,
-            -3px -3px 8px $white;
+          box-shadow: var(--shadow-md);
         }
 
         .stat-label-archive {
@@ -6445,7 +6447,7 @@ $purple: #4b70e2;
           align-items: baseline;
 
           &.risk-high {
-            background: linear-gradient(135deg, #f56c6c, #ff8585);
+            background: #f56c6c;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -6870,7 +6872,7 @@ $purple: #4b70e2;
   // 移除 align-self: stretch，让它自然高度
 
   &.evidence-detail-mode {
-    background: linear-gradient(135deg, #f0f2f5 0%, #f5f7fa 100%);
+    background: var(--bg-hover);
     border-radius: 20px;
     padding: 14px 16px 12px 16px; // 保持内边距
     box-shadow:
@@ -6919,7 +6921,7 @@ $purple: #4b70e2;
   }
 
   &::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.03);
+    background: var(--bg-hover);
     border-radius: 3px;
   }
 }
@@ -6930,9 +6932,7 @@ $purple: #4b70e2;
   background: $neu-1;
   border-radius: 14px;
   padding: 14px 12px;
-  box-shadow:
-    4px 4px 8px $neu-2,
-    -4px -4px 8px $white;
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
   min-width: 90px; // 减小最小宽度，允许更紧凑
   max-width: 150px; // 添加最大宽度，防止过宽
@@ -6941,9 +6941,7 @@ $purple: #4b70e2;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow:
-      6px 6px 12px $neu-2,
-      -6px -6px 12px $white;
+    box-shadow: var(--shadow-md);
   }
 
   // 🎯 统计类型 - 三个模态小卡片（视频、音频、文本）
@@ -6964,9 +6962,7 @@ $purple: #4b70e2;
 
   // 结果卡片 - 外凸弹出效果，给更多空间
   &.result-card {
-    box-shadow:
-      4px 4px 8px $neu-2,
-      -4px -4px 8px $white;
+    box-shadow: var(--shadow-sm);
     flex: 1.2 1 auto; // 允许适度伸缩
     min-width: 100px; // 减小最小宽度
     max-width: 160px; // 添加最大宽度限制，防止超出容器
@@ -6974,7 +6970,7 @@ $purple: #4b70e2;
 
     .result-label {
       font-size: 11px;
-      color: #666;
+      color: var(--text-secondary);
       margin-top: 8px;
       text-align: center;
       font-weight: 500;
@@ -7314,10 +7310,10 @@ $purple: #4b70e2;
     padding: 2px 6px;
     font-size: 10px;
     font-weight: 500;
-    color: #909399;
-    background: rgba(0, 0, 0, 0.04);
+    color: $gray;
+    background: var(--bg-hover);
     border-radius: 3px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border-color);
     cursor: help;
     margin-left: 12px;
   }
@@ -7345,10 +7341,8 @@ $purple: #4b70e2;
   border-radius: 10px;
   border: none;
   background: $neu-1;
-  box-shadow:
-    4px 4px 8px $neu-2,
-    -4px -4px 8px $white;
-  color: #666;
+  box-shadow: var(--shadow-sm);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -7362,9 +7356,7 @@ $purple: #4b70e2;
   }
 
   &:active {
-    box-shadow:
-      inset 2px 2px 4px $neu-2,
-      inset -2px -2px 4px $white;
+    box-shadow: var(--shadow-sm);
   }
 }
 
@@ -7374,15 +7366,15 @@ $purple: #4b70e2;
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid var(--border-color);
 }
 
 .evidence-count {
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
   font-weight: 400;
 }
 
@@ -7427,10 +7419,11 @@ $purple: #4b70e2;
 }
 
 .evidence-group-inline {
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   overflow: visible; // 允许tooltip悬浮窗超出容器显示
 }
 
@@ -7440,13 +7433,13 @@ $purple: #4b70e2;
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary);
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e8ecef;
+  border-bottom: 1px solid var(--border-color);
 
   .el-icon {
-    color: #666;
+    color: var(--text-secondary);
   }
 }
 
@@ -7456,13 +7449,13 @@ $purple: #4b70e2;
   gap: 10px;
   padding: 10px;
   border-radius: 8px;
-  background: white;
+  background: $white;
   cursor: pointer;
   transition: all 0.2s;
-  border-left: 3px solid transparent;
+  
 
   &:hover {
-    background: #f0f2f5;
+    background: var(--bg-hover);
     border-left-color: #1976d2;
     transform: translateX(3px);
   }
@@ -7496,7 +7489,7 @@ $purple: #4b70e2;
 
 .evidence-desc-inline {
   font-size: 13px;
-  color: #333;
+  color: var(--text-primary);
   line-height: 1.5;
   flex: 1;
   min-width: 0;
@@ -7591,7 +7584,7 @@ $purple: #4b70e2;
 
 .text-evidence-item-inline {
   padding: 10px;
-  background: white;
+  background: $white;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -7601,16 +7594,16 @@ $purple: #4b70e2;
   position: relative;
 
   &:hover {
-    background: #f0f2f5;
+    background: var(--bg-hover);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
   }
 }
 
 .text-keyword-inline {
   font-size: 13px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   line-height: 1.6;
   word-break: break-word;
 }
@@ -7754,7 +7747,7 @@ $purple: #4b70e2;
       rgba(255, 255, 255, 0.6) 100%
     );
     border-radius: 2px;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    box-shadow: none;
     transition: left 0.1s linear;
     z-index: 2;
   }
@@ -7774,7 +7767,7 @@ $purple: #4b70e2;
 
       .mark-dot {
         transform: scale(1.5);
-        box-shadow: 0 0 20px currentColor;
+        box-shadow: none;
       }
 
       .mark-popup {
@@ -7810,7 +7803,7 @@ $purple: #4b70e2;
     &.mark-active {
       .mark-dot {
         transform: scale(1.3);
-        box-shadow: 0 0 15px currentColor;
+        box-shadow: none;
         animation: pulse-mark 2s infinite;
       }
     }
@@ -7822,7 +7815,7 @@ $purple: #4b70e2;
     border-radius: 50%;
     border: 3px solid white;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
   }
 
   // 不同类型的标记颜色（默认，会被卡片特定样式覆盖）
@@ -7845,19 +7838,19 @@ $purple: #4b70e2;
   .mark-card-attitude.mark-sentiment-positive .mark-dot {
     background: #52c41a !important; // 正面 - 绿色
     color: #52c41a !important;
-    border-color: white;
+    border-color: white !important;
   }
 
   .mark-card-attitude.mark-sentiment-neutral .mark-dot {
     background: #1890ff !important; // 中性 - 蓝色
     color: #1890ff !important;
-    border-color: white;
+    border-color: white !important;
   }
 
   .mark-card-attitude.mark-sentiment-negative .mark-dot {
     background: #f56c6c !important; // 负面 - 红色
     color: #f56c6c !important;
-    border-color: white;
+    border-color: white !important;
   }
 
   // 其他卡片 - 统一使用紫色（覆盖原有的类型颜色）
@@ -7868,7 +7861,7 @@ $purple: #4b70e2;
   .mark-card-action .mark-dot {
     background: #8b5cf6 !important; // 紫色
     color: #8b5cf6 !important;
-    border-color: white;
+    border-color: white !important;
   }
 
   // 悬停弹窗
@@ -7879,7 +7872,7 @@ $purple: #4b70e2;
     transform: translateX(-50%) translateY(-20px);
     background: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(10px);
-    color: white;
+    color: white !important;
     padding: 12px;
     border-radius: 8px;
     font-size: 12px;
@@ -7891,7 +7884,7 @@ $purple: #4b70e2;
     min-width: 200px;
     max-width: 300px;
     white-space: normal;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
     z-index: 9999;
 
     &::after {
@@ -7954,10 +7947,10 @@ $purple: #4b70e2;
   @keyframes pulse-mark {
     0%,
     100% {
-      box-shadow: 0 0 15px currentColor;
+      box-shadow: none;
     }
     50% {
-      box-shadow: 0 0 25px currentColor;
+      box-shadow: none;
     }
   }
 
@@ -7967,7 +7960,7 @@ $purple: #4b70e2;
     border-width: 2px;
     border-style: solid;
     border-radius: 2px;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+    box-shadow: none;
     transition: all 0.3s ease;
     animation: fadeIn 0.3s ease;
 
@@ -7994,11 +7987,11 @@ $purple: #4b70e2;
       gap: 4px;
       padding: 2px 8px;
       background: var(--detection-color);
-      color: #fff;
+      color: #fff !important;
       font-size: 12px;
       font-weight: 600;
       border-radius: 2px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      box-shadow: none;
       font-family:
         "SF Pro Display",
         -apple-system,
@@ -8011,6 +8004,7 @@ $purple: #4b70e2;
       .confidence-badge {
         font-size: 11px;
         opacity: 0.9;
+        color: #fff !important;
       }
     }
   }
@@ -8046,7 +8040,7 @@ $purple: #4b70e2;
     border-radius: 20px;
     font-size: 13px;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
     transition: all 0.3s ease;
 
     .breathing-dot {
@@ -8058,17 +8052,18 @@ $purple: #4b70e2;
 
     .risk-label {
       white-space: nowrap;
+      color: #fff !important;
     }
 
     // 低风险：绿色呼吸灯
     &.low {
       background: rgba(16, 185, 129, 0.95);
       border: 1px solid rgba(16, 185, 129, 1);
-      color: #fff;
+      color: #fff !important;
 
       .breathing-dot {
         background: #fff;
-        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+        box-shadow: none;
         animation: breathing-green 2s ease-in-out infinite;
       }
     }
@@ -8077,11 +8072,11 @@ $purple: #4b70e2;
     &.medium {
       background: rgba(245, 158, 11, 0.95);
       border: 1px solid rgba(245, 158, 11, 1);
-      color: #fff;
+      color: #fff !important;
 
       .breathing-dot {
         background: #fff;
-        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+        box-shadow: none;
         animation: breathing-orange 1.5s ease-in-out infinite;
       }
     }
@@ -8090,11 +8085,11 @@ $purple: #4b70e2;
     &.high {
       background: rgba(239, 68, 68, 0.95);
       border: 1px solid rgba(239, 68, 68, 1);
-      color: #fff;
+      color: #fff !important;
 
       .breathing-dot {
         background: #fff;
-        box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+        box-shadow: none;
         animation: breathing-red 1s ease-in-out infinite;
       }
     }
@@ -8118,7 +8113,7 @@ $purple: #4b70e2;
     backdrop-filter: blur(10px);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: none;
     animation: slideInRight 0.4s ease;
 
     .scene-icon {
@@ -8132,7 +8127,7 @@ $purple: #4b70e2;
     }
 
     .scene-name {
-      color: #fff;
+      color: #fff !important;
       font-size: 14px;
       font-weight: 600;
     }
@@ -8277,7 +8272,7 @@ $purple: #4b70e2;
     }
 
     .legend-label {
-      color: #fff;
+      color: #fff !important;
       font-size: 11px; /* 紧凑模式：从 12px 减少 */
     }
   }
@@ -8305,29 +8300,29 @@ $purple: #4b70e2;
         font-size: 11px;
         font-weight: 600;
         backdrop-filter: blur(8px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        box-shadow: none;
 
         &.emotion {
           &.emotion-angry {
             background: rgba(245, 108, 108, 0.9);
-            color: white;
+            color: white !important;
           }
 
           &.emotion-calm {
             background: rgba(82, 196, 26, 0.9);
-            color: white;
+            color: white !important;
           }
 
           &.emotion-tense,
           &.emotion-serious {
             background: rgba(250, 173, 20, 0.9);
-            color: white;
+            color: white !important;
           }
         }
 
         &.risk-alert {
           background: rgba(245, 108, 108, 0.95);
-          color: white;
+          color: white !important;
           animation: pulse-glow 1.5s ease-in-out infinite;
         }
       }
@@ -8354,7 +8349,7 @@ $purple: #4b70e2;
       display: flex;
       align-items: center;
       gap: 10px;
-      color: white;
+      color: white !important;
     }
 
     .control-icon {
@@ -8391,10 +8386,10 @@ $purple: #4b70e2;
 
       .progress-now {
         height: 100%;
-        background: linear-gradient(90deg, $purple, #7c9df7);
+        background: $purple;
         border-radius: 3px;
         transition: width 0.5s ease;
-        box-shadow: 0 0 8px rgba(75, 112, 226, 0.6);
+        box-shadow: none;
         position: relative;
 
         &::after {
@@ -8453,7 +8448,7 @@ $purple: #4b70e2;
 @keyframes breathing-green {
   0%,
   100% {
-    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+    box-shadow: none;
     opacity: 1;
   }
   50% {
@@ -8468,7 +8463,7 @@ $purple: #4b70e2;
 @keyframes breathing-orange {
   0%,
   100% {
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+    box-shadow: none;
     opacity: 1;
   }
   50% {
@@ -8483,7 +8478,7 @@ $purple: #4b70e2;
 @keyframes breathing-red {
   0%,
   100% {
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+    box-shadow: none;
     opacity: 1;
   }
   50% {
@@ -8523,10 +8518,10 @@ $purple: #4b70e2;
 @keyframes pulse {
   0%,
   100% {
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+    box-shadow: none;
   }
   50% {
-    box-shadow: 0 0 20px var(--detection-color);
+    box-shadow: none;
   }
 }
 
@@ -8633,10 +8628,9 @@ $purple: #4b70e2;
   display: flex;
   flex-direction: column;
   background: $neu-1;
-  border-radius: 20px;
-  box-shadow:
-    8px 8px 16px $neu-2,
-    -8px -8px 16px $white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
   overflow: hidden;
   max-height: 480px;
 
@@ -8645,8 +8639,8 @@ $purple: #4b70e2;
     justify-content: space-between;
     align-items: center;
     padding: 8px 16px;
-    border-bottom: 1px solid rgba($neu-2, 0.3);
-    background: rgba(255, 255, 255, 0.4);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-card);
     flex-wrap: wrap;
     gap: 8px;
 
@@ -8687,9 +8681,9 @@ $purple: #4b70e2;
         padding: 4px 12px;
         font-size: 11px;
         font-weight: 600;
-        border: 1px solid rgba($neu-2, 0.6);
+        border: 1px solid var(--border-color);
         border-radius: 6px;
-        background: white;
+        background: var(--bg-card);
         color: $gray;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -8706,24 +8700,24 @@ $purple: #4b70e2;
         &.active {
           border-color: $purple;
           background: $purple;
-          color: #fff;
-          box-shadow: 0 2px 6px rgba($purple, 0.25);
+          color: #fff !important;
+          box-shadow: none;
         }
 
         // 【新增】模态筛选器特定样式
         &.modality-filter {
           &.risk.active {
             border-color: #f56c6c;
-            background: linear-gradient(135deg, #f56c6c, #ff8a80);
-            color: white;
-            box-shadow: 0 2px 8px rgba(245, 108, 108, 0.35);
+            background: #f56c6c;
+            color: white !important;
+            box-shadow: none;
           }
 
           &.speech.active {
             border-color: #52c41a;
-            background: linear-gradient(135deg, #52c41a, #73d13d);
-            color: white;
-            box-shadow: 0 2px 8px rgba(82, 196, 26, 0.35);
+            background: #52c41a;
+            color: white !important;
+            box-shadow: none;
           }
         }
       }
@@ -8749,7 +8743,7 @@ $purple: #4b70e2;
         border-color: #f59e0b;
         background: rgba(250, 173, 20, 0.15);
         transform: translateY(-1px);
-        box-shadow: 0 2px 6px rgba(250, 173, 20, 0.25);
+        box-shadow: none;
 
         .resume-text {
           opacity: 1;
@@ -8779,7 +8773,7 @@ $purple: #4b70e2;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: rgba(160, 165, 168, 0.3);
+      background: var(--text-tertiary);
       border-radius: 3px;
     }
   }
@@ -8795,15 +8789,15 @@ $purple: #4b70e2;
     transition: all 0.25s ease;
 
     &:hover {
-      background: white;
+      background: var(--bg-hover);
       transform: translateX(-4px);
-      box-shadow: 4px 4px 10px $neu-2;
+      box-shadow: var(--shadow-sm);
     }
 
     &.active {
-      background: white;
+      background: var(--bg-hover);
       border-left-color: $purple;
-      box-shadow: 4px 4px 10px $neu-2;
+      box-shadow: var(--shadow-sm);
       transform: scale(1.02);
     }
 
@@ -8889,12 +8883,12 @@ $purple: #4b70e2;
 
         &.high {
           background: #f56c6c;
-          color: white;
+          color: white !important;
         }
 
         &.medium {
           background: #faad14;
-          color: white;
+          color: white !important;
         }
       }
     }
@@ -8977,7 +8971,7 @@ $purple: #4b70e2;
       font-size: 11px;
       color: #f56c6c;
       font-weight: 500;
-      border-left: 3px solid #f56c6c;
+      
     }
   }
 
@@ -9027,15 +9021,15 @@ $purple: #4b70e2;
 
       // 【双轨编码】激活态外发光 = 风险色
       &.risk-high .event-timeline-anchor .event-dot {
-        box-shadow: 0 0 0 4px rgba(245, 108, 108, 0.25); // 红色外发光
+        box-shadow: none; // 红色外发光
       }
 
       &.risk-medium .event-timeline-anchor .event-dot {
-        box-shadow: 0 0 0 4px rgba(250, 173, 20, 0.25); // 橙色外发光
+        box-shadow: none; // 橙色外发光
       }
 
       &.risk-low .event-timeline-anchor .event-dot {
-        box-shadow: 0 0 0 4px rgba(82, 196, 26, 0.25); // 绿色外发光
+        box-shadow: none; // 绿色外发光
       }
     }
 
@@ -9067,7 +9061,7 @@ $purple: #4b70e2;
         justify-content: center;
         border: 2px solid transparent;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 2px 4px rgba($neu-2, 0.3);
+        box-shadow: none;
         color: white; // 【统一】图标颜色为白色
 
         // 【双轨编码】圆点背景色 = 风险等级（所有模态统一）
@@ -9160,7 +9154,7 @@ $purple: #4b70e2;
         max-width: 85%;
         padding: 6px 12px; // 紧凑内边距
         border-radius: 6px;
-        border-left: 3px solid;
+        
         transition: all 0.2s ease;
 
         // 【模态色标系统】蓝色系 - Visual
@@ -9186,12 +9180,16 @@ $purple: #4b70e2;
             flex-shrink: 0;
           }
 
-          .notif-label {
-            font-size: 12px; // 小字号
-            line-height: 1.5;
-            color: rgba($black, 0.85);
-            font-weight: 500;
+        .notif-label {
+          font-size: 12px; // 小字号
+          line-height: 1.5;
+          color: rgba($black, 0.85);
+          font-weight: 400; // 浅色模式下细一点
+
+          [data-theme='dark'] & {
+            font-weight: 500; // 深色模式保持原字重
           }
+        }
         }
 
         // 【模态色标】显式标签颜色
@@ -9319,7 +9317,7 @@ $purple: #4b70e2;
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px 8px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-color);
 
     .card-title-compact {
       font-size: 13px;
@@ -9467,7 +9465,7 @@ $purple: #4b70e2;
 
           .keyword-chip-small {
             padding: 3px 8px;
-            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            background: rgba(#667eea, 0.1);
             border-radius: 10px;
             font-size: 11px;
             color: #667eea;
@@ -9482,7 +9480,7 @@ $purple: #4b70e2;
 
           .feature-chip-small {
             padding: 3px 8px;
-            background: #f5f7fa;
+            background: var(--bg-hover);
             border-radius: 10px;
             font-size: 11px;
             color: $gray;
@@ -9668,7 +9666,7 @@ $purple: #4b70e2;
 
   .source-url-label {
     flex-shrink: 0;
-    color: #909399;
+    color: var(--text-tertiary);
     font-weight: 500;
   }
 
@@ -9699,7 +9697,7 @@ $purple: #4b70e2;
 
 .description-text {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
@@ -9717,7 +9715,7 @@ $purple: #4b70e2;
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #606266;
+  color: var(--text-secondary);
   font-weight: 600;
   min-width: 100px;
 }
@@ -9738,14 +9736,14 @@ $purple: #4b70e2;
   border: none;
   border-radius: 4px;
   font-size: 12px;
-  color: #606266;
+  color: var(--text-secondary);
   box-shadow: none;
   cursor: default;
   transition: color 0.15s;
 }
 
 .keyword-tag-detected:hover {
-  color: #303133;
+  color: var(--text-primary);
 }
 
 .keyword-tag-detected.university-related {
@@ -9804,12 +9802,12 @@ $purple: #4b70e2;
   font-weight: 600;
   font-size: 13px;
   margin-bottom: 5px;
-  color: #181818;
+  color: var(--text-primary);
 }
 
 .pack-tooltip-desc {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-tertiary);
   margin-bottom: 8px;
   line-height: 1.5;
 }
@@ -9827,7 +9825,7 @@ $purple: #4b70e2;
   background: transparent;
   border-radius: 0;
   font-size: 12px;
-  color: #606266;
+  color: var(--text-secondary);
   line-height: 1.8;
   box-shadow: none;
 }
@@ -9865,9 +9863,9 @@ $purple: #4b70e2;
   margin-left: 12px;
 }
 .identity-badge.identity-suspected {
-  background: #fef0f0;
+  background: rgba(245, 108, 108, 0.12);
   color: #f56c6c;
-  border: 1px solid #fde2e2;
+  border: 1px solid rgba(245, 108, 108, 0.25);
 }
 
 .profile-tag {
@@ -9875,8 +9873,8 @@ $purple: #4b70e2;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: #f0f2f5;
-  color: #606266;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
   border-radius: 4px;
   font-size: 11px;
 }
@@ -9890,7 +9888,7 @@ $purple: #4b70e2;
 }
 
 .divider-vertical {
-  color: #dcdfe6;
+  color: var(--border-color);
   margin: 0 4px;
   font-size: 10px;
 }
@@ -9899,11 +9897,11 @@ $purple: #4b70e2;
 .stats-ribbon-container {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid #ebeef5;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 10px 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow-sm);
   height: auto;
   min-height: 70px;
 }
@@ -9919,13 +9917,13 @@ $purple: #4b70e2;
 }
 
 .ribbon-item:hover {
-  background-color: #fafafa;
+  background-color: var(--bg-hover);
 }
 
 .ribbon-divider {
   width: 1px;
   height: 40px;
-  background: #f0f2f5;
+  background: var(--border-color);
 }
 
 /* 图标容器 */
@@ -9969,14 +9967,14 @@ $purple: #4b70e2;
 
 .ribbon-label {
   font-size: 11px;
-  color: #909399;
+  color: var(--text-tertiary);
   margin-bottom: 2px;
 }
 
 .ribbon-value {
   font-size: 18px;
   font-weight: 700;
-  color: #303133;
+  color: var(--text-primary);
   line-height: 1.2;
   display: flex;
   align-items: center;
@@ -9985,7 +9983,7 @@ $purple: #4b70e2;
 
 .ribbon-value .unit {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-tertiary);
   font-weight: 400;
 }
 
@@ -10007,7 +10005,7 @@ $purple: #4b70e2;
 .ribbon-badge {
   font-size: 10px;
   background: #f56c6c;
-  color: white;
+  color: white !important;
   padding: 1px 5px;
   border-radius: 4px;
   vertical-align: middle;
@@ -10057,7 +10055,7 @@ $purple: #4b70e2;
 /* 极小标签 */
 .stat-label-tiny {
   font-size: 10px;
-  color: #909399;
+  color: $gray;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 2px;
@@ -10076,18 +10074,18 @@ $purple: #4b70e2;
 .stat-value-large {
   font-size: 18px;
   font-weight: 700;
-  color: #303133;
+  color: $black;
 }
 
 .stat-value-medium {
   font-size: 18px;
   font-weight: 600;
-  color: #606266;
+  color: $gray;
 }
 
 .unit-text {
   font-size: 12px;
-  color: #909399;
+  color: $gray;
   font-weight: 400;
 }
 
@@ -10107,34 +10105,34 @@ $purple: #4b70e2;
   background: #f56c6c;
   border-radius: 50%;
   display: inline-block;
-  box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
+  box-shadow: none;
   animation: pulse-red 2s infinite;
 }
 
 @keyframes pulse-red {
   0% {
-    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
+    box-shadow: none;
   }
   70% {
-    box-shadow: 0 0 0 6px rgba(245, 108, 108, 0);
+    box-shadow: none;
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0);
+    box-shadow: none;
   }
 }
 
 /* --- V4 最终版：彩色胶囊样式 --- */
-/* 1. 大容器：半透明白色底座 */
+/* 1. 大容器：半透明底座 */
 .stats-ribbon-container {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--bg-card);
   border-radius: 16px; /* 更圆润 */
   padding: 6px; /* 内边距，让胶囊悬浮 */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); /* 恢复阴影 */
+  box-shadow: none; /* 恢复阴影 */
   gap: 8px; /* 胶囊之间的间距 */
   height: auto;
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border-color);
 }
 
 /* 2. 通用胶囊块 */
@@ -10188,7 +10186,7 @@ $purple: #4b70e2;
 }
 
 .capsule-normal:hover {
-  background: #f5f7fa; /* 悬停微灰 */
+  background: var(--bg-hover);
 }
 
 /* 内部元素细节 */
@@ -10210,14 +10208,14 @@ $purple: #4b70e2;
 
 .capsule-label {
   font-size: 11px;
-  color: #909399;
+  color: $gray;
   margin-bottom: 2px;
 }
 
 .capsule-value {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: $black;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -10226,7 +10224,7 @@ $purple: #4b70e2;
 .capsule-tag {
   font-size: 10px;
   background: #f56c6c;
-  color: white;
+  color: white !important;
   padding: 1px 5px;
   border-radius: 4px;
   line-height: 1.4;
@@ -10234,7 +10232,7 @@ $purple: #4b70e2;
 
 .unit {
   font-size: 12px;
-  color: #909399;
+  color: $gray;
   font-weight: 400;
 }
 
@@ -10288,7 +10286,7 @@ $purple: #4b70e2;
     transform: translateX(-50%);
     padding: 8px 12px;
     background: rgba(75, 112, 226, 0.95);
-    color: white;
+    color: white !important;
     font-size: 12px;
     font-weight: 500;
     border-radius: 6px;
@@ -10298,7 +10296,7 @@ $purple: #4b70e2;
     transition: opacity 0.3s ease;
     transition-delay: 0s;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
 
     // 小箭头
     &::after {
@@ -10348,6 +10346,21 @@ $purple: #4b70e2;
     &:hover {
       transform: translateY(1px) scale(0.98); // 激活时保持按下状态
     }
+
+    // 深色模式：避免浅色内阴影导致“发光边框”观感
+    [data-theme='dark'] & {
+      box-shadow:
+        inset 4px 4px 8px rgba(0, 0, 0, 0.45),
+        inset -4px -4px 8px rgba(255, 255, 255, 0.04);
+
+      &::after {
+        background: linear-gradient(
+          135deg,
+          rgba(75, 112, 226, 0.04) 0%,
+          rgba(102, 126, 234, 0.03) 100%
+        );
+      }
+    }
   }
 }
 
@@ -10395,7 +10408,7 @@ $purple: #4b70e2;
 
 .icon-bg-normal {
   background: rgba(144, 147, 153, 0.1);
-  color: #909399;
+  color: $gray;
 }
 
 .icon-bg-account {
@@ -10514,7 +10527,7 @@ $purple: #4b70e2;
 
 .pro-label {
   font-size: 11px;
-  color: #909399;
+  color: $gray;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -10525,10 +10538,10 @@ $purple: #4b70e2;
     padding: 2px 6px;
     font-size: 10px;
     font-weight: 500;
-    color: #909399;
+    color: $gray;
     background: rgba(0, 0, 0, 0.04);
     border-radius: 3px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border-color);
   }
 }
 
@@ -10551,7 +10564,7 @@ $purple: #4b70e2;
 }
 
 .text-normal {
-  color: #303133;
+  color: $black;
 }
 
 .text-account {
@@ -10572,14 +10585,14 @@ $purple: #4b70e2;
 
 .pro-unit {
   font-size: 12px;
-  color: #c0c4cc;
+  color: var(--text-tertiary);
   font-weight: 400;
   margin-top: 4px;
 }
 
 .pro-subtitle {
   font-size: 12px;
-  color: #606266;
+  color: $gray;
   font-weight: 500;
   margin-top: 3px;
 }
@@ -10588,7 +10601,7 @@ $purple: #4b70e2;
 .pro-tag-risk {
   font-size: 10px;
   background: #f56c6c;
-  color: white;
+  color: white !important;
   padding: 1px 5px;
   border-radius: 4px;
   vertical-align: middle;
@@ -10682,7 +10695,7 @@ $purple: #4b70e2;
     background: $neu-1;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: none;
     page-break-inside: avoid;
   }
 
@@ -10765,9 +10778,9 @@ $purple: #4b70e2;
     border-radius: 2px;
     flex-shrink: 0;
     
-    &.mark-video { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    &.mark-audio { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-    &.mark-text { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    &.mark-video { background: #667eea; }
+    &.mark-audio { background: #f093fb; }
+    &.mark-text { background: #4facfe; }
   }
 
   .evidence-content-report {
@@ -10844,7 +10857,7 @@ $purple: #4b70e2;
     padding: 15px;
     border-radius: 8px;
     text-align: center;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    box-shadow: none;
   }
 
   .fusion-header {
@@ -10913,7 +10926,7 @@ $purple: #4b70e2;
     background: #fff8f0;
     padding: 15px;
     border-radius: 8px;
-    border-left: 4px solid #faad14;
+    
     page-break-inside: avoid;
   }
 
@@ -10968,7 +10981,7 @@ $purple: #4b70e2;
     background: white;
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: none;
     margin-bottom: 10px;
   }
 
@@ -11057,7 +11070,7 @@ $purple: #4b70e2;
     
     &.primary {
       background: $purple;
-      color: white;
+      color: white !important;
       
       &:hover {
         background: darken($purple, 5%);
@@ -11079,7 +11092,7 @@ $purple: #4b70e2;
 :global(.pack-tooltip-popper.el-popper .el-popper__arrow::before) {
   background: #ecf0f3 !important;
   border-color: transparent !important;
-  box-shadow: 2px 2px 4px #d1d9e6 !important;
+  box-shadow: none;
 }
 
 // 文本证据tooltip自定义样式
@@ -11087,26 +11100,19 @@ $purple: #4b70e2;
   max-width: 320px !important;
   padding: 14px 18px !important;
 
-  // 玻璃态背景
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.95),
-    rgba(248, 250, 252, 0.98)
-  ) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
+  // 统一跟随主题变量（深浅色均适配）
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
 
   // 样式
-  color: #1f2937 !important;
+  color: var(--text-primary) !important;
   font-size: 13px !important;
   line-height: 1.7 !important;
-  font-weight: 500 !important;
+  font-weight: 400 !important;
   border-radius: 12px !important;
-  border: 1px solid rgba(203, 213, 225, 0.8) !important;
-  box-shadow:
-    0 8px 24px rgba(15, 23, 42, 0.08),
-    0 2px 8px rgba(15, 23, 42, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 :global(.text-evidence-tooltip.el-popper[data-popper-placement^="top"] .el-popper__arrow) {
@@ -11117,11 +11123,11 @@ $purple: #4b70e2;
   background: transparent !important;
   border-style: solid !important;
   border-width: 8px 8px 0 8px !important;
-  border-top-color: #fbfcfd !important; // 改为指定颜色
+  border-top-color: var(--bg-card) !important;
   border-right-color: transparent !important;
   border-bottom-color: transparent !important;
   border-left-color: transparent !important;
-  filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.04)) !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04)) !important;
   transform: rotate(0deg) !important; // 移除Element Plus默认的旋转
 }
 </style>

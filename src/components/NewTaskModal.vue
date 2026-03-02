@@ -756,13 +756,6 @@ const handleUrlImport = async () => {
 </script>
 
 <style scoped lang="scss">
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
-
 .neu-modal-overlay {
   position: fixed;
   inset: 0;
@@ -775,15 +768,15 @@ $purple: #4b70e2;
 }
 
 .task-modal {
-  background: $neu-1;
-  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
   padding: 28px;
   width: 480px;
   max-width: 90vw;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 12px 12px 24px rgba(163, 177, 198, 0.5),
-              -12px -12px 24px rgba(255, 255, 255, 0.95);
+  box-shadow: none;
 }
 
 .modal-header {
@@ -795,27 +788,27 @@ $purple: #4b70e2;
   .modal-title {
     font-size: 17px;
     font-weight: 700;
-    color: $black;
+    color: var(--text-primary);
     margin: 0;
   }
 
   .close-btn {
     width: 32px;
     height: 32px;
-    border: none;
-    border-radius: 50%;
-    background: $neu-1;
-    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: $gray;
+    color: var(--text-secondary);
     transition: all 0.25s;
 
     &:hover {
       color: #f56c6c;
-      box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+      border-color: #f56c6c;
+      background: #fef0f0;
     }
   }
 }
@@ -833,11 +826,10 @@ $purple: #4b70e2;
     justify-content: center;
     gap: 8px;
     padding: 12px 16px;
-    border: none;
-    border-radius: 12px;
-    background: $neu-1;
-    box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
-    color: $gray;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
     font-size: 13px;
     font-weight: 500;
     font-family: 'Montserrat', sans-serif;
@@ -845,15 +837,25 @@ $purple: #4b70e2;
     transition: all 0.25s;
 
     &:hover {
-      color: $purple;
-      box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+      background: rgba(64, 158, 255, 0.05);
     }
 
     &.active {
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-      color: #fff;
-      box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.1),
-                  0 4px 12px rgba(75, 112, 226, 0.3);
+      background: linear-gradient(135deg, #409EFF 0%, #3a8ee6 100%);
+      color: #fff !important;
+      border-color: var(--color-primary);
+      font-weight: 600;
+      box-shadow: none;
+
+      .el-icon {
+        color: #fff !important;
+      }
+
+      span {
+        color: #fff !important;
+      }
     }
   }
 }
@@ -870,14 +872,14 @@ $purple: #4b70e2;
     :deep(.el-upload-dragger) {
       width: 100%;
       height: 180px;
-      border: none;
-      border-radius: 16px;
-      background: $neu-1;
-      box-shadow: inset 4px 4px 8px $neu-2, inset -4px -4px 8px $white;
+      border: 2px dashed var(--border-color);
+      border-radius: 12px;
+      background: var(--bg-hover);
       transition: all 0.3s;
 
       &:hover {
-        box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+        border-color: var(--color-primary);
+        background: rgba(64, 158, 255, 0.02);
       }
     }
   }
@@ -893,25 +895,25 @@ $purple: #4b70e2;
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: $neu-1;
-      box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: $gray;
+      color: var(--text-secondary);
       margin-bottom: 14px;
     }
 
     .upload-hint {
       font-size: 14px;
-      color: $black;
+      color: var(--text-primary);
       margin: 0 0 6px;
-      em { color: $purple; font-style: normal; font-weight: 500; }
+      em { color: var(--color-primary); font-style: normal; font-weight: 500; }
     }
 
     .upload-tip {
       font-size: 12px;
-      color: $gray;
+      color: var(--text-secondary);
       margin: 0;
     }
   }
@@ -924,20 +926,20 @@ $purple: #4b70e2;
     align-items: center;
     gap: 12px;
     padding: 14px 16px;
-    border-radius: 12px;
-    background: $neu-1;
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    border-radius: 8px;
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
     margin-bottom: 16px;
 
     .file-icon-box {
       width: 44px;
       height: 44px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+      border-radius: 8px;
+      background: var(--color-primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
+      color: #fff !important;
       flex-shrink: 0;
     }
 
@@ -946,8 +948,8 @@ $purple: #4b70e2;
       display: flex;
       flex-direction: column;
       gap: 2px;
-      .file-name { font-size: 13px; font-weight: 600; color: $black; word-break: break-all; }
-      .file-size { font-size: 12px; color: $gray; }
+      .file-name { font-size: 13px; font-weight: 600; color: var(--text-primary); word-break: break-all; }
+      .file-size { font-size: 12px; color: var(--text-secondary); }
     }
   }
 
@@ -961,13 +963,13 @@ $purple: #4b70e2;
       flex: 1;
       height: 6px;
       border-radius: 3px;
-      background: $neu-1;
-      box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-color);
       overflow: hidden;
 
       .progress-fill {
         height: 100%;
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+        background: var(--color-primary);
         border-radius: 3px;
         transition: width 0.3s;
       }
@@ -975,7 +977,7 @@ $purple: #4b70e2;
 
     .progress-label {
       font-size: 12px;
-      color: $purple;
+      color: var(--color-primary);
       font-weight: 600;
       width: 40px;
     }
@@ -990,7 +992,7 @@ $purple: #4b70e2;
     display: block;
     font-size: 12px;
     font-weight: 500;
-    color: $black;
+    color: var(--text-primary);
     margin-bottom: 6px;
   }
 }
@@ -999,27 +1001,29 @@ $purple: #4b70e2;
   width: 100%;
   padding: 12px 16px;
   font-size: 13px;
-  color: $black;
-  background: $neu-1;
-  border: none;
-  border-radius: 10px;
-  box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   outline: none;
   font-family: 'Montserrat', sans-serif;
   transition: all 0.25s;
 
   &:focus {
-    box-shadow: inset 3px 3px 6px $neu-2, inset -3px -3px 6px $white;
+    border-color: var(--color-primary);
+    box-shadow: none;
   }
 
-  &::placeholder { color: $gray; }
+  &::placeholder { color: var(--text-secondary); }
   &:disabled { opacity: 0.5; }
 
   &.has-error {
-    box-shadow: inset 2px 2px 4px rgba(#e74c3c, 0.2), inset -2px -2px 4px $white;
+    border-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.02);
   }
   &.is-valid {
-    box-shadow: inset 2px 2px 4px rgba(#2ecc71, 0.2), inset -2px -2px 4px $white;
+    border-color: #2ecc71;
+    background: rgba(46, 204, 113, 0.02);
   }
 }
 
@@ -1035,7 +1039,7 @@ $purple: #4b70e2;
     font-size: 16px;
     display: flex;
     align-items: center;
-    &.validating { color: $purple; }
+    &.validating { color: var(--color-primary); }
     &.valid { color: #2ecc71; }
   }
 }
@@ -1058,15 +1062,15 @@ $purple: #4b70e2;
   margin: 8px 0 0;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(#e74c3c, 0.06);
-  border-left: 3px solid #e74c3c;
+  background: rgba(231, 76, 60, 0.06);
+  
   font-size: 12px;
   color: #c0392b;
   line-height: 1.5;
 
   .el-icon { flex-shrink: 0; margin-top: 1px; font-size: 13px; }
   .inline-link {
-    color: $purple;
+    color: var(--color-primary);
     text-decoration: none;
     margin-left: 4px;
     &:hover { text-decoration: underline; }
@@ -1081,15 +1085,15 @@ $purple: #4b70e2;
   margin: 8px 0 0;
   padding: 12px 14px;
   border-radius: 10px;
-  background: rgba(#f39c12, 0.07);
-  border-left: 3px solid #f39c12;
+  background: rgba(243, 156, 18, 0.07);
+  
   font-size: 12px;
   color: #856404;
   line-height: 1.5;
 
   &.login-required {
-    background: rgba(#e67e22, 0.07);
-    border-left-color: #e67e22;
+    background: rgba(230, 126, 34, 0.07);
+    
     color: #7d4e00;
   }
 
@@ -1105,7 +1109,7 @@ $purple: #4b70e2;
 
   .warn-tip {
     margin: 2px 0 6px;
-    color: #6c5a00;
+    color: var(--text-secondary);
     font-size: 11px;
     line-height: 1.6;
   }
@@ -1115,11 +1119,10 @@ $purple: #4b70e2;
     align-items: center;
     gap: 5px;
     padding: 5px 12px;
-    border: none;
-    border-radius: 7px;
-    background: $neu-1;
-    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
-    color: $purple;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--color-primary);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -1127,7 +1130,8 @@ $purple: #4b70e2;
     align-self: flex-start;
 
     &:hover {
-      box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+      border-color: var(--color-primary);
+      background: rgba(64, 158, 255, 0.05);
     }
   }
 }
@@ -1136,9 +1140,9 @@ $purple: #4b70e2;
 .cookie-panel {
   margin-top: 10px;
   padding: 16px;
-  border-radius: 12px;
-  background: $neu-1;
-  box-shadow: inset 3px 3px 6px $neu-2, inset -3px -3px 6px $white;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
 
   .cookie-panel-header {
     display: flex;
@@ -1146,9 +1150,9 @@ $purple: #4b70e2;
     gap: 6px;
     font-size: 13px;
     font-weight: 600;
-    color: $black;
+    color: var(--text-primary);
     margin-bottom: 12px;
-    .el-icon { color: $purple; }
+    .el-icon { color: var(--color-primary); }
   }
 
   .cookie-steps {
@@ -1162,7 +1166,7 @@ $purple: #4b70e2;
       align-items: flex-start;
       gap: 8px;
       font-size: 12px;
-      color: #555;
+      color: var(--text-secondary);
       line-height: 1.5;
 
       .step-num {
@@ -1170,8 +1174,8 @@ $purple: #4b70e2;
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-        color: #fff;
+        background: var(--color-primary);
+        color: #fff !important;
         font-size: 10px;
         font-weight: 700;
         display: flex;
@@ -1187,17 +1191,16 @@ $purple: #4b70e2;
     padding: 10px 12px;
     font-size: 11px;
     font-family: 'Courier New', monospace;
-    color: $black;
-    background: $neu-1;
-    border: none;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
     outline: none;
     resize: vertical;
     line-height: 1.6;
     box-sizing: border-box;
 
-    &::placeholder { color: $gray; font-family: 'Montserrat', sans-serif; }
+    &::placeholder { color: var(--text-secondary); font-family: 'Montserrat', sans-serif; }
   }
 
   .cookie-panel-footer {
@@ -1231,18 +1234,19 @@ $purple: #4b70e2;
 
 // URL 输入框 warn 状态
 .neu-input.has-warn {
-  box-shadow: inset 2px 2px 4px rgba(#f39c12, 0.2), inset -2px -2px 4px $white;
+  border-color: #f39c12;
+  background: rgba(243, 156, 18, 0.02);
 }
 
 .inline-link {
-  color: $purple;
+  color: var(--color-primary);
   text-decoration: none;
   &:hover { text-decoration: underline; }
 }
 .field-hint {
   margin: 5px 0 0;
   font-size: 12px;
-  color: $gray;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1255,12 +1259,12 @@ $purple: #4b70e2;
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: $gray;
+  color: var(--text-secondary);
   padding: 10px 14px;
   border-radius: 10px;
-  background: rgba($purple, 0.06);
+  background: rgba(64, 158, 255, 0.06);
 
-  .el-icon { color: $purple; font-size: 14px; }
+  .el-icon { color: var(--color-primary); font-size: 14px; }
 }
 
 // 底部操作
@@ -1274,7 +1278,7 @@ $purple: #4b70e2;
 .neu-btn {
   padding: 10px 22px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   font-family: 'Montserrat', sans-serif;
@@ -1282,26 +1286,27 @@ $purple: #4b70e2;
   transition: all 0.25s;
 
   &.cancel {
-    background: $neu-1;
-    color: $gray;
-    box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
 
     &:hover {
-      color: $black;
-      box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+      color: var(--text-primary);
+      border-color: var(--text-primary);
     }
   }
 
   &.primary {
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
-    box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
+    background: var(--color-primary);
+    color: #fff !important;
+    border: 1px solid var(--color-primary);
     display: flex;
     align-items: center;
     gap: 6px;
 
     &:hover:not(:disabled) {
-      box-shadow: 4px 4px 10px rgba(75, 112, 226, 0.3), -2px -2px 6px $white;
+      background: #3a8ee6;
+      border-color: #3a8ee6;
     }
 
     &:disabled {
@@ -1314,19 +1319,22 @@ $purple: #4b70e2;
 .neu-btn-sm {
   width: 28px;
   height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: $neu-1;
-  box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: $gray;
+  color: var(--text-secondary);
   font-size: 12px;
   transition: all 0.25s;
 
-  &:hover { color: #f56c6c; }
+  &:hover {
+    color: #f56c6c;
+    border-color: #f56c6c;
+    background: #fef0f0;
+  }
 }
 
 .rotating {
@@ -1342,11 +1350,9 @@ $purple: #4b70e2;
 .package-panel {
   margin-top: 16px;
   padding: 16px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(75, 112, 226, 0.12);
-  box-shadow: 0 2px 12px rgba(75, 112, 226, 0.06);
+  border-radius: 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
   overflow: hidden;
 }
 
@@ -1368,36 +1374,36 @@ $purple: #4b70e2;
   .pp-icon {
     width: 14px;
     height: 14px;
-    color: $purple;
+    color: var(--color-primary);
     flex-shrink: 0;
   }
 
   .pp-optional {
     font-size: 10px;
     font-weight: 400;
-    color: $gray;
+    color: var(--text-secondary);
     padding: 1px 6px;
     border-radius: 20px;
-    background: rgba($gray, 0.1);
+    background: rgba(160, 165, 168, 0.1);
   }
 
   .pp-help {
     width: 13px;
     height: 13px;
-    color: $gray;
+    color: var(--text-secondary);
     cursor: help;
     flex-shrink: 0;
     transition: color 0.2s;
 
-    &:hover { color: $purple; }
+    &:hover { color: var(--color-primary); }
   }
 }
 
 .pp-selected-count {
   font-size: 11px;
   font-weight: 500;
-  color: $purple;
-  background: rgba($purple, 0.08);
+  color: var(--color-primary);
+  background: rgba(64, 158, 255, 0.08);
   padding: 2px 8px;
   border-radius: 20px;
 }
@@ -1407,17 +1413,17 @@ $purple: #4b70e2;
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: $gray;
+  color: var(--text-secondary);
   padding: 4px 0;
 }
 
 .pp-empty {
   font-size: 12px;
-  color: $gray;
+  color: var(--text-secondary);
   padding: 4px 0;
 
   .pp-link {
-    color: $purple;
+    color: var(--color-primary);
     cursor: pointer;
     text-decoration: none;
     font-weight: 500;
@@ -1434,30 +1440,28 @@ $purple: #4b70e2;
 .pp-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   padding: 6px 12px 6px 3px;
   border-radius: 20px;
-  border: 1.5px solid #e2e8f0;
-  background: $neu-1;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
   color: #6b7280;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
   font-family: 'Montserrat', sans-serif;
 
   &:hover {
-    border-color: rgba($purple, 0.4);
-    color: $purple;
-    box-shadow: 1px 1px 3px $neu-2, -1px -1px 3px $white;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: rgba(64, 158, 255, 0.05);
   }
 
   &.is-selected {
-    border-color: $purple;
-    background: rgba($purple, 0.06);
-    color: $purple;
-    box-shadow: inset 1px 1px 3px rgba($purple, 0.1), 1px 1px 3px $neu-2;
+    border-color: var(--color-primary);
+    background: rgba(64, 158, 255, 0.1);
+    color: var(--color-primary);
   }
 
   .pp-tag-dot {
@@ -1473,19 +1477,19 @@ $purple: #4b70e2;
 
   .pp-tag-count {
     font-size: 10px;
-    color: $gray;
+    color: var(--text-secondary);
     opacity: 0.8;
   }
 
   &.is-selected .pp-tag-count {
-    color: rgba($purple, 0.6);
+    color: rgba(64, 158, 255, 0.6);
   }
 
   .pp-tag-check {
     width: 11px;
     height: 11px;
     flex-shrink: 0;
-    color: $purple;
+    color: var(--color-primary);
   }
 }
 

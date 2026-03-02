@@ -62,6 +62,7 @@
           @toggle-menu="toggleMenu"
           @preview="handlePreview"
           @rename="handleRename"
+          @move-to-folder="handleMoveToFolder"
           @export="handleExport"
           @retry-download="handleRetryDownload"
           @reanalyze="handleReanalyze"
@@ -82,6 +83,7 @@
           @toggle-menu="toggleMenu"
           @preview="handlePreview"
           @rename="handleRename"
+          @move-to-folder="handleMoveToFolder"
           @export="handleExport"
           @retry-download="handleRetryDownload"
           @reanalyze="handleReanalyze"
@@ -142,10 +144,84 @@
 
     <!-- 视频预览弹窗 -->
     <VideoPreviewModal
-      v-if="previewRecord"
-      :record="previewRecord"
-      @close="previewRecord = null"
+      v-model:visible="previewVisible"
+      :video-url="previewVideoUrl"
+      :title="previewTitle"
     />
+
+    <!-- 重命名弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div class="neu-overlay" v-if="renameState.visible" @click.self="renameState.visible = false">
+          <div class="neu-modal">
+            <h3 class="modal-title">重命名</h3>
+            <input
+              v-model="renameState.title"
+              class="neu-input"
+              placeholder="请输入新标题"
+              maxlength="200"
+              @keyup.enter="confirmRename"
+            />
+            <div class="modal-footer">
+              <button class="ctrl-btn" @click="renameState.visible = false">取消</button>
+              <button class="ctrl-btn primary" @click="confirmRename" :disabled="!renameState.title.trim()">确定</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 删除确认 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div class="neu-overlay" v-if="deleteState.visible" @click.self="deleteState.visible = false">
+          <div class="neu-modal">
+            <div class="confirm-header">
+              <h3 class="modal-title">确认删除</h3>
+            </div>
+            <p class="confirm-desc">删除后将无法恢复，确定要删除「{{ deleteState.title }}」吗？</p>
+            <div class="modal-footer">
+              <button class="ctrl-btn" @click="deleteState.visible = false">取消</button>
+              <button class="ctrl-btn danger delete-confirm-btn" @click="confirmDelete" :disabled="deleteState.loading">
+                {{ deleteState.loading ? '删除中...' : '删除' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 移动到文件夹弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div class="neu-overlay" v-if="moveToFolderState.visible" @click.self="moveToFolderState.visible = false">
+          <div class="neu-modal">
+            <h3 class="modal-title">移动到文件夹</h3>
+            <div class="move-folder-list">
+              <button
+                class="move-folder-option"
+                :class="{ active: moveToFolderState.targetFolderId === null }"
+                @click="moveToFolderState.targetFolderId = null"
+              >📁 未分类</button>
+              <button
+                v-for="f in folderOptions"
+                :key="f.id"
+                class="move-folder-option"
+                :class="{ active: moveToFolderState.targetFolderId === f.id }"
+                :style="{ paddingLeft: (f.depth * 16 + 12) + 'px' }"
+                @click="moveToFolderState.targetFolderId = f.id"
+              >📁 {{ f.name }}</button>
+            </div>
+            <div class="modal-footer">
+              <button class="ctrl-btn" @click="moveToFolderState.visible = false">取消</button>
+              <button class="ctrl-btn primary" @click="confirmMoveToFolder" :disabled="moveToFolderState.loading">
+                {{ moveToFolderState.loading ? '移动中...' : '确定' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 全局来源 Tooltip -->
     <Teleport to="body">
@@ -165,13 +241,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Check, Grid, List, Warning, DCaret, Search, Close, Loading, ArrowLeft, ArrowRight, Connection } from '@element-plus/icons-vue'
-import { getFavoriteList, renameVideo } from '@/api'
+import { getFavoriteList, renameVideo, deleteVideo, getResultById } from '@/api'
 import type { AnalysisTaskVO } from '@/types'
 import { useFavoritesStore } from '@/stores/favorites'
+import { useFolderStore } from '@/stores/folder'
 import { useExportReport } from '@/composables/useExportReport'
 import CardView from '@/components/CardView.vue'
 import ListView from '@/components/ListView.vue'
@@ -180,6 +257,7 @@ import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
 
 const router = useRouter()
 const favStore = useFavoritesStore()
+const folderStore = useFolderStore()
 const { exportReportByUrl, exportingIds } = useExportReport()
 
 // ── 视图 ──
@@ -266,7 +344,26 @@ const loadRecords = async () => {
 
 // ── 操作 ──
 const openMenuId = ref<string | null>(null)
-const previewRecord = ref<AnalysisTaskVO | null>(null)
+
+// 预览（与 RecordsCenter 保持一致）
+const previewVisible = ref(false)
+const previewVideoUrl = ref<string | null>(null)
+const previewTitle = ref<string | undefined>(undefined)
+
+// 重命名状态（与记录中心行为对齐）
+const renameState = reactive({ visible: false, videoId: '', title: '', originalTitle: '' })
+
+// 删除状态
+const deleteState = reactive({ visible: false, videoId: '', title: '', loading: false })
+
+// 移动到文件夹状态
+const moveToFolderState = reactive({
+  visible: false,
+  videoIds: [] as string[],
+  targetFolderId: null as string | null,
+  loading: false
+})
+const folderOptions = computed(() => folderStore.flatFolders())
 
 const toggleMenu = (id: string) => { openMenuId.value = openMenuId.value === id ? null : id }
 
@@ -276,28 +373,126 @@ const handleCardClick = (record: AnalysisTaskVO) => {
   }
 }
 
-const handlePreview = (record: AnalysisTaskVO) => { previewRecord.value = record }
+const handlePreview = (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+  previewVideoUrl.value = record.videoUrl || null
+  previewTitle.value = record.videoTitle || undefined
+  previewVisible.value = true
+}
 
-const handleRename = async (record: AnalysisTaskVO) => {
-  const newTitle = prompt('重命名', record.videoTitle)
-  if (newTitle && newTitle.trim() && newTitle !== record.videoTitle) {
-    await renameVideo(record.videoId, newTitle.trim())
+const handleRename = (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+  renameState.videoId = record.videoId
+  renameState.title = record.videoTitle || ''
+  renameState.originalTitle = record.videoTitle || ''
+  renameState.visible = true
+}
+
+const confirmRename = async () => {
+  const newTitle = renameState.title.trim()
+  if (!newTitle) return
+
+  // 与记录中心一致：同名时不提示，直接关闭
+  if (newTitle === renameState.originalTitle.trim()) {
+    renameState.visible = false
+    return
+  }
+
+  try {
+    const res = await renameVideo(renameState.videoId, newTitle)
+    if (res.code === 200) {
+      ElMessage.success('重命名成功')
+      renameState.visible = false
+      await loadRecords()
+    } else {
+      ElMessage.error(res.message || '重命名失败')
+    }
+  } catch {
+    // 拦截器会处理错误提示
+  }
+}
+
+const handleMoveToFolder = (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+  moveToFolderState.videoIds = [record.videoId]
+  moveToFolderState.targetFolderId = record.folderId ?? null
+  moveToFolderState.visible = true
+}
+
+const confirmMoveToFolder = async () => {
+  if (moveToFolderState.videoIds.length === 0) return
+  moveToFolderState.loading = true
+  try {
+    await folderStore.moveVideos(moveToFolderState.videoIds, moveToFolderState.targetFolderId)
+    ElMessage.success('移动成功')
+    moveToFolderState.visible = false
     await loadRecords()
+  } catch (e: any) {
+    ElMessage.error(e.message || '移动失败')
+  } finally {
+    moveToFolderState.loading = false
   }
 }
 
-const handleExport = (record: AnalysisTaskVO) => {
+const handleExport = async (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+
+  const fileName = record.videoTitle ? record.videoTitle.replace(/\.[^.]+$/, '.pdf') : undefined
+
+  // 优先使用列表里携带的 PDF 地址
   if (record.reportPdfUrl) {
-    const fileName = record.videoTitle ? record.videoTitle.replace(/\.[^.]+$/, '.pdf') : undefined
-    exportReportByUrl(record.reportPdfUrl, fileName)
-  } else {
-    ElMessage.warning('PDF 报告尚未生成')
+    await exportReportByUrl(record.reportPdfUrl, fileName)
+    return
+  }
+
+  // 收藏列表可能不回传 reportPdfUrl，降级按 resultId 拉取详情
+  if (record.resultId) {
+    try {
+      const res = await getResultById(record.resultId)
+      const pdfUrl = (res.data as any)?.reportPdfUrl as string | undefined
+      if (pdfUrl) {
+        // 回填，避免同一条记录重复请求详情
+        record.reportPdfUrl = pdfUrl
+        await exportReportByUrl(pdfUrl, fileName)
+        return
+      }
+    } catch {
+      // 错误提示由拦截器处理
+    }
+  }
+
+  ElMessage.warning('PDF 报告尚未生成')
+}
+
+const handleDelete = (record: AnalysisTaskVO) => {
+  openMenuId.value = null
+  deleteState.videoId = record.videoId
+  deleteState.title = record.videoTitle || '未命名'
+  deleteState.visible = true
+}
+
+const confirmDelete = async () => {
+  if (deleteState.loading || !deleteState.videoId) return
+  deleteState.loading = true
+  try {
+    const res = await deleteVideo(deleteState.videoId)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      deleteState.visible = false
+      await loadRecords()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch {
+    // 拦截器会处理错误提示
+  } finally {
+    deleteState.loading = false
   }
 }
+
 const handleRetryDownload = () => { loadRecords() }
 const handleReanalyze = () => { loadRecords() }
 const handleCancel = () => { loadRecords() }
-const handleDelete = () => { loadRecords() }
 const handleFavoriteChange = () => { loadRecords() }
 
 // ── Tooltip ──
@@ -326,15 +521,15 @@ onUnmounted(() => { document.removeEventListener('click', handleOutsideClick) })
 </script>
 
 <style scoped lang="scss">
-$neu-1: #ecf0f3;
-$neu-2: #c8d0e7;
-$white: #ffffff;
-$gray: #8a9bb0;
-$black: #1a1f2e;
-$purple: #4b70e2;
-$purple-light: #7c9df7;
-$shadow-sm: 4px 4px 10px $neu-2, -4px -4px 10px $white;
-$shadow-in: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
+$neu-1: #F5F7FA;
+$neu-2: #DCDFE6;
+$white: #FFFFFF;
+$gray: #909399;
+$black: #303133;
+$purple: #409EFF;
+$purple-light: #66b1ff;
+$shadow-sm: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+$shadow-in: none;
 
 .favorites-page {
   width: 100%;
@@ -349,68 +544,100 @@ $shadow-in: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px;
   flex-wrap: wrap; gap: 12px;
   .header-left { display: flex; align-items: baseline; gap: 12px; flex-shrink: 0; }
-  .page-title { font-size: 22px; font-weight: 700; color: $black; margin: 0; letter-spacing: -.3px; }
-  .record-count { font-size: 13px; color: $gray; }
+  .page-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; letter-spacing: -.3px; }
+  .record-count { font-size: 13px; color: var(--text-secondary); }
   .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; height: 38px; overflow: visible; }
 }
 
 .search-box {
   position: relative; display: flex; align-items: center;
-  background: $neu-1; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px;
   box-shadow: $shadow-sm; padding: 0 12px; height: 38px; min-width: 220px;
-  .search-icon { color: $gray; font-size: 14px; flex-shrink: 0; }
+  .search-icon { color: var(--text-secondary); font-size: 14px; flex-shrink: 0; }
   .search-input {
     flex: 1; border: none; background: transparent; outline: none;
-    font-size: 13px; color: $black; padding: 0 8px;
-    &::placeholder { color: rgba($gray,.6); }
+    font-size: 13px; color: var(--text-primary); padding: 0 8px;
+    &::placeholder { color: rgba(144, 147, 153, 0.6); }
   }
   .search-clear {
-    border: none; background: transparent; cursor: pointer; color: $gray;
+    border: none; background: transparent; cursor: pointer; color: var(--text-secondary);
     display: flex; align-items: center; padding: 0;
-    &:hover { color: $black; }
+    &:hover { color: var(--text-primary); }
   }
+  &:focus-within { border-color: var(--color-primary); }
 }
 
 // ── 视图切换 ──
 .view-switcher { position: relative; }
 .view-dropdown {
   position: absolute; right: 0; top: calc(100% + 8px); min-width: 150px;
-  background: $neu-1; border-radius: 14px; padding: 6px;
-  box-shadow: 10px 10px 24px darken($neu-2, 8%), -10px -10px 24px $white, 0 4px 16px rgba(0,0,0,.1);
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px;
+  box-shadow: none;
   z-index: 200;
 }
 .view-option {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 13px;
-  border: none; border-radius: 9px; background: transparent; color: $black;
+  border: none; border-radius: 8px; background: transparent; color: var(--text-primary);
   font-size: 13px; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: all .2s;
-  .el-icon { font-size: 14px; color: $gray; }
-  .check-icon { margin-left: auto; color: $purple; font-size: 13px; }
+  .el-icon { font-size: 14px; color: var(--text-secondary); }
+  .check-icon { margin-left: auto; color: var(--color-primary); font-size: 13px; }
   span { flex: 1; text-align: left; }
 
   &:hover {
-    background: $neu-1;
-    box-shadow: $shadow-in;
-    .el-icon { color: $purple; }
+    background: var(--bg-hover);
+    .el-icon { color: var(--color-primary); }
   }
   &.active {
-    color: $purple; font-weight: 600;
-    .el-icon { color: $purple; }
+    color: var(--color-primary); font-weight: 600;
+    .el-icon { color: var(--color-primary); }
   }
 }
 
 // ── 控制按钮 ──
 .ctrl-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border: none; border-radius: 12px; cursor: pointer;
-  font-size: 13px; font-weight: 600; color: $gray; background: $neu-1;
-  box-shadow: $shadow-sm; transition: all .25s;
+  padding: 8px 16px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary); background: var(--bg-card);
+  box-shadow: none; transition: all .25s;
   .el-icon { font-size: 14px; }
-  &:hover { color: $purple; box-shadow: 6px 6px 14px darken($neu-2,4%), -6px -6px 14px $white; }
-  &.active { box-shadow: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white; color: $purple; }
+  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
+  &.active {
+    background: linear-gradient(135deg, #409EFF 0%, #3a8ee6 100%);
+    color: #fff !important;
+    border-color: var(--color-primary);
+    font-weight: 600;
+    box-shadow: none;
+
+    .el-icon {
+      color: #fff !important;
+    }
+  }
   &.primary {
-    background: linear-gradient(135deg, $purple, $purple-light); color: #fff;
-    box-shadow: 4px 4px 12px rgba($purple,.35), -2px -2px 8px $white;
-    &:hover { box-shadow: 6px 6px 18px rgba($purple,.45), -2px -2px 8px $white; }
+    background: var(--color-primary); border-color: var(--color-primary); color: #fff !important;
+    &:hover { background: #66b1ff; border-color: #66b1ff; }
+  }
+
+  &.danger {
+    color: #e74c3c;
+    border-color: rgba(231, 76, 60, 0.45);
+    background: rgba(231, 76, 60, 0.1);
+
+    &:hover:not(:disabled) {
+      background: #e74c3c;
+      border-color: #e74c3c;
+      color: #fff !important;
+    }
+
+    &:active:not(:disabled) {
+      background: #d84a3a;
+      border-color: #d84a3a;
+      color: #fff !important;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   }
 }
 
@@ -439,13 +666,13 @@ $shadow-in: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
-.empty-title { font-size: 18px; font-weight: 700; color: $black; margin: 0; }
-.empty-desc { font-size: 13px; color: $gray; margin: 0; max-width: 320px; line-height: 1.6; }
+.empty-title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.empty-desc { font-size: 13px; color: var(--text-secondary); margin: 0; max-width: 320px; line-height: 1.6; }
 
 // ── 加载 ──
 .loading-state {
   display: flex; align-items: center; justify-content: center; gap: 12px;
-  padding: 60px; color: $gray; font-size: 14px;
+  padding: 60px; color: var(--text-secondary); font-size: 14px;
   .rotating { animation: spin 1s linear infinite; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -463,11 +690,11 @@ $shadow-in: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
       background: $neu-1;
       box-shadow: $shadow-sm;
       border: none;
-      font-size: 13px; font-weight: 600; color: $black;
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
       gap: 8px; white-space: nowrap;
       transition: all .25s;
       outline: none;
-      &:hover { color: $purple; box-shadow: 3px 3px 7px $neu-2, -3px -3px 7px $white; }
+      &:hover { color: var(--color-primary); box-shadow: none; }
     }
     :deep(.neu-select-dropdown) { min-width: 130px; }
   }
@@ -478,11 +705,11 @@ $shadow-in: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   .page-btn {
     width: 38px; height: 38px; border: none; border-radius: 11px; background: $neu-1;
     box-shadow: $shadow-sm; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    color: $gray; transition: all .25s;
-    &:hover:not(:disabled) { color: $purple; box-shadow: 3px 3px 7px $neu-2, -3px -3px 7px $white; }
+    color: var(--text-secondary); transition: all .25s;
+    &:hover:not(:disabled) { color: var(--color-primary); box-shadow: none; }
     &:disabled { opacity: .4; cursor: not-allowed; }
   }
-  .page-info { font-size: 13px; color: $black; font-weight: 600; }
+  .page-info { font-size: 13px; color: var(--text-primary); font-weight: 600; }
 }
 
 // ── Tooltip ──
@@ -492,6 +719,120 @@ $shadow-in: inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   padding: 6px 12px; border-radius: 8px; pointer-events: auto;
   backdrop-filter: blur(8px); word-break: break-all;
 }
+
+// ── 弹窗（与 RecordsCenter 对齐） ──
+.neu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.28);
+  backdrop-filter: blur(5px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neu-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 28px;
+  width: 380px;
+  max-width: 90vw;
+  box-shadow: none;
+
+  .modal-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 16px;
+  }
+
+  .confirm-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+  }
+}
+
+.neu-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  font-family: 'Montserrat', sans-serif;
+  transition: all .25s;
+
+  &:focus { border-color: var(--color-primary); }
+  &::placeholder { color: var(--text-secondary); }
+}
+
+.move-folder-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 12px 0;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  padding: 6px;
+
+  .move-folder-option {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: all .15s;
+
+    &:hover { background: rgba(64, 158, 255, .08); }
+    &.active { background: var(--color-primary); color: #fff; }
+  }
+}
+
+.delete-confirm-btn {
+  color: #fff !important;
+  background: #e74c3c !important;
+  border-color: #e74c3c !important;
+
+  &:hover:not(:disabled) {
+    color: #fff !important;
+    background: #f56c6c !important;
+    border-color: #f56c6c !important;
+  }
+
+  &:active:not(:disabled) {
+    color: #fff !important;
+    background: #d84a3a !important;
+    border-color: #d84a3a !important;
+  }
+
+  &:disabled {
+    color: rgba(255, 255, 255, 0.88) !important;
+    background: rgba(231, 76, 60, 0.72) !important;
+    border-color: rgba(231, 76, 60, 0.72) !important;
+  }
+}
+
+.modal-fade-enter-active { transition: opacity .2s ease; .neu-modal { transition: transform .2s cubic-bezier(.34,1.56,.64,1), opacity .2s ease; } }
+.modal-fade-leave-active { transition: opacity .15s ease; .neu-modal { transition: transform .15s ease, opacity .15s ease; } }
+.modal-fade-enter-from { opacity: 0; .neu-modal { transform: scale(.88); opacity: 0; } }
+.modal-fade-leave-to { opacity: 0; .neu-modal { transform: scale(.95); opacity: 0; } }
 
 // ── 过渡 ──
 .view-fade-enter-active, .view-fade-leave-active { transition: opacity .2s; }

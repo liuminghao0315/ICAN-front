@@ -1,8 +1,35 @@
 ﻿<template>
-  <!-- Toast 消息提示组件 -->
-  <Toast :message="toast.message.value" :type="toast.type.value" @close="toast.hideToast" />
-
   <div class="auth-wrapper">
+    <!-- Toast 消息提示组件 -->
+    <Toast :message="toast.message.value" :type="toast.type.value" @close="toast.hideToast" />
+    <div class="auth-page-header">
+      <div class="brand-block">
+        <div class="brand-logo">S</div>
+        <div class="brand-text">
+          <h1>SynSight</h1>
+          <p>智能内容创作者行为分析平台</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="auth-tip">首次使用请先注册账号</span>
+        <button class="theme-toggle-btn" @click="toggleTheme" :title="isDarkMode ? '切换到浅色模式' : '切换到深色模式'">
+          <svg v-if="isDarkMode" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
     <div class="main">
     <!-- 注册容器 -->
     <div class="container a-container" :class="{ 'is-txl': isLogin }" id="a-container">
@@ -131,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { login, register, sendRegisterCode, getMe } from '@/api'
 import type { LoginParams, RegisterParams, SendRegisterCodeParams } from '@/api'
@@ -139,10 +166,25 @@ import Toast from '@/components/Toast.vue'
 import { useToast } from '@/composables/useToast'
 import { validateUsername, validatePassword, validateEmail } from '@/utils/validation'
 import { useUserStore } from '@/stores/user'
+import { useSettingsStore } from '@/stores/settings'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const settingsStore = useSettingsStore()
+
+const isDarkMode = ref(document.documentElement.getAttribute('data-theme') === 'dark')
+
+const syncThemeState = () => {
+  isDarkMode.value = document.documentElement.getAttribute('data-theme') === 'dark'
+}
+
+const toggleTheme = () => {
+  settingsStore.setTheme(isDarkMode.value ? 'light' : 'dark')
+  syncThemeState()
+}
+
+let themeObserver: MutationObserver | null = null
 
 // 表单状态 - 根据路由路径初始化
 const isLogin = ref(route.path === '/login')
@@ -154,6 +196,28 @@ watch(() => route.path, (newPath) => {
     isLogin.value = true
   } else if (newPath === '/register') {
     isLogin.value = false
+  }
+})
+
+onMounted(() => {
+  syncThemeState()
+  themeObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+        syncThemeState()
+      }
+    })
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+  })
+})
+
+onUnmounted(() => {
+  if (themeObserver) {
+    themeObserver.disconnect()
+    themeObserver = null
   }
 })
 
@@ -487,12 +551,12 @@ const handleLogin = async () => {
 
 <style scoped lang="scss">
 $bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
+$neu-1: #F5F7FA;
+$neu-2: #DCDFE6;
+$white: #FFFFFF;
 $gray: #a0a5a8;
 $black: #181818;
-$purple: #4b70e2;
+$purple: #409EFF;
 $transition: 1.25s;
 
 *,
@@ -508,10 +572,92 @@ $transition: 1.25s;
   width: 100vw;
   height: 100vh;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: rgb(236, 241, 244);
+  background-color: var(--bg-page, rgb(236, 241, 244));
   overflow: auto;
+  padding: 24px;
+  gap: 18px;
+}
+
+.auth-page-header {
+  width: 1000px;
+  min-width: 1000px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border: 1px solid var(--border-color, #EBEEF5);
+  border-radius: 8px;
+  background: var(--bg-card, #fff);
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.brand-text {
+  h1 {
+    font-size: 20px;
+    line-height: 1.2;
+    color: var(--text-primary, #181818);
+  }
+
+  p {
+    font-size: 12px;
+    color: var(--text-secondary, #909399);
+    margin-top: 2px;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-tip {
+  font-size: 12px;
+  color: var(--text-secondary, #909399);
+}
+
+.theme-toggle-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #EBEEF5);
+  background: transparent;
+  color: var(--text-secondary, #606266);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    color: var(--color-primary, #409EFF);
+    border-color: var(--color-primary, #409EFF);
+  }
 }
 
 .main {
@@ -521,9 +667,10 @@ $transition: 1.25s;
   min-height: 600px;
   height: 600px;
   padding: 25px;
-  background-color: $neu-1;
-  box-shadow: 10px 10px 10px $neu-2, -10px -10px 10px $white;
-  border-radius: 12px;
+  background-color: $white;
+  box-shadow: none;
+  border: 1px solid #EBEEF5;
+  border-radius: 8px;
   overflow: hidden;
 
   @media (max-width: 1200px) {
@@ -549,7 +696,7 @@ $transition: 1.25s;
   width: 600px;
   height: 100%;
   padding: 25px;
-  background-color: $neu-1;
+  background-color: $white;
   transition: $transition;
 }
 
@@ -582,16 +729,15 @@ $transition: 1.25s;
     padding-left: 25px;
     font-size: 13px;
     letter-spacing: 0.15px;
-    border: none;
+    border: 1px solid #DCDFE6;
     outline: none;
     font-family: 'Montserrat', sans-serif;
-    background-color: $neu-1;
+    background-color: $white;
     transition: 0.25s ease;
     border-radius: 8px;
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
 
     &:focus {
-      box-shadow: inset 4px 4px 4px $neu-2, inset -4px -4px 4px $white;
+      border: 1px solid #409EFF;
     }
   }
 
@@ -608,10 +754,9 @@ $transition: 1.25s;
     justify-content: center;
     gap: 6px;
     padding: 8px 16px;
-    background-color: rgba(75, 112, 226, 0.08);
+    background-color: rgba(64, 158, 255, 0.08);
     border-radius: 8px;
-    box-shadow: inset 1px 1px 2px rgba(209, 217, 230, 0.3),
-      inset -1px -1px 2px rgba(249, 249, 249, 0.5);
+    border: 1px solid #EBEEF5;
     width: 350px;
 
     .subtitle-icon {
@@ -661,27 +806,27 @@ $transition: 1.25s;
 .button {
   width: 180px;
   height: 50px;
-  border-radius: 25px;
+  border-radius: 8px;
   margin-top: 50px;
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 1.15px;
   background-color: $purple;
   color: $white;
-  box-shadow: 8px 8px 16px $neu-2, -8px -8px 16px $white;
+  box-shadow: none;
   border: none;
   outline: none;
   cursor: pointer;
   transition: 0.25s;
 
   &:hover {
-    box-shadow: 6px 6px 10px $neu-2, -6px -6px 10px $white;
+    opacity: 0.9;
     transform: scale(0.985);
   }
 
   &:active,
   &:focus {
-    box-shadow: 2px 2px 6px $neu-2, -2px -2px 6px $white;
+    opacity: 0.8;
     transform: scale(0.97);
   }
 
@@ -713,9 +858,10 @@ $transition: 1.25s;
   padding: 50px;
   z-index: 200;
   transition: $transition;
-  background-color: $neu-1;
+  background-color: $white;
   overflow: hidden;
-  box-shadow: 4px 4px 10px $neu-2, -4px -4px 10px $white;
+  box-shadow: none;
+  border: 1px solid #EBEEF5;
 
   &__circle {
     position: absolute;
@@ -723,7 +869,7 @@ $transition: 1.25s;
     height: 500px;
     border-radius: 50%;
     background-color: $neu-1;
-    box-shadow: inset 8px 8px 12px $neu-2, inset -8px -8px 12px $white;
+    border: 1px solid #EBEEF5;
     bottom: -60%;
     left: -60%;
     transition: $transition;
@@ -845,11 +991,10 @@ $transition: 1.25s;
   border: none;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
   transition: 0.25s;
 
   &:hover:not(:disabled) {
-    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    opacity: 0.9;
     transform: scale(0.98);
   }
 

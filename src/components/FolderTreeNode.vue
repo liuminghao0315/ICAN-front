@@ -322,12 +322,12 @@ const onChildShowMore = (event: MouseEvent, node: FolderVO) => emit('show-more',
 </script>
 
 <style scoped lang="scss">
-$purple: #4b70e2;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
+$purple: #409EFF;
+$neu-1: var(--bg-hover);
+$neu-2: var(--border-color);
+$white: var(--bg-card);
+$gray: var(--text-secondary);
+$black: var(--text-primary);
 
 .tree-node {
   user-select: none;
@@ -347,7 +347,7 @@ $black: #181818;
 
   &.drag-over-inside {
     background: rgba($purple, 0.12);
-    box-shadow: 0 0 0 2px $purple;
+    box-shadow: none;
     .folder-icon { color: $purple; }
   }
 
@@ -360,16 +360,24 @@ $black: #181818;
   }
 
   &:hover:not(.is-dragging):not(.drag-over-inside) {
-    background: rgba($purple, 0.06);
+    background: $neu-1;
     .folder-icon { color: $purple; }
   }
 
   &.active {
-    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    box-shadow: 3px 3px 6px $neu-2, -2px -2px 4px $white;
+    background: $purple;
+    border: 1px solid $purple;
     .folder-icon, .folder-name { color: #fff; }
     .badge { background: rgba(255,255,255,0.25); color: #fff; }
     .expand-btn svg { stroke: #fff; }
+
+    // 仅浅色模式：激活项在 hover 状态下，文件夹名改为深色，提升可读性
+    &:hover {
+      [data-theme='light'] & {
+        .folder-name { color: $black; }
+        .expand-btn svg { stroke: $black; }
+      }
+    }
   }
 }
 
@@ -380,7 +388,7 @@ $black: #181818;
   border-radius: 2px;
   margin: 1px 8px;
   position: relative;
-  box-shadow: 0 0 6px rgba($purple, 0.5);
+  box-shadow: none;
 
   &::before {
     content: '';
@@ -465,25 +473,29 @@ $black: #181818;
   background: transparent;
   color: $gray;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
   svg { width: 14px; height: 14px; }
-  &:hover { color: $purple; background: rgba($purple, 0.12); }
+  &:hover { color: $purple; background: $neu-1; }
 }
 
 .inline-input {
   width: 100%;
   padding: 4px 8px;
-  border: 2px solid $purple;
-  border-radius: 6px;
+  border: 1px solid $purple;
+  border-radius: 8px;
   font-size: 13px;
-  background: #fff;
+  background: $white;
   outline: none;
   color: $black;
   min-width: 0;
+
+  &:focus {
+    border-color: $purple;
+  }
 }
 
 .child-input-wrapper {

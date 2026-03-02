@@ -1,0 +1,175 @@
+// ===== B端扁平化设计系统 =====
+// 全局设计规范，用于替换新拟态风格
+
+// ===== 颜色变量 =====
+$bg-page: #F5F7FA;           // 全局背景色 - 浅灰蓝
+$bg-card: #FFFFFF;           // 卡片/面板背景 - 纯白
+$bg-hover: #F5F7FA;          // Hover背景
+$bg-input: #FFFFFF;          // 输入框背景 - 纯白
+
+$border-light: #EBEEF5;      // 浅边框
+$border-base: #DCDFE6;       // 基础边框
+$border-hover: #C0C4CC;      // Hover边框
+$border-focus: #409EFF;      // Focus边框（主题蓝）
+
+$text-primary: #303133;      // 主文本
+$text-regular: #606266;      // 常规文本
+$text-secondary: #909399;    // 次要文本
+$text-placeholder: #C0C4CC;  // 占位文本
+
+$color-primary: #409EFF;     // 主题蓝
+$color-success: #67C23A;     // 成功绿
+$color-warning: #E6A23C;     // 警告橙
+$color-danger: #F56C6C;      // 危险红
+$color-info: #909399;        // 信息灰
+
+// ===== 阴影变量 =====
+$shadow-card: 0 8px 30px rgba(0, 32, 80, 0.04);           // 卡片阴影 - 超柔和弥散
+$shadow-hover: 0 12px 40px rgba(0, 32, 80, 0.06);         // Hover阴影
+$shadow-focus: 0 0 0 3px rgba(64, 158, 255, 0.15);        // Focus发光
+$shadow-dropdown: 0 8px 30px rgba(0, 32, 80, 0.08);       // 下拉阴影
+
+// ===== 圆角变量 =====
+$radius-small: 4px;
+$radius-base: 8px;
+$radius-large: 12px;
+$radius-round: 20px;
+
+// ===== 间距变量 =====
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 20px;
+$spacing-xxl: 24px;
+
+// ===== Mixin: 扁平化卡片 =====
+@mixin flat-card($radius: $radius-base) {
+  background: $bg-card;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  border-radius: $radius;
+  box-shadow: 0 8px 30px rgba(0, 32, 80, 0.04);
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 12px 40px rgba(0, 32, 80, 0.06);
+  }
+}
+
+// ===== Mixin: 扁平化输入框 =====
+@mixin flat-input {
+  background: $bg-input;
+  border: 1px solid $border-base;
+  border-radius: $radius-base;
+  color: $text-primary;
+  transition: all 0.3s ease;
+  box-shadow: none; // 移除所有内阴影
+
+  &:hover {
+    border-color: $border-hover;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $border-focus;
+    box-shadow: $shadow-focus;
+  }
+
+  &::placeholder {
+    color: $text-placeholder;
+  }
+}
+
+// ===== Mixin: 扁平化按钮 =====
+@mixin flat-button-primary {
+  background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: $radius-base;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.25);
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #66B1FF 0%, #4A8EFF 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(64, 158, 255, 0.35);
+  }
+
+  &:active:not(:disabled) {
+    background: linear-gradient(135deg, #3A8EE6 0%, #2862D6 100%);
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@mixin flat-button-secondary {
+  background: $bg-card;
+  color: $text-primary;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  border-radius: $radius-base;
+  box-shadow: 0 4px 12px rgba(0, 32, 80, 0.04);
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    color: $color-primary;
+    border-color: $color-primary;
+    background: rgba(64, 158, 255, 0.05);
+    box-shadow: 0 6px 20px rgba(64, 158, 255, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    background: rgba(64, 158, 255, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@mixin flat-button-text {
+  background: transparent;
+  color: $color-primary;
+  border: none;
+  border-radius: $radius-base;
+  box-shadow: none;
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(64, 158, 255, 0.1);
+  }
+
+  &:active:not(:disabled) {
+    background: rgba(64, 158, 255, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ===== 通用类 =====
+.flat-card {
+  @include flat-card;
+}
+
+.flat-input {
+  @include flat-input;
+}
+
+.flat-btn-primary {
+  @include flat-button-primary;
+}
+
+.flat-btn-secondary {
+  @include flat-button-secondary;
+}
+
+.flat-btn-text {
+  @include flat-button-text;
+}

@@ -196,6 +196,25 @@
 
         <div class="header-right">
           <NotificationBell />
+
+          <!-- 主题切换按钮 -->
+          <button class="theme-toggle-btn" @click="toggleTheme" :title="isDarkMode ? '切换到浅色模式' : '切换到深色模式'">
+            <svg v-if="isDarkMode" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/>
+              <line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+
           <div class="user-dropdown" ref="userDropdownRef">
             <div class="user-info" ref="userInfoRef" @click="toggleDropdown">
               <div class="user-avatar">
@@ -271,6 +290,7 @@
   import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useUserStore } from '@/stores'
+  import { useSettingsStore } from '@/stores/settings'
   import { useWebSocketStore } from '@/stores/websocket'
   import { useUploadStore } from '@/stores/upload'
   import { useFolderStore } from '@/stores/folder'
@@ -285,11 +305,26 @@
   const router = useRouter()
   const route = useRoute()
   const userStore = useUserStore()
+  const settingsStore = useSettingsStore()
   const wsStore = useWebSocketStore()
   const uploadStore = useUploadStore()
   const folderStore = useFolderStore()
   const favStore = useFavoritesStore()
   const analysisActionsStore = useAnalysisActionsStore()
+
+  // ===== 主题切换（统一走 settings store，避免多来源状态打架） =====
+  const isDarkMode = ref(document.documentElement.getAttribute('data-theme') === 'dark')
+
+  const syncThemeState = () => {
+    isDarkMode.value = document.documentElement.getAttribute('data-theme') === 'dark'
+  }
+
+  const toggleTheme = () => {
+    settingsStore.setTheme(isDarkMode.value ? 'light' : 'dark')
+    syncThemeState()
+  }
+
+  let themeObserver: MutationObserver | null = null
 
   // ===== 三段式导航配置 =====
   const primaryNavItems = computed(() => {
@@ -336,7 +371,7 @@
       key: 'help',
       label: '帮助与文档',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-      action: () => ElMessage.info('帮助文档功能即将上线')
+      action: () => router.push('/help')
     }
   ]
 
@@ -511,6 +546,20 @@
 
   // 同时在 onMounted 中也尝试连接（双重保险）
   onMounted(() => {
+    // 同步当前主题状态，并监听 data-theme 变化（含 system 模式）
+    syncThemeState()
+    themeObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+          syncThemeState()
+        }
+      })
+    })
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme']
+    })
+
     // 拉取用户信息（含角色），确保 role 字段始终存在
     if (userStore.isLoggedIn) {
       getMe().then(res => {
@@ -544,6 +593,10 @@
       clearInterval(taskCheckInterval)
       taskCheckInterval = null
     }
+    if (themeObserver) {
+      themeObserver.disconnect()
+      themeObserver = null
+    }
     // 移除点击外部关闭下拉菜单的事件监听
     document.removeEventListener('click', handleClickOutside)
   })
@@ -563,22 +616,13 @@
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色 - 与登录页保持一致
-$bg: #edf2f0;
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-$purple: #4b70e2;
-
 .main-layout {
   height: 100vh;
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden !important;
-  // 使用与内容区完全一致的纯色背景
-  background-color: #ebf0f2;
+  // 使用扁平化背景色
+  background-color: var(--bg-page);
 
   // 确保 Element Plus 容器不会溢出
   :deep(.el-container) {
@@ -593,12 +637,13 @@ $purple: #4b70e2;
 }
 
 .sidebar {
-  background-color: $neu-1;
+  background-color: var(--bg-card);
   transition: width 0.3s;
   display: flex;
   flex-direction: column;
   position: relative;
-  box-shadow: 4px 0 10px $neu-2;
+  box-shadow: none;
+  border-right: 1px solid var(--border-color);
   overflow: hidden;
 
   .logo {
@@ -613,22 +658,22 @@ $purple: #4b70e2;
     .logo-icon {
       width: 42px;
       height: 42px;
-      min-width: 42px; // 确保收起时保持正方形
+      min-width: 42px;
       min-height: 42px;
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-      border-radius: 12px;
+      background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
-      box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-      flex-shrink: 0; // 防止被压缩
+      color: #fff !important;
+      box-shadow: none;
+      flex-shrink: 0;
     }
 
     .logo-text {
       font-size: 18px;
       font-weight: 700;
-      color: $black;
+      color: var(--text-primary);
       white-space: nowrap;
       letter-spacing: 1px;
     }
@@ -642,7 +687,7 @@ $purple: #4b70e2;
     .logo-icon {
       width: 42px;
       height: 42px;
-      border-radius: 12px; // 保持正方形圆角
+      border-radius: 8px; // 保持正方形圆角
     }
   }
 
@@ -697,24 +742,27 @@ $purple: #4b70e2;
     gap: 10px;
     padding: 0 14px;
     height: 48px;
-    border-radius: 12px;
+    border-radius: 8px;
     cursor: pointer;
-    color: $gray;
-    background-color: $neu-1;
-    box-shadow: 3px 3px 6px $neu-2, -3px -3px 6px $white;
+    color: var(--text-secondary);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;
 
     &:hover {
-      color: $purple;
-      box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+      color: var(--color-primary);
+      border-color: var(--color-primary);
       transform: translateX(1px);
+      box-shadow: none;
     }
 
     &.is-active {
-      background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-      color: #fff;
-      box-shadow: 4px 4px 10px rgba($purple, 0.35), -2px -2px 6px $white;
+      background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+      color: #fff !important;
+      border: none;
+      box-shadow: none;
       transform: none;
 
       .nav-icon :deep(svg) { stroke: #fff; }
@@ -766,13 +814,13 @@ $purple: #4b70e2;
       content: '';
       flex: 1;
       height: 1px;
-      background: linear-gradient(90deg, transparent, rgba($neu-2, 0.8), transparent);
+      background: linear-gradient(90deg, transparent, var(--border-color), transparent);
     }
 
     .divider-label {
       font-size: 11px;
       font-weight: 600;
-      color: $gray;
+      color: var(--text-secondary);
       letter-spacing: 0.5px;
       white-space: nowrap;
       opacity: 0.7;
@@ -789,7 +837,7 @@ $purple: #4b70e2;
       content: '';
       flex: 1;
       height: 1px;
-      background: linear-gradient(90deg, rgba($neu-2, 0.8), transparent);
+      background: linear-gradient(90deg, var(--border-color), transparent);
     }
   }
 
@@ -801,14 +849,14 @@ $purple: #4b70e2;
 
     &::-webkit-scrollbar { width: 3px; }
     &::-webkit-scrollbar-track { background: transparent; }
-    &::-webkit-scrollbar-thumb { background: rgba($neu-2, 0.5); border-radius: 2px; }
+    &::-webkit-scrollbar-thumb { background: var(--text-tertiary); border-radius: 2px; }
 
     .quick-nav-item {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 7px 10px;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
       margin-bottom: 2px;
       transition: all 0.2s;
@@ -817,14 +865,14 @@ $purple: #4b70e2;
         width: 16px;
         height: 16px;
         flex-shrink: 0;
-        color: $gray;
+        color: var(--text-secondary);
         transition: color 0.2s;
       }
 
       .qn-name {
         flex: 1;
         font-size: 13px;
-        color: rgba($black, 0.75);
+        color: var(--text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -837,23 +885,23 @@ $purple: #4b70e2;
         line-height: 16px;
         text-align: center;
         border-radius: 8px;
-        background: $neu-2;
-        color: $gray;
+        background: var(--border-color);
+        color: var(--text-secondary);
         padding: 0 5px;
         flex-shrink: 0;
       }
 
       &:hover {
-        background: rgba($purple, 0.07);
-        .qn-icon { color: $purple; }
-        .qn-name { color: $purple; }
+        background: rgba(64, 158, 255, 0.07);
+        .qn-icon { color: var(--color-primary); }
+        .qn-name { color: var(--color-primary); }
       }
 
       &.active {
-        background: linear-gradient(135deg, rgba($purple, 0.12) 0%, rgba(#7c9df7, 0.12) 100%);
-        .qn-icon { color: $purple; }
-        .qn-name { color: $purple; font-weight: 600; }
-        .qn-badge { background: rgba($purple, 0.15); color: $purple; }
+        background: rgba(64, 158, 255, 0.12);
+        .qn-icon { color: var(--color-primary); }
+        .qn-name { color: var(--color-primary); font-weight: 600; }
+        .qn-badge { background: rgba(64, 158, 255, 0.15); color: var(--color-primary); }
       }
     }
   }
@@ -862,7 +910,7 @@ $purple: #4b70e2;
   .system-zone {
     margin-top: auto;
     padding: 8px 10px 10px;
-    border-top: 1px solid rgba($neu-2, 0.4);
+    border-top: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -873,25 +921,25 @@ $purple: #4b70e2;
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
-    border-radius: 10px;
+    border-radius: 8px;
     cursor: pointer;
-    color: rgba($gray, 0.7);
+    color: var(--text-tertiary);
     transition: all 0.2s;
     user-select: none;
 
-    .nav-icon :deep(svg) { stroke: rgba($gray, 0.7); }
+    .nav-icon :deep(svg) { stroke: var(--text-tertiary); }
 
     .nav-label {
       font-size: 12.5px;
       font-weight: 400;
-      color: rgba($gray, 0.7);
+      color: var(--text-tertiary);
     }
 
     &:hover {
-      background: rgba($neu-2, 0.4);
-      color: $gray;
-      .nav-icon :deep(svg) { stroke: $gray; }
-      .nav-label { color: $gray; }
+      background: rgba(64, 158, 255, 0.1);
+      color: var(--text-secondary);
+      .nav-icon :deep(svg) { stroke: var(--text-secondary); }
+      .nav-label { color: var(--text-secondary); }
     }
   }
 
@@ -907,9 +955,9 @@ $purple: #4b70e2;
     justify-content: center;
     height: 36px;
     margin: 4px 2px 0;
-    border-radius: 10px;
+    border-radius: 8px;
     cursor: pointer;
-    color: rgba($gray, 0.5);
+    color: var(--text-tertiary);
     transition: all 0.2s;
     user-select: none;
 
@@ -919,17 +967,17 @@ $purple: #4b70e2;
     }
 
     &:hover {
-      background: rgba($neu-2, 0.4);
-      color: $purple;
+      background: rgba(64, 158, 255, 0.1);
+      color: var(--color-primary);
     }
   }
 
   // ===== 分析详情工具栏 =====
   &.is-analysis-mode {
-    background: transparent;
+    background: var(--bg-page);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    border-right: none;
+    border-right: 1px solid var(--border-color);
     box-shadow: none;
   }
 
@@ -950,10 +998,10 @@ $purple: #4b70e2;
     justify-content: space-between;
     align-items: center;
     padding: 20px 0;
-    background: rgba(245, 247, 250, 0.4);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(0, 0, 0, 0.04);
+    background: var(--bg-page);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-right: 1px solid var(--border-color);
     box-sizing: border-box;
   }
 
@@ -974,16 +1022,16 @@ $purple: #4b70e2;
   .analysis-tool-btn {
     width: 40px;
     height: 40px;
-    border-radius: 10px;
-    border: none;
-    background: transparent;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
     box-shadow: none;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    color: #5a6a85;
+    color: var(--text-secondary);
 
     svg {
       width: 18px;
@@ -994,7 +1042,9 @@ $purple: #4b70e2;
 
     &:hover {
       background: rgba(64, 158, 255, 0.1);
-      color: $purple;
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      box-shadow: none;
     }
 
     &:active {
@@ -1004,6 +1054,7 @@ $purple: #4b70e2;
 
     &.is-favorited {
       color: #fbbf24;
+      border-color: #fbbf24;
       svg { filter: drop-shadow(0 0 3px rgba(251,191,36,.5)); }
       &:hover { background: rgba(251,191,36,.12); color: #f59e0b; }
     }
@@ -1078,10 +1129,10 @@ $purple: #4b70e2;
 // 分析中任务广播提示
 .analysis-broadcast {
   width: 100%;
-  background: linear-gradient(135deg, #4b70e2, #6b8be8);
-  color: white;
+  background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+  color: white !important;
   padding: 12px 24px;
-  box-shadow: 0 2px 8px rgba(75, 112, 226, 0.3);
+  box-shadow: none;
   z-index: 1000;
 
   .broadcast-content {
@@ -1105,7 +1156,7 @@ $purple: #4b70e2;
 
     .el-icon {
       font-size: 18px;
-      color: white;
+      color: white !important;
     }
 
     .rotating {
@@ -1123,12 +1174,15 @@ $purple: #4b70e2;
       font-size: 15px;
       font-weight: 600;
       white-space: nowrap;
+      color: rgba(255, 255, 255, 0.98) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
     }
 
     .broadcast-desc {
       font-size: 13px;
-      opacity: 0.9;
+      opacity: 1;
       white-space: nowrap;
+      color: rgba(255, 255, 255, 0.95) !important;
     }
   }
 
@@ -1138,9 +1192,9 @@ $purple: #4b70e2;
     gap: 6px;
     padding: 6px 16px;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 20px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.15);
-    color: white;
+    color: white !important;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -1172,10 +1226,10 @@ $purple: #4b70e2;
 // 上传中指示器（绿色调）
 .upload-broadcast {
   width: 100%;
-  background: linear-gradient(135deg, #36a85a, #52c97a);
-  color: white;
+  background: #67C23A;
+  color: white !important;
   padding: 10px 24px;
-  box-shadow: 0 2px 8px rgba(54, 168, 90, 0.3);
+  box-shadow: none;
   z-index: 1000;
 
   .broadcast-content {
@@ -1184,6 +1238,24 @@ $purple: #4b70e2;
     gap: 16px;
     max-width: 1400px;
     margin: 0 auto;
+  }
+
+  .broadcast-icon {
+    .el-icon {
+      color: rgba(255, 255, 255, 0.98) !important;
+    }
+  }
+
+  .broadcast-text {
+    .broadcast-title {
+      color: rgba(255, 255, 255, 0.98) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+
+    .broadcast-desc {
+      color: rgba(255, 255, 255, 0.95) !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
   }
 
   .upload-mini-bar {
@@ -1227,34 +1299,32 @@ $purple: #4b70e2;
 }
 
 .header {
-  // 使用与内容区完全一致的背景色，不使用渐变
-  background-color: #ebf0f2;
+  // 使用扁平化背景色
+  background-color: var(--bg-page);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0 0 24px; // 右侧 padding 设为 0，让 user-info 延伸到边缘
-  margin: 0 0 0 0; // 上、右外边距为 0，紧贴边缘
-  border-radius: 0 0 16px 16px; // 只保留底部圆角
-  // 移除新拟态阴影，只使用非常轻的边框来定义边界
-  border: 1px solid rgba(209, 217, 230, 0.3);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 0 0 0 24px;
+  margin: 0 0 0 0;
+  border-radius: 0 0 12px 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
   position: relative;
   z-index: 1000;
-  // 不使用 overflow: hidden，否则会裁剪下拉菜单
 
   :deep(.el-breadcrumb__item) {
     .el-breadcrumb__inner {
-      color: $gray;
+      color: var(--text-secondary);
       font-weight: 500;
 
       &.is-link:hover {
-        color: $purple;
+        color: var(--color-primary);
       }
     }
 
     &:last-child {
       .el-breadcrumb__inner {
-        color: $black;
+        color: var(--text-primary);
       }
     }
   }
@@ -1264,14 +1334,45 @@ $purple: #4b70e2;
     align-items: center;
     gap: 4px;
 
+    .theme-toggle-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      margin-right: 4px;
+
+      svg {
+        width: 20px;
+        height: 20px;
+        transition: all 0.3s ease;
+      }
+
+      &:hover {
+        background: rgba(64, 158, 255, 0.1);
+        color: var(--color-primary);
+        transform: scale(1.05);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+
     .user-info {
       display: flex;
       align-items: center;
       gap: 10px;
       cursor: pointer;
       padding: 8px 20px 8px 16px;
-      // 左上、左下有圆角，右上、右下与 header 对齐（0 和 16px）
-      border-radius: 12px 0 16px 12px;
+      // 左上、左下有圆角，右上、右下与 header 对齐（0 和 12px）
+      border-radius: 8px 0 12px 8px;
       background-color: transparent;
       transition: all 0.3s;
       position: relative;
@@ -1284,11 +1385,11 @@ $purple: #4b70e2;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(75, 112, 226, 0.08);
+        background: rgba(64, 158, 255, 0.08);
         opacity: 0;
         transition: opacity 0.3s;
         // 确保伪元素也有完整的圆角（左上、左下、右下）
-        border-radius: 12px 0 16px 12px;
+        border-radius: 8px 0 12px 8px;
       }
 
       &:hover {
@@ -1299,7 +1400,7 @@ $purple: #4b70e2;
 
       &:active {
         &::before {
-          background: rgba(75, 112, 226, 0.12);
+          background: rgba(64, 158, 255, 0.12);
         }
       }
 
@@ -1307,8 +1408,8 @@ $purple: #4b70e2;
         width: 36px;
         height: 36px;
         border-radius: 50%;
-        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-        color: #fff;
+        background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+        color: #fff !important;
         font-size: 14px;
         font-weight: 600;
         display: flex;
@@ -1319,11 +1420,12 @@ $purple: #4b70e2;
         z-index: 1;
         cursor: default;
         user-select: none;
+        box-shadow: none;
       }
 
       .username {
         font-size: 14px;
-        color: $black;
+        color: var(--text-primary);
         font-weight: 500;
         white-space: nowrap;
         position: relative;
@@ -1341,12 +1443,12 @@ $purple: #4b70e2;
 .dropdown-arrow {
   width: 16px;
   height: 16px;
-  color: $gray;
+  color: var(--text-secondary);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  
+
   &.is-open {
     transform: rotate(180deg);
   }
@@ -1361,8 +1463,8 @@ $purple: #4b70e2;
   overflow-x: hidden;
   width: 100%;
   min-width: 0; // 防止 flex 子元素溢出
-  // 使用与 header 完全一致的纯色背景
-  background-color: #ebf0f2;
+  // 使用扁平化背景色
+  background-color: var(--bg-page);
   // 让子路由视图能撑满高度（词库管理等固定高度页面需要）
   display: flex;
   flex-direction: column;
@@ -1377,12 +1479,12 @@ $purple: #4b70e2;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba($neu-2, 0.5);
+    background: var(--text-tertiary);
     border-radius: 3px;
     transition: background 0.2s;
 
     &:hover {
-      background: rgba($neu-2, 0.7);
+      background: var(--text-secondary);
     }
   }
 }
@@ -1424,26 +1526,16 @@ $purple: #4b70e2;
 
 <!-- 全局样式用于 Teleport 的下拉菜单 -->
 <style lang="scss">
-// 新拟态配色
-$neu-1: #ecf0f3;
-$neu-2: #d1d9e6;
-$white: #f9f9f9;
-$gray: #a0a5a8;
-$black: #181818;
-
 .dropdown-menu {
   min-width: 150px;
 }
 
 .dropdown-menu-inner {
-  background: $white;
-  border-radius: 16px;
+  background: var(--bg-card);
+  border-radius: 12px;
   padding: 10px;
-  box-shadow: 
-    8px 8px 24px rgba(209, 217, 230, 0.9),
-    -8px -8px 24px rgba(255, 255, 255, 1),
-    0 8px 32px rgba(0, 0, 0, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+  border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
 .logout-btn {
@@ -1453,15 +1545,13 @@ $black: #181818;
   gap: 12px;
   width: 100%;
   padding: 14px 16px;
-  border: none;
-  border-radius: 12px;
-  background: $neu-1;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
   cursor: pointer;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    3px 3px 6px $neu-2,
-    -3px -3px 6px $white;
+  box-shadow: none;
 }
 
 .logout-hover-bg {
@@ -1470,8 +1560,8 @@ $black: #181818;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.15));
-  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
   opacity: 0;
   transition: opacity 0.3s ease;
   z-index: 0;
@@ -1485,17 +1575,16 @@ $black: #181818;
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, $neu-1, $white);
-  box-shadow: 
-    3px 3px 6px $neu-2,
-    -3px -3px 6px $white;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
   transition: all 0.3s ease;
-  
+
   svg {
     width: 18px;
     height: 18px;
-    color: $gray;
+    color: var(--text-secondary);
     transition: all 0.3s ease;
   }
 }
@@ -1505,49 +1594,36 @@ $black: #181818;
   z-index: 1;
   font-size: 14px;
   font-weight: 600;
-  color: $black;
+  color: var(--text-primary);
   transition: all 0.3s ease;
   letter-spacing: 0.5px;
 }
 
 .logout-btn:hover {
   transform: translateX(3px);
-  box-shadow: 
-    2px 2px 4px $neu-2,
-    -2px -2px 4px $white;
-  
+  border-color: #F56C6C;
+
   .logout-hover-bg {
     opacity: 1;
   }
-  
+
   .logout-icon {
-    background: linear-gradient(135deg, #ef4444, #f87171);
-    box-shadow: 
-      3px 3px 10px rgba(239, 68, 68, 0.4),
-      -2px -2px 6px $white;
-    
+    background: #F56C6C;
+    border-color: #F56C6C;
+
     svg {
-      color: white;
+      color: white !important;
       transform: translateX(2px);
     }
   }
-  
+
   .logout-text {
-    color: #ef4444;
+    color: #F56C6C;
   }
 }
 
 .logout-btn:active {
   transform: translateX(3px) scale(0.98);
-  box-shadow: 
-    inset 2px 2px 4px $neu-2,
-    inset -2px -2px 4px $white;
-  
-  .logout-icon {
-    box-shadow: 
-      inset 2px 2px 4px rgba(0, 0, 0, 0.15),
-      inset -2px -2px 4px rgba(255, 255, 255, 0.5);
-  }
 }
 
 // 下拉菜单动画
@@ -1596,16 +1672,13 @@ $black: #181818;
 }
 
 .confirm-modal {
-  background: $white;
-  border-radius: 20px;
+  background: var(--bg-card);
+  border-radius: 12px;
   padding: 28px 32px;
   min-width: 320px;
   max-width: 400px;
-  box-shadow: 
-    12px 12px 30px rgba(209, 217, 230, 0.9),
-    -12px -12px 30px rgba(255, 255, 255, 1),
-    0 20px 60px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+  border: 1px solid var(--border-color);
 }
 
 .confirm-modal-header {
@@ -1621,30 +1694,28 @@ $black: #181818;
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  box-shadow: 
-    4px 4px 10px rgba(251, 191, 36, 0.3),
-    -2px -2px 6px $white;
-  
+  border-radius: 8px;
+  background: #E6A23C;
+  box-shadow: none;
+
   svg {
     width: 22px;
     height: 22px;
-    color: white;
+    color: white !important;
   }
 }
 
 .confirm-title {
   font-size: 18px;
   font-weight: 600;
-  color: $black;
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: 0.5px;
 }
 
 .confirm-message {
   font-size: 14px;
-  color: $gray;
+  color: var(--text-secondary);
   margin: 0 0 24px 0;
   padding-left: 58px;
   line-height: 1.6;
@@ -1658,56 +1729,47 @@ $black: #181818;
 
 .confirm-btn {
   padding: 10px 24px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: none;
+  border: 1px solid var(--border-color);
   letter-spacing: 0.3px;
 }
 
 .cancel-btn {
-  background: $neu-1;
-  color: $gray;
-  box-shadow: 
-    3px 3px 6px $neu-2,
-    -3px -3px 6px $white;
-  
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+
   &:hover {
-    color: $black;
-    box-shadow: 
-      2px 2px 4px $neu-2,
-      -2px -2px 4px $white;
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+    box-shadow: none;
   }
-  
+
   &:active {
-    box-shadow: 
-      inset 2px 2px 4px $neu-2,
-      inset -2px -2px 4px $white;
+    transform: scale(0.98);
   }
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, #4b70e2, #6b8be8);
-  color: white;
-  box-shadow: 
-    4px 4px 10px rgba(75, 112, 226, 0.3),
-    -2px -2px 6px $white;
-  
+  background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
+  color: white !important;
+  border: none;
+  box-shadow: none;
+
   &:hover {
-    background: linear-gradient(135deg, #3d5fc7, #5a7ad7);
-    box-shadow: 
-      4px 4px 12px rgba(75, 112, 226, 0.4),
-      -2px -2px 6px $white;
+    background: linear-gradient(135deg, #66B1FF 0%, #4A8EFF 100%);
     transform: translateY(-1px);
+    box-shadow: none;
   }
-  
+
   &:active {
     transform: translateY(0);
-    box-shadow: 
-      inset 2px 2px 4px rgba(0, 0, 0, 0.1),
-      inset -2px -2px 4px rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, #3A8EE6 0%, #2862D6 100%);
   }
 }
 

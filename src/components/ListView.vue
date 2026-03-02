@@ -227,17 +227,6 @@ const getRiskText = (level: string | null | undefined) => level ? (RISK_LEVEL_TE
 </script>
 
 <style scoped lang="scss">
-$neu-1:  #ecf0f3;
-$neu-2:  #c8d0e7;
-$white:  #ffffff;
-$gray:   #8a9bb0;
-$black:  #1a1f2e;
-$purple: #4b70e2;
-$purple-light: #7c9df7;
-
-$shadow-sm:  4px 4px 10px $neu-2, -4px -4px 10px $white;
-$shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
-
 // ── Grid 列定义（CSS 变量，方便批量模式动态切换）──────────
 // 无批量：[缩略图] [标题] [时长] [来源] [日期] [操作]
 $cols-normal: 112px 1fr 90px 120px 130px 100px;
@@ -262,7 +251,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   gap: 16px;
   // 表头左侧与行内容对齐：行有 padding: 12px 20px，表头同步
   padding: 0 20px 8px;
-  border-bottom: 1.5px solid rgba($neu-2, 0.5);
+  border-bottom: 1.5px solid var(--border-color);
 
   &.has-checkbox {
     grid-template-columns: $cols-batch;
@@ -277,7 +266,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   > div {
     font-size: 13px;
     font-weight: 700;
-    color: #6b7a99;
+    color: var(--text-secondary);
     letter-spacing: 0.4px;
     white-space: nowrap;
   }
@@ -286,7 +275,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   .hd-cell {
     font-size: 13px;
     font-weight: 700;
-    color: #6b7a99;
+    color: var(--text-secondary);
     letter-spacing: 0.4px;
     white-space: nowrap;
     // 重置 col-thumb / col-duration 等的 flex 布局，让文字直接显示
@@ -313,9 +302,10 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   align-items: center;
   gap: 16px;
   padding: 12px 20px;
-  border-radius: 16px;
-  background: $neu-1;
-  box-shadow: 4px 4px 12px darken($neu-2, 4%), -4px -4px 12px $white;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
   cursor: pointer;
   transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
   position: relative;
@@ -332,16 +322,16 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
 
   // hover：极淡蓝背景，与选中态明显区分
   &:hover {
-    background: #f4f8ff;
-    box-shadow: 5px 5px 14px darken($neu-2, 4%), -5px -5px 14px $white;
+    background: var(--bg-hover);
+    box-shadow: none;
     transform: translateY(-1px);
   }
 
   // 选中态：稍深蓝背景 + 明显蓝色边框，与 hover 有清晰差异
   &.is-selected {
-    background: #eaf0ff;
-    box-shadow: $shadow-in;
-    border: 1.5px solid rgba($purple, 0.35);
+    background: var(--bg-hover);
+    border: 1.5px solid rgba(64, 158, 255, 0.35);
+    box-shadow: none;
     transform: none;
   }
 
@@ -355,14 +345,17 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   justify-content: center;
 
   .checkbox-inner {
-    width: 20px; height: 20px; border-radius: 6px;
-    background: $neu-1; box-shadow: $shadow-sm;
+    width: 20px; height: 20px; border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
     display: flex; align-items: center; justify-content: center;
     transition: all .2s; cursor: pointer; flex-shrink: 0;
 
     &.checked {
-      background: linear-gradient(135deg, $purple, $purple-light);
-      box-shadow: 2px 2px 6px rgba($purple, .35);
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      box-shadow: none;
       color: #fff; font-size: 11px;
     }
   }
@@ -377,11 +370,12 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
 .thumb-wrap {
   width: 112px;
   height: 66px;   // 16:9 比例，撑起行高
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
   background: linear-gradient(135deg, #dde3ec, #c8d0e0);
   position: relative;
-  box-shadow: inset 0 1px 4px rgba(0,0,0,.1), 2px 2px 6px rgba($neu-2, .6);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
 
   .thumb-img {
     width: 100%; height: 100%; object-fit: cover; display: block;
@@ -390,7 +384,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   .thumb-placeholder {
     width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
-    color: $gray; font-size: 22px; opacity: .45;
+    color: var(--text-secondary); font-size: 22px; opacity: .45;
   }
 
   .thumb-mask {
@@ -400,7 +394,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
 
     .thumb-progress {
       height: 3px;
-      background: linear-gradient(90deg, $purple, $purple-light);
+      background: linear-gradient(90deg, #409EFF, #7c9df7);
       transition: width .5s ease;
     }
   }
@@ -444,7 +438,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   .row-title {
     font-size: 13px;
     font-weight: 600;
-    color: $black;
+    color: var(--text-primary);
     line-height: 1.4;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -468,7 +462,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  color: $gray;
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
 
@@ -501,12 +495,12 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   gap: 4px;
   height: 28px;
   padding: 0 8px;
-  border: none;
-  border-radius: 7px;
-  background: $neu-1;
-  box-shadow: 3px 3px 7px $neu-2, -3px -3px 7px $white;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+  box-shadow: none;
   cursor: pointer;
-  color: $gray;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
   transition: all .2s;
@@ -515,8 +509,9 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   .el-icon { font-size: 13px; }
 
   &:hover {
-    color: $purple;
-    box-shadow: 2px 2px 5px $neu-2, -2px -2px 5px $white;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    box-shadow: none;
     transform: translateY(-1px);
   }
 }
@@ -530,7 +525,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: 0.3px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  box-shadow: none;
 
   &.risk-high   { background: linear-gradient(135deg, #ff6b6b, #e74c3c); color: #fff; }
   &.risk-medium { background: linear-gradient(135deg, #ffa94d, #e67e22); color: #fff; }
@@ -550,7 +545,7 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   &.status-pending     { background: rgba(#1890ff,.1); color: #1890ff; border: 1px solid rgba(#1890ff,.2); }
   &.status-processing  { background: rgba(#e6a23c,.1); color: #c87d00; border: 1px solid rgba(#e6a23c,.2); }
   &.status-failed      { background: rgba(#e74c3c,.1); color: #e74c3c; border: 1px solid rgba(#e74c3c,.2); }
-  &.status-cancelled   { background: rgba($gray,.1);   color: $gray;   border: 1px solid rgba($gray,.2); }
+  &.status-cancelled   { background: rgba(138, 155, 176, .1); color: var(--text-secondary); border: 1px solid rgba(138, 155, 176, .2); }
 }
 
 // ── 业务标签（低权重：极简边框风格） ─────────────────────
@@ -565,8 +560,8 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
 
   &.kw {
     background: transparent;
-    color: darken($purple, 8%);
-    border: 1px solid rgba($purple, .25);
+    color: #3a8ee6;
+    border: 1px solid rgba(64, 158, 255, .25);
   }
 
   &.uni {
@@ -594,23 +589,24 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   right: 0;
   bottom: 36px;
   min-width: 150px;
-  background: $neu-1;
-  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   padding: 6px;
-  box-shadow: 10px 10px 24px darken($neu-2, 8%), -10px -10px 24px $white, 0 4px 16px rgba(0,0,0,.1);
+  box-shadow: none;
   z-index: 200;
 }
 
 .dd-item {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 13px;
-  border: none; border-radius: 9px; background: transparent; color: $black;
+  border: none; border-radius: 8px; background: transparent; color: var(--text-primary);
   font-size: 13px; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: all .2s;
-  .el-icon { font-size: 14px; color: $gray; }
-  &:hover { background: $neu-1; box-shadow: $shadow-in; .el-icon { color: $purple; } }
-  &.danger { color: #e74c3c; .el-icon { color: #e74c3c; } &:hover { background: rgba(#e74c3c,.06); box-shadow: none; } }
+  .el-icon { font-size: 14px; color: var(--text-secondary); }
+  &:hover { background: var(--bg-hover); .el-icon { color: var(--color-primary); } }
+  &.danger { color: #e74c3c; .el-icon { color: #e74c3c; } &:hover { background: rgba(#e74c3c,.06); } }
 }
 
-.dd-divider { height: 1px; background: rgba($neu-2,.7); margin: 4px 8px; }
+.dd-divider { height: 1px; background: var(--border-color); margin: 4px 8px; }
 
 .dropdown-enter-active { animation: dd-in .2s cubic-bezier(.34,1.56,.64,1); }
 .dropdown-leave-active { animation: dd-out .15s ease; }
@@ -629,16 +625,16 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
 
 .location-btn {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 8px; border: none; border-radius: 6px; cursor: pointer;
-  background: rgba($purple, .05); color: rgba($gray, .85);
+  padding: 3px 8px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer;
+  background: rgba(64, 158, 255, .05); color: var(--text-secondary);
   font-size: 11px; font-weight: 500; line-height: 1.4;
-  transition: background .15s, color .15s;
+  transition: background .15s, color .15s, border-color .15s;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   svg { width: 11px; height: 11px; flex-shrink: 0; opacity: .6; }
-  &:hover { background: rgba($purple, .12); color: $purple; svg { opacity: 1; } }
+  &:hover { background: rgba(64, 158, 255, .12); color: var(--color-primary); border-color: var(--color-primary); svg { opacity: 1; } }
 }
 
 .location-empty {
-  font-size: 12px; color: rgba($gray, .4);
+  font-size: 12px; color: var(--text-tertiary);
 }
 </style>

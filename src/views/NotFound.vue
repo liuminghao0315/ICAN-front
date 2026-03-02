@@ -98,7 +98,7 @@ $purple: #4b70e2;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s;
-  box-shadow: 4px 4px 8px $neu-2, -4px -4px 8px $white;
+  box-shadow: none;
   color: $gray;
   font-family: 'Montserrat', sans-serif;
   padding: 12px 24px;
@@ -108,21 +108,21 @@ $purple: #4b70e2;
   gap: 8px;
   
   &:hover {
-    box-shadow: 2px 2px 4px $neu-2, -2px -2px 4px $white;
+    box-shadow: none;
     color: $purple;
   }
   
   &:active {
-    box-shadow: inset 2px 2px 4px $neu-2, inset -2px -2px 4px $white;
+    box-shadow: none;
   }
   
   &.primary-btn {
     background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
-    color: #fff;
+    color: #fff !important;
     
     &:hover {
-      box-shadow: 4px 4px 8px $neu-2, -2px -2px 6px $white;
-      color: #fff;
+      box-shadow: none;
+      color: #fff !important;
     }
   }
 }

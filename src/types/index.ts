@@ -383,15 +383,21 @@ export interface AnalysisStats {
   totalVideos: number
   analyzedVideos: number
   totalResults: number
+  /** 每个视频最新一条分析结果的样本量 */
+  latestResultVideos?: number
   avgRiskScore: number
   averageRiskScore: number  // 兼容字段
   highRiskCount: number
   mediumRiskCount: number
   lowRiskCount: number
+  /** 风险分数缺失/解析失败样本 */
+  unknownRiskCount?: number
   universityRelatedCount: number
   positiveSentimentCount: number
   negativeSentimentCount: number
   neutralSentimentCount: number
+  /** 情感证据缺失/解析失败样本 */
+  unknownSentimentCount?: number
   analysisCount: number  // 累计分析次数（只增不减）
 }
 
@@ -402,9 +408,12 @@ export interface RiskDistribution {
   HIGH: number
   MEDIUM: number
   LOW: number
+  /** 风险分数缺失/解析失败 */
+  UNKNOWN?: number
   highRiskCount: number
   mediumRiskCount: number
   lowRiskCount: number
+  unknownRiskCount?: number
 }
 
 // ==================== 统计模块 ====================

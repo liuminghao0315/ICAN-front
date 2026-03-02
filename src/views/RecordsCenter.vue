@@ -283,7 +283,7 @@
             <p class="confirm-desc">{{ deleteState.isBatch ? `将删除选中的 ${deleteState.count} 条记录，此操作不可恢复。` : `删除后将无法恢复，确定要删除「${deleteState.title}」吗？` }}</p>
             <div class="modal-footer">
               <button class="ctrl-btn" @click="deleteState.visible = false">取消</button>
-              <button class="ctrl-btn danger" @click="confirmDelete" :disabled="deleteState.loading">{{ deleteState.loading ? '删除中...' : '删除' }}</button>
+              <button class="ctrl-btn danger delete-confirm-btn" @click="confirmDelete" :disabled="deleteState.loading">{{ deleteState.loading ? '删除中...' : '删除' }}</button>
             </div>
           </div>
         </div>
@@ -370,7 +370,7 @@
 </template>
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getTaskList, cancelTask, deleteVideo, renameVideo, retryTask } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
@@ -387,6 +387,7 @@ import ListView from '@/components/ListView.vue'
 import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
 
 const router = useRouter()
+const route = useRoute()
 const wsStore = useWebSocketStore()
 const folderStore = useFolderStore()
 const favStore = useFavoritesStore()
@@ -592,7 +593,38 @@ const sortOptions = [
   { label: '风险最高', value: 'risk_desc' }
 ]
 
-const renameState = reactive({ visible: false, videoId: '', title: '' })
+// Dashboard 快捷操作透传：
+// - action=newTask -> 打开新建任务弹窗
+// - status=FAILED  -> 失败任务筛选
+// - risk=HIGH      -> 高风险筛选
+const applyQuickActionFromQuery = (query: Record<string, unknown>) => {
+  const action = typeof query.action === 'string' ? query.action : ''
+  const status = typeof query.status === 'string' ? query.status.toUpperCase() : ''
+  const risk = typeof query.risk === 'string' ? query.risk.toUpperCase() : ''
+
+  if (action === 'newTask') {
+    showNewTaskModal.value = true
+  }
+
+  if (status && statusFilters.some(f => f.value === status)) {
+    activeStatus.value = status
+  }
+
+  if (risk && riskOptions.some(r => r.value === risk)) {
+    riskFilter.value = risk
+  }
+
+  const hasQuickActionQuery = !!(action || status || risk)
+  if (hasQuickActionQuery) {
+    const cleanedQuery = { ...route.query }
+    delete cleanedQuery.action
+    delete cleanedQuery.status
+    delete cleanedQuery.risk
+    router.replace({ path: route.path, query: cleanedQuery }).catch(() => {})
+  }
+}
+
+const renameState = reactive({ visible: false, videoId: '', title: '', originalTitle: '' })
 const deleteState = reactive({ visible: false, videoId: '', title: '', isBatch: false, count: 0, ids: [] as string[], loading: false })
 
 const loadRecords = async () => {
@@ -726,6 +758,7 @@ const handleRename = (record: AnalysisTaskVO) => {
   openMenuId.value = null
   renameState.videoId = record.videoId
   renameState.title = record.videoTitle || ''
+  renameState.originalTitle = record.videoTitle || ''
   renameState.visible = true
 }
 
@@ -741,7 +774,7 @@ const folderOptions = computed(() => folderStore.flatFolders())
 const handleMoveToFolder = (record: AnalysisTaskVO) => {
   openMenuId.value = null
   moveToFolderState.videoIds = [record.videoId]
-  moveToFolderState.targetFolderId = null
+  moveToFolderState.targetFolderId = record.folderId ?? null
   moveToFolderState.visible = true
 }
 
@@ -777,9 +810,17 @@ const confirmMoveToFolder = async () => {
   }
 }
 const confirmRename = async () => {
-  if (!renameState.title.trim()) return
+  const newTitle = renameState.title.trim()
+  if (!newTitle) return
+
+  // 新旧标题一致时不调用接口，也不提示
+  if (newTitle === renameState.originalTitle.trim()) {
+    renameState.visible = false
+    return
+  }
+
   try {
-    const res = await renameVideo(renameState.videoId, renameState.title.trim())
+    const res = await renameVideo(renameState.videoId, newTitle)
     if (res.code === 200) { ElMessage.success('重命名成功'); renameState.visible = false; loadRecords() }
     else ElMessage.error(res.message || '重命名失败')
   } catch (e: any) { ElMessage.error(e.message || '重命名失败') }
@@ -999,7 +1040,19 @@ subscribeFailed((data) => {
   }
 })
 
-onMounted(() => { loadRecords(); document.addEventListener('click', handleClickOutside) })
+onMounted(() => {
+  loadRecords()
+  applyQuickActionFromQuery(route.query as Record<string, unknown>)
+  document.addEventListener('click', handleClickOutside)
+})
+
+watch(
+  () => route.query,
+  (q) => {
+    applyQuickActionFromQuery(q as Record<string, unknown>)
+  }
+)
+
 onUnmounted(() => { document.removeEventListener('click', handleClickOutside); if (searchTimer) clearTimeout(searchTimer); unsubTaskChanged(); if (stalePollTimer) clearInterval(stalePollTimer) })
 
 // 兜底轮询：如果列表中有活跃任务，每 15 秒静默刷新一次，防止 WebSocket 消息丢失导致卡片卡住
@@ -1023,21 +1076,6 @@ watch(() => wsStore.isConnected, (connected, wasConnected) => {
 </script>
 
 <style scoped lang="scss">
-// ── 设计令牌 ──────────────────────────────────────
-$neu-1:  #ecf0f3;
-$neu-2:  #c8d0e7;   // 加深阴影色，增强对比
-$white:  #ffffff;
-$gray:   #8a9bb0;
-$black:  #1a1f2e;
-$purple: #4b70e2;
-$purple-light: #7c9df7;
-
-// 阴影系统（三档）
-$shadow-sm:  4px 4px 10px $neu-2, -4px -4px 10px $white;
-$shadow-md:  8px 8px 18px $neu-2, -8px -8px 18px $white;
-$shadow-lg:  12px 12px 28px darken($neu-2, 8%), -12px -12px 28px $white;
-$shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
-
 // ── 布局 ──────────────────────────────────────────
 .records-center { width: 100%; position: relative; }
 
@@ -1047,15 +1085,15 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   .breadcrumb-item {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 4px 8px; border: none; background: transparent; cursor: pointer;
-    font-size: 14px; font-weight: 600; color: $gray; border-radius: 8px;
+    font-size: 14px; font-weight: 600; color: var(--text-secondary); border-radius: 8px;
     transition: color .15s, background .15s; line-height: 1;
     .crumb-icon { width: 14px; height: 14px; flex-shrink: 0; }
-    &:hover { color: $purple; background: rgba($purple, .07); }
-    &.root-crumb { font-size: 15px; font-weight: 700; color: $black; }
-    &.is-current { color: $black; font-weight: 700; cursor: default; pointer-events: none; }
+    &:hover { color: var(--color-primary); background: rgba(64, 158, 255, .07); }
+    &.root-crumb { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+    &.is-current { color: var(--text-primary); font-weight: 700; cursor: default; pointer-events: none; }
   }
   .crumb-sep {
-    display: flex; align-items: center; color: $neu-2;
+    display: flex; align-items: center; color: var
     svg { width: 14px; height: 14px; }
   }
 }
@@ -1064,10 +1102,10 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 .subfolder-hint {
   display: flex; align-items: center; gap: 7px;
   padding: 8px 14px; margin-bottom: 14px;
-  background: rgba($purple, .04); border-radius: 10px;
-  border: 1px dashed rgba($purple, .2);
-  font-size: 12px; color: $gray; line-height: 1.4;
-  svg { width: 15px; height: 15px; flex-shrink: 0; color: rgba($purple, .5); }
+  background: rgba(64, 158, 255, .04); border-radius: 10px;
+  border: 1px dashed rgba(64, 158, 255, .2);
+  font-size: 12px; color: var(--text-secondary); line-height: 1.4;
+  svg { width: 15px; height: 15px; flex-shrink: 0; color: rgba(64, 158, 255, .5); }
 }
 
 // ── 页面头部 ──────────────────────────────────────
@@ -1075,8 +1113,8 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px;
   flex-wrap: wrap; gap: 12px;
   .header-left { display: flex; align-items: baseline; gap: 12px; flex-shrink: 0; }
-  .page-title { font-size: 22px; font-weight: 700; color: $black; margin: 0; letter-spacing: -.3px; }
-  .record-count { font-size: 13px; color: $gray; }
+  .page-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; letter-spacing: -.3px; }
+  .record-count { font-size: 13px; color: var(--text-secondary); }
   .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; height: 38px; overflow: visible; }
 }
 
@@ -1085,23 +1123,22 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   display: inline-flex; align-items: center; gap: 0;
   padding: 0 4px 0 14px;
   height: 40px; box-sizing: border-box; align-self: center;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(6px);
-  border-radius: 22px;
-  border: 1.5px solid rgba($neu-2, 0.7);
-  box-shadow: 2px 2px 6px rgba($neu-2, 0.5), -2px -2px 6px rgba(255,255,255,0.8);
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
   white-space: nowrap;
 
   // 状态提示文字
   .batch-inline-count {
-    font-size: 12px; font-weight: 600; color: $purple; letter-spacing: 0.3px;
+    font-size: 12px; font-weight: 600; color: var(--color-primary); letter-spacing: 0.3px;
     line-height: 1; flex-shrink: 0;
-    &.empty { color: $gray; font-weight: 500; }
+    &.empty { color: var(--text-secondary); font-weight: 500; }
   }
 
   // 垂直分割线
   .batch-inline-divider {
-    width: 1px; height: 14px; background: rgba($neu-2, 0.9);
+    width: 1px; height: 14px; background: var(--border-color);
     flex-shrink: 0; margin: 0 8px;
   }
 
@@ -1111,43 +1148,42 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
     gap: 5px; height: 28px; padding: 0 10px;
     background: transparent; box-shadow: none; border-color: transparent;
     border-radius: 8px; font-size: 12px; font-weight: 500;
-    color: #4d5d7d; line-height: 1; white-space: nowrap;
+    color: var(--text-secondary); line-height: 1; white-space: nowrap;
     transition: background .15s, color .15s;
     &:hover:not(:disabled) {
-      background: rgba($purple, 0.08); color: $purple;
+      background: rgba(64, 158, 255, 0.08); color: var(--color-primary);
     }
     &:disabled { opacity: 0.38; cursor: not-allowed; }
-    &.danger:hover:not(:disabled) { background: rgba(#e74c3c, 0.08); color: #e74c3c; }
+    &.danger:hover:not(:disabled) { background: rgba(231, 76, 60, 0.08); color: #e74c3c; }
 
     // 全选按钮：带复选框图标
     &.select-all {
-      color: $gray; font-weight: 500; gap: 6px;
-      &:hover:not(:disabled) { background: rgba($purple, 0.08); color: $purple; }
+      color: var(--text-secondary); font-weight: 500; gap: 6px;
+      &:hover:not(:disabled) { background: rgba(64, 158, 255, 0.08); color: var(--color-primary); }
 
       .select-all-box {
         width: 15px; height: 15px; flex-shrink: 0;
         border-radius: 4px;
-        border: 1.5px solid rgba($neu-2, 1.4);
-        background: linear-gradient(145deg, #f5f7fa, #ffffff);
-        box-shadow: inset 1px 1px 3px rgba($neu-2, 0.55), inset -1px -1px 2px rgba(255,255,255,0.9);
+        border: 1.5px solid var(--border-color);
+        background: var(--bg-card);
         display: inline-flex; align-items: center; justify-content: center;
         transition: all .15s ease;
-        color: #fff;
+        color: #fff !important;
         .indeterminate-dash {
-          width: 7px; height: 2px; border-radius: 1px; background: $purple; display: block;
+          width: 7px; height: 2px; border-radius: 1px; background: var(--color-primary); display: block;
         }
       }
 
       &.is-indeterminate {
-        color: $purple;
-        .select-all-box { border-color: $purple; }
+        color: var(--color-primary);
+        .select-all-box { border-color: var(--color-primary); }
       }
 
       &.is-all {
-        color: $purple; font-weight: 600;
+        color: var(--color-primary); font-weight: 600;
         .select-all-box {
-          background: $purple; border-color: $purple;
-          box-shadow: 0 2px 5px rgba($purple, 0.3);
+          background: var(--color-primary); border-color: var(--color-primary);
+          box-shadow: none;
         }
       }
     }
@@ -1160,49 +1196,62 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 @keyframes batch-in { from { opacity: 0; transform: translateX(12px) scale(.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
 @keyframes batch-out { from { opacity: 1; } to { opacity: 0; transform: translateX(8px) scale(.97); } }
 
-// ── 通用控件按钮（高对比度） ──────────────────────
+// ── 通用控件按钮（扁平化） ──────────────────────
 .ctrl-btn {
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 9px 18px; border-radius: 11px;
+  padding: 9px 18px; border-radius: 8px;
   font-size: 13px; font-weight: 600; font-family: 'Montserrat', sans-serif;
   cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1);
-  // 线性渐变：光感从左上角射入
-  background: linear-gradient(145deg, #ffffff, #dcdcdc);
-  // 深蓝灰文字，提升对比度
-  color: #4d5d7d;
+  background: var(--bg-card);
+  color: var(--text-secondary);
   letter-spacing: 0.5px;
-  // 环境色阴影（清透有水分感）
-  box-shadow: 4px 4px 8px #c8d0e7, -4px -4px 8px #ffffff;
-  // 轮廓光：白边划出轮廓
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
 
-  // 图标发光
-  .el-icon { filter: drop-shadow(0 0 1px rgba(0,0,0,0.1)); }
+  .el-icon { filter: none; }
 
   &:hover {
-    color: $black;
-    box-shadow: 3px 3px 6px #c8d0e7, -3px -3px 6px #ffffff;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
     transform: translateY(-1px);
   }
-  &:active { box-shadow: $shadow-in; transform: none; }
+  &:active { transform: translateY(1px); }
 
   &.primary {
-    background: linear-gradient(135deg, $purple 0%, $purple-light 100%);
+    background: var(--color-primary);
     color: #fff; letter-spacing: 0.5px;
-    border: 1.5px solid rgba(255, 255, 255, 0.35);
-    box-shadow: 5px 5px 14px rgba($purple,.35), -3px -3px 8px $white;
-    &:hover { box-shadow: 6px 6px 18px rgba($purple,.45), -3px -3px 8px $white; transform: translateY(-1px); }
+    border: 1px solid var(--color-primary);
+    &:hover { background: #66b1ff; border-color: #66b1ff; transform: translateY(-1px); }
     &:disabled { opacity: .5; cursor: not-allowed; transform: none; }
   }
-  // 批量管理按钮激活态：偏向淡蓝白，功能上区别于筛选框
   &.active {
-    background: linear-gradient(145deg, #eef3ff, #d6e0f8);
-    color: $purple;
-    border: 1.5px solid rgba($purple, 0.2);
-    box-shadow: $shadow-in;
+    background: rgba(64, 158, 255, 0.1);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
   }
-  &.danger { color: #e74c3c; &:hover { background: linear-gradient(145deg, #fff5f5, #f5d5d5); } }
-  &.sm { padding: 7px 14px; font-size: 12px; border-radius: 9px; }
+  &.danger {
+    color: #e74c3c;
+    border-color: rgba(231, 76, 60, 0.45);
+    background: rgba(231, 76, 60, 0.1);
+
+    &:hover:not(:disabled) {
+      background: #e74c3c;
+      border-color: #e74c3c;
+      color: #fff !important;
+    }
+
+    &:active:not(:disabled) {
+      background: #d84a3a;
+      border-color: #d84a3a;
+      color: #fff !important;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+  &.sm { padding: 7px 14px; font-size: 12px; border-radius: 8px; }
 }
 
 // ── 筛选工具栏 ────────────────────────────────────
@@ -1214,22 +1263,18 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 }
 
 .filter-chip {
-  padding: 6px 15px; border-radius: 20px; font-size: 12px; font-weight: 600;
-  // 线性渐变背景
-  background: linear-gradient(145deg, #ffffff, #dcdcdc);
-  color: #4d5d7d; letter-spacing: 0.5px;
+  padding: 6px 15px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: var(--bg-card);
+  color: var(--text-secondary); letter-spacing: 0.5px;
   cursor: pointer; font-family: 'Montserrat', sans-serif;
-  // 环境色阴影 + 轮廓光
-  box-shadow: 4px 4px 8px #c8d0e7, -4px -4px 8px #ffffff;
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  box-shadow: none;
+  border: 1px solid var(--border-color);
   transition: all .25s;
-  // 图标发光
-  .el-icon { filter: drop-shadow(0 0 1px rgba(0,0,0,0.1)); }
-  &:hover { color: $purple; transform: translateY(-1px); filter: drop-shadow(0 2px 5px rgba(100,130,200,0.15)); }
+  .el-icon { filter: none; }
+  &:hover { color: var(--color-primary); border-color: var(--color-primary); transform: translateY(-1px); }
   &.active {
-    background: linear-gradient(135deg, $purple, $purple-light); color: #fff;
-    border: 1.5px solid rgba(255, 255, 255, 0.35);
-    box-shadow: 3px 3px 8px rgba($purple,.3), -2px -2px 6px $white;
+    background: var(--color-primary); color: #fff !important;
+    border: 1px solid var(--color-primary);
     letter-spacing: 0.5px;
   }
 }
@@ -1237,33 +1282,29 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 // 搜索框
 .search-box {
   position: relative; display: flex; align-items: center;
-  // 线性渐变背景
-  background: linear-gradient(145deg, #ffffff, #dcdcdc);
-  border-radius: 20px;
-  // 环境色阴影 + 轮廓光
-  box-shadow: 4px 4px 8px #c8d0e7, -4px -4px 8px #ffffff;
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
-  transition: box-shadow .25s;
+  background: var(--bg-card);
+  border-radius: 8px;
+  box-shadow: none;
+  border: 1px solid var(--border-color);
+  transition: border-color .25s;
   &:focus-within {
-    box-shadow: $shadow-in;
-    border-color: rgba($purple, 0.3);
+    border-color: var(--color-primary);
   }
   .search-icon {
-    position: absolute; left: 13px; color: #4d5d7d; font-size: 13px;
+    position: absolute; left: 13px; color: var(--text-secondary); font-size: 13px;
     pointer-events: none;
-    filter: drop-shadow(0 0 1px rgba(0,0,0,0.1));
   }
   .search-input {
     width: 220px; padding: 8px 32px 8px 36px; font-size: 12px; font-weight: 500;
-    color: #4d5d7d; letter-spacing: 0.3px;
-    background: transparent; border: none; border-radius: 20px; outline: none;
+    color: var(--text-secondary); letter-spacing: 0.3px;
+    background: transparent; border: none; border-radius: 8px; outline: none;
     font-family: 'Montserrat', sans-serif;
-    &::placeholder { color: $gray; }
+    &::placeholder { color: var(--text-secondary); }
   }
   .search-clear {
     position: absolute; right: 10px; background: none; border: none; cursor: pointer;
-    color: $gray; font-size: 12px; display: flex; align-items: center;
-    &:hover { color: $black; }
+    color: var(--text-secondary); font-size: 12px; display: flex; align-items: center;
+    &:hover { color: var(--text-primary); }
   }
 }
 
@@ -1276,29 +1317,28 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba($purple, 0.15);
-  box-shadow: 0 4px 20px rgba($neu-2, 0.7), 0 1px 6px rgba($purple, 0.1);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
   white-space: nowrap; max-width: 340px;
   pointer-events: auto;
-  // 关键：不参与文档流，不触发任何 reflow
   will-change: transform, opacity;
 
   // 小三角
   &::after {
     content: ''; position: absolute; top: 100%; left: 16px;
     border: 5px solid transparent;
-    border-top-color: rgba(255, 255, 255, 0.92);
+    border-top-color: var(--bg-card);
   }
   &::before {
     content: ''; position: absolute; top: 100%; left: 15px;
     border: 6px solid transparent;
-    border-top-color: rgba($purple, 0.15);
+    border-top-color: var(--border-color);
   }
 
   .tooltip-url {
-    font-size: 11px; color: $purple; text-decoration: none;
+    font-size: 11px; color: var(--color-primary); text-decoration: none;
     overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0;
     max-width: 280px; display: block;
     &:hover { text-decoration: underline; }
@@ -1308,62 +1348,59 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
     flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px;
     border: none; background: transparent; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    color: $gray; transition: background .15s, color .15s; padding: 0;
+    color: var(--text-secondary); transition: background .15s, color .15s; padding: 0;
     .el-icon { font-size: 12px; }
-    &:hover { background: rgba($purple, 0.1); color: $purple; }
+    &:hover { background: rgba(64, 158, 255, 0.1); color: var(--color-primary); }
   }
 }
 
 // Tooltip 淡入淡出
-// tooltip 只做 opacity 淡入淡出，不叠加 translateY（避免与 fixed 定位的 transform 冲突）
 .tooltip-fade-enter-active { transition: opacity .15s ease; }
 .tooltip-fade-leave-active { transition: opacity .12s ease; }
 .tooltip-fade-enter-from, .tooltip-fade-leave-to { opacity: 0; }
 
 .icon-btn {
-  width: 30px; height: 30px; border: none; border-radius: 8px; background: $neu-1;
-  box-shadow: 3px 3px 7px $neu-2, -3px -3px 7px $white;
+  width: 30px; height: 30px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card);
+  box-shadow: none;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  color: $gray; font-size: 14px; transition: all .25s;
-  &:hover { color: $purple; box-shadow: 2px 2px 5px $neu-2, -2px -2px 5px $white; }
-  &.primary { color: $purple; }
+  color: var(--text-secondary); font-size: 14px; transition: all .25s;
+  &:hover { color: var(--color-primary); border-color: var(--color-primary); }
+  &.primary { color: var(--color-primary); }
 }
 
 // 更多菜单（完全自定义，无原生样式）
 .more-menu { position: relative; }
 .dropdown-panel {
   position: absolute; right: 0; bottom: 38px; min-width: 150px;
-  background: $neu-1; border-radius: 14px; padding: 6px;
-  box-shadow:
-    10px 10px 24px darken($neu-2, 8%),
-    -10px -10px 24px $white,
-    0 4px 16px rgba(0,0,0,.1);
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px;
+  box-shadow: none;
   z-index: 200;
 }
 .dd-item {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 13px;
-  border: none; border-radius: 9px; background: transparent; color: $black;
+  border: none; border-radius: 8px; background: transparent; color: var(--text-primary);
   font-size: 13px; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: all .2s;
-  .el-icon { font-size: 14px; color: $gray; }
-  &:hover { background: $neu-1; box-shadow: $shadow-in; .el-icon { color: $purple; } }
-  &.danger { color: #e74c3c; .el-icon { color: #e74c3c; } &:hover { background: rgba(#e74c3c,.06); box-shadow: none; } }
+  .el-icon { font-size: 14px; color: var(--text-secondary); }
+  &:hover { background: var(--bg-hover); .el-icon { color: var(--color-primary); } }
+  &.danger { color: #e74c3c; .el-icon { color: #e74c3c; } &:hover { background: rgba(231, 76, 60, .06); } }
 }
-.dd-divider { height: 1px; background: rgba($neu-2,.7); margin: 4px 8px; }
+.dd-divider { height: 1px; background: var(--border-color); margin: 4px 8px; }
 
 // ── 空/加载状态 ───────────────────────────────────
 .empty-state {
   text-align: center; padding: 70px 20px;
   .empty-icon {
-    width: 76px; height: 76px; border-radius: 50%; background: $neu-1;
-    box-shadow: $shadow-md; display: flex; align-items: center; justify-content: center;
-    color: $gray; margin: 0 auto 20px;
+    width: 76px; height: 76px; border-radius: 50%; background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: none; display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); margin: 0 auto 20px;
   }
-  h3 { font-size: 16px; color: $black; margin: 0 0 8px; font-weight: 700; }
-  p { font-size: 13px; color: $gray; margin: 0 0 24px; }
+  h3 { font-size: 16px; color: var(--text-primary); margin: 0 0 8px; font-weight: 700; }
+  p { font-size: 13px; color: var(--text-secondary); margin: 0 0 24px; }
 }
 .loading-state {
   display: flex; align-items: center; justify-content: center; gap: 12px;
-  padding: 70px 20px; color: $gray; font-size: 14px;
+  padding: 70px 20px; color: var(--text-secondary); font-size: 14px;
 }
 
 // ── 分页 ──────────────────────────────────────────
@@ -1379,24 +1416,24 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
       // 完全克隆 .page-btn 的背景 + 阴影
       height: 38px; padding: 0 14px;
       border-radius: 11px;
-      background: $neu-1;
-      box-shadow: $shadow-sm;
+      background: var(--bg-hover);
+      box-shadow: none;
       border: none;
       // 字体与 .page-info 完全一致
-      font-size: 13px; font-weight: 600; color: $black;
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
       gap: 8px; white-space: nowrap;
       transition: all .25s;
       // 去掉 NeuSelect 默认的金黄/蓝色边框
       outline: none;
 
       &:hover {
-        color: $purple;
-        box-shadow: 3px 3px 7px $neu-2, -3px -3px 7px $white;
+        color: var(--color-primary);
+        border-color: var(--color-primary);
       }
 
       // 箭头图标颜色跟随
-      .trigger-arrow { color: $gray; transition: color .25s; }
-      &:hover .trigger-arrow { color: $purple; }
+      .trigger-arrow { color: var(--text-secondary); transition: color .25s; }
+      &:hover .trigger-arrow { color: var(--color-primary); }
 
       // 无图标插槽时隐藏 icon 占位
       .trigger-icon { display: none; }
@@ -1411,13 +1448,13 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 .neu-pagination {
   display: flex; align-items: center; gap: 16px;
   .page-btn {
-    width: 38px; height: 38px; border: none; border-radius: 11px; background: $neu-1;
-    box-shadow: $shadow-sm; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    color: $gray; transition: all .25s;
-    &:hover:not(:disabled) { color: $purple; box-shadow: 3px 3px 7px $neu-2, -3px -3px 7px $white; }
+    width: 38px; height: 38px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card);
+    box-shadow: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); transition: all .25s;
+    &:hover:not(:disabled) { color: var(--color-primary); border-color: var(--color-primary); }
     &:disabled { opacity: .4; cursor: not-allowed; }
   }
-  .page-info { font-size: 13px; color: $black; font-weight: 600; }
+  .page-info { font-size: 13px; color: var(--text-primary); font-weight: 600; }
 }
 
 // ── 模态框 ────────────────────────────────────────
@@ -1426,27 +1463,51 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   z-index: 2000; display: flex; align-items: center; justify-content: center;
 }
 .neu-modal {
-  background: $neu-1; border-radius: 20px; padding: 28px; width: 380px; max-width: 90vw;
-  box-shadow: $shadow-lg;
-  .modal-title { font-size: 17px; font-weight: 700; color: $black; margin: 0 0 16px; }
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 28px; width: 380px; max-width: 90vw;
+  box-shadow: none;
+  .modal-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0 0 16px; }
   .modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 }
 .neu-input {
-  width: 100%; padding: 12px 16px; font-size: 13px; color: $black; background: $neu-1;
-  border: none; border-radius: 11px; box-shadow: $shadow-in; outline: none;
+  width: 100%; padding: 12px 16px; font-size: 13px; color: var(--text-primary); background: var(--bg-card);
+  border: 1px solid var(--border-color); border-radius: 8px; outline: none;
   font-family: 'Montserrat', sans-serif; transition: all .25s;
-  &:focus { box-shadow: inset 4px 4px 9px $neu-2, inset -4px -4px 9px $white; }
-  &::placeholder { color: $gray; }
+  &:focus { border-color: var(--color-primary); }
+  &::placeholder { color: var(--text-secondary); }
 }
 .confirm-header {
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
   .confirm-icon {
-    width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; background: linear-gradient(135deg, #ff6b6b, #e74c3c); color: #fff;
-    box-shadow: 4px 4px 12px rgba(#e74c3c,.35);
+    width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; background: #e74c3c; color: #fff !important;
+    box-shadow: none;
   }
 }
-.confirm-desc { font-size: 13px; color: $gray; margin: 0; line-height: 1.6; }
+.confirm-desc { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.6; }
+
+.delete-confirm-btn {
+  color: #fff !important;
+  background: #e74c3c !important;
+  border-color: #e74c3c !important;
+
+  &:hover:not(:disabled) {
+    color: #fff !important;
+    background: #f56c6c !important;
+    border-color: #f56c6c !important;
+  }
+
+  &:active:not(:disabled) {
+    color: #fff !important;
+    background: #d84a3a !important;
+    border-color: #d84a3a !important;
+  }
+
+  &:disabled {
+    color: rgba(255, 255, 255, 0.88) !important;
+    background: rgba(231, 76, 60, 0.72) !important;
+    border-color: rgba(231, 76, 60, 0.72) !important;
+  }
+}
 
 // ── 视图切换器 ────────────────────────────────────
 .view-switcher {
@@ -1454,30 +1515,26 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
 
   .view-dropdown {
     position: absolute; right: 0; top: calc(100% + 8px); min-width: 160px;
-    background: $neu-1; border-radius: 14px; padding: 6px;
-    box-shadow:
-      10px 10px 24px darken($neu-2, 8%),
-      -10px -10px 24px $white,
-      0 4px 16px rgba(0,0,0,.1);
+    background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px;
+    box-shadow: none;
     z-index: 300;
   }
 
   .view-option {
     display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 13px;
-    border: none; border-radius: 9px; background: transparent; color: $black;
+    border: none; border-radius: 8px; background: transparent; color: var(--text-primary);
     font-size: 13px; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: all .2s;
-    .el-icon { font-size: 14px; color: $gray; }
-    .check-icon { margin-left: auto; color: $purple; font-size: 13px; }
+    .el-icon { font-size: 14px; color: var(--text-secondary); }
+    .check-icon { margin-left: auto; color: var(--color-primary); font-size: 13px; }
     span { flex: 1; text-align: left; }
 
     &:hover {
-      background: $neu-1;
-      box-shadow: $shadow-in;
-      .el-icon { color: $purple; }
+      background: var(--bg-hover);
+      .el-icon { color: var(--color-primary); }
     }
     &.active {
-      color: $purple; font-weight: 600;
-      .el-icon { color: $purple; }
+      color: var(--color-primary); font-weight: 600;
+      .el-icon { color: var(--color-primary); }
     }
   }
 }
@@ -1511,10 +1568,9 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
   max-height: 300px;
   overflow-y: auto;
   margin: 12px 0;
-  border-radius: 10px;
-  background: $neu-1;
+  border-radius: 8px;
+  background: var(--bg-hover);
   padding: 6px;
-  box-shadow: $shadow-in;
 
   .move-folder-option {
     display: block;
@@ -1524,12 +1580,12 @@ $shadow-in:  inset 3px 3px 7px $neu-2, inset -3px -3px 7px $white;
     background: transparent;
     border-radius: 8px;
     font-size: 13px;
-    color: $black;
+    color: var(--text-primary);
     cursor: pointer;
     text-align: left;
     transition: all 0.15s;
-    &:hover { background: rgba($purple, 0.08); }
-    &.active { background: linear-gradient(135deg, $purple, $purple-light); color: #fff; }
+    &:hover { background: rgba(64, 158, 255, 0.08); }
+    &.active { background: var(--color-primary); color: #fff; }
   }
 }
 </style>
