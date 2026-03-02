@@ -13,14 +13,6 @@
             <div class="source-label">
               <el-icon :size="14"><Upload /></el-icon>
               <span>{{ mockVideoArchive?.uploadSource || "本地" }}视频</span>
-              <a
-                v-if="mockVideoArchive?.uploadSource === '网络采集' && mockVideoArchive?.sourceUrl"
-                :href="mockVideoArchive.sourceUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="badge-source-link"
-                :title="mockVideoArchive.sourceUrl"
-              >{{ mockVideoArchive.sourceUrl }}</a>
             </div>
             <span class="source-hint">以下传播相关数据为AI预测值</span>
           </div>
@@ -173,58 +165,147 @@
             </div>
 
             <div class="global-stats-section stats-pro-container">
-              <!-- 第1列：身份判定 + 对学校态度 -->
-              <div class="stat-pro-col">
-                <div
-                  class="stat-pro-item"
-                  :class="{ active: currentCardId === 'identity' }"
-                  @click="openEvidenceDrawer('identity')"
-                >
-                  <div class="card-tooltip">
-                    {{
-                      currentCardId === "identity"
-                        ? "点击关闭详细证据"
-                        : "点击查看详细证据"
-                    }}
+              <!-- 高校舆情分析核心指标 -->
+              <div
+                class="stat-pro-item"
+                :class="{ active: currentCardId === 'identity' }"
+                @click="openEvidenceDrawer('identity')"
+              >
+                <div class="card-tooltip">
+                  {{
+                    currentCardId === "identity"
+                      ? "点击关闭详细证据"
+                      : "点击查看详细证据"
+                  }}
+                </div>
+                <div class="pro-icon icon-bg-identity">
+                  <el-icon><User /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">
+                    身份判定
+                    <span class="evidence-badge"
+                      >({{
+                        analysisResult.identity.evidences?.length || 0
+                      }})</span
+                    >
                   </div>
-                  <div class="pro-icon icon-bg-identity">
-                    <el-icon><User /></el-icon>
+                  <div class="pro-value text-identity">
+                    {{ mockIdentityAnalysis?.identityLabel || "-" }}
                   </div>
-                  <div class="pro-content">
-                    <div class="pro-label">
-                      身份判定
-                      <span class="evidence-badge"
-                        >({{
-                          analysisResult.identity.evidences?.length || 0
-                        }})</span
-                      >
-                    </div>
-                    <div class="pro-value text-identity">
-                      {{ mockIdentityAnalysis?.identityLabel || "-" }}
-                    </div>
-                    <div class="pro-subtitle">
-                      置信度
-                      {{ mockIdentityAnalysis?.modalityFusion?.finalScore || 0 }}%
-                    </div>
+                  <div class="pro-subtitle">
+                    置信度
+                    {{ mockIdentityAnalysis?.modalityFusion?.finalScore || 0 }}%
                   </div>
                 </div>
+              </div>
 
-                <div
-                  class="stat-pro-item"
-                  :class="{ active: currentCardId === 'attitude' }"
-                  @click="openEvidenceDrawer('attitude')"
-                >
-                  <div class="card-tooltip">
+              <div
+                class="stat-pro-item"
+                :class="{ active: currentCardId === 'university' }"
+                @click="openEvidenceDrawer('university')"
+              >
+                <div class="card-tooltip">
+                  {{
+                    currentCardId === "university"
+                      ? "点击关闭详细证据"
+                      : "点击查看详细证据"
+                  }}
+                </div>
+                <div class="pro-icon icon-bg-uni">
+                  <el-icon><School /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">
+                    涉及高校
+                    <span class="evidence-badge"
+                      >({{
+                        analysisResult.university.evidences?.length || 0
+                      }})</span
+                    >
+                  </div>
+                  <div class="pro-value text-uni">
+                    {{ mockUniversityBaseline?.universityName || "-" }}
+                  </div>
+                  <div class="pro-subtitle">
+                    匹配度
                     {{
-                      currentCardId === "attitude"
-                        ? "点击关闭详细证据"
-                        : "点击查看详细证据"
-                    }}
+                      mockUniversityBaseline?.modalityFusion?.finalScore || 0
+                    }}%
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="stat-pro-item"
+                :class="{ active: currentCardId === 'topic' }"
+                @click="openEvidenceDrawer('topic')"
+              >
+                <div class="card-tooltip">
+                  {{
+                    currentCardId === "topic"
+                      ? "点击关闭详细证据"
+                      : "点击查看详细证据"
+                  }}
+                </div>
+                <div class="pro-icon icon-bg-topic">
+                  <el-icon><ChatDotRound /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">
+                    内容主题
+                    <span class="evidence-badge"
+                      >({{ analysisResult.topic.evidences?.length || 0 }})</span
+                    >
+                  </div>
+                  <div class="pro-value text-topic">
+                    {{ mockContentAnalysis?.topicCategory || "-" }}
+                  </div>
+                  <div class="pro-subtitle">
+                    {{ mockContentAnalysis?.topicSubCategory || "" }}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="stat-pro-item"
+                :class="{ active: currentCardId === 'attitude' }"
+                @click="openEvidenceDrawer('attitude')"
+              >
+                <div class="card-tooltip">
+                  {{
+                    currentCardId === "attitude"
+                      ? "点击关闭详细证据"
+                      : "点击查看详细证据"
+                  }}
+                </div>
+                <div
+                  class="pro-icon"
+                  :class="
+                    getSentimentIconClass(
+                      getSentimentByScore(
+                        (attitudeStatistics.negative /
+                          attitudeStatistics.total) *
+                          100,
+                      ),
+                    )
+                  "
+                >
+                  <el-icon><TrendCharts /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">
+                    对学校态度
+                    <span class="evidence-badge"
+                      >({{
+                        analysisResult.attitude.evidences?.length || 0
+                      }})</span
+                    >
                   </div>
                   <div
-                    class="pro-icon"
+                    class="pro-value"
                     :class="
-                      getSentimentIconClass(
+                      getSentimentTextClass(
                         getSentimentByScore(
                           (attitudeStatistics.negative /
                             attitudeStatistics.total) *
@@ -233,211 +314,114 @@
                       )
                     "
                   >
-                    <el-icon><TrendCharts /></el-icon>
+                    {{
+                      getSentimentLabel(
+                        getSentimentByScore(
+                          (attitudeStatistics.negative /
+                            attitudeStatistics.total) *
+                            100,
+                        ),
+                      )
+                    }}
                   </div>
-                  <div class="pro-content">
-                    <div class="pro-label">
-                      对学校态度
-                      <span class="evidence-badge"
-                        >({{
-                          analysisResult.attitude.evidences?.length || 0
-                        }})</span
-                      >
-                    </div>
-                    <div
-                      class="pro-value"
-                      :class="
-                        getSentimentTextClass(
-                          getSentimentByScore(
-                            (attitudeStatistics.negative /
-                              attitudeStatistics.total) *
+                  <div class="pro-subtitle">
+                    {{
+                      mockContentAnalysis?.negativeMentionCount || 0
+                    }}处负面，占比
+                    {{
+                      mockContentAnalysis
+                        ? Math.round(
+                            (mockContentAnalysis.negativeMentionCount /
+                              mockContentAnalysis.schoolMentionCount) *
                               100,
-                          ),
-                        )
-                      "
-                    >
-                      {{
-                        getSentimentLabel(
-                          getSentimentByScore(
-                            (attitudeStatistics.negative /
-                              attitudeStatistics.total) *
-                              100,
-                          ),
-                        )
-                      }}
-                    </div>
-                    <div class="pro-subtitle">
-                      {{
-                        mockContentAnalysis?.negativeMentionCount || 0
-                      }}处负面，占比
-                      {{
-                        mockContentAnalysis
-                          ? Math.round(
-                              (mockContentAnalysis.negativeMentionCount /
-                                mockContentAnalysis.schoolMentionCount) *
-                                100,
-                            )
-                          : 0
-                      }}%
-                    </div>
+                          )
+                        : 0
+                    }}%
                   </div>
                 </div>
               </div>
 
-              <!-- 第2列：涉及高校 + 潜在舆论风险 -->
-              <div class="stat-pro-col">
-                <div
-                  class="stat-pro-item"
-                  :class="{ active: currentCardId === 'university' }"
-                  @click="openEvidenceDrawer('university')"
-                >
-                  <div class="card-tooltip">
-                    {{
-                      currentCardId === "university"
-                        ? "点击关闭详细证据"
-                        : "点击查看详细证据"
-                    }}
-                  </div>
-                  <div class="pro-icon icon-bg-uni">
-                    <el-icon><School /></el-icon>
-                  </div>
-                  <div class="pro-content">
-                    <div class="pro-label">
-                      涉及高校
-                      <span class="evidence-badge"
-                        >({{
-                          analysisResult.university.evidences?.length || 0
-                        }})</span
-                      >
-                    </div>
-                    <div class="pro-value text-uni">
-                      {{ mockUniversityBaseline?.universityName || "-" }}
-                    </div>
-                    <div class="pro-subtitle">
-                      匹配度
-                      {{
-                        mockUniversityBaseline?.modalityFusion?.finalScore || 0
-                      }}%
-                    </div>
-                  </div>
+              <div
+                class="stat-pro-item"
+                :class="{ active: currentCardId === 'opinionRisk' }"
+                @click="openEvidenceDrawer('opinionRisk')"
+              >
+                <div class="card-tooltip">
+                  {{
+                    currentCardId === "opinionRisk"
+                      ? "点击关闭详细证据"
+                      : "点击查看详细证据"
+                  }}
                 </div>
-
                 <div
-                  class="stat-pro-item"
-                  :class="{ active: currentCardId === 'opinionRisk' }"
-                  @click="openEvidenceDrawer('opinionRisk')"
+                  class="pro-icon"
+                  :class="
+                    getOpinionRiskIconClass(
+                      getRiskLevelByScore(
+                        analysisResult.opinionRisk.modalityFusion.finalScore,
+                      ),
+                    )
+                  "
                 >
-                  <div class="card-tooltip">
-                    {{
-                      currentCardId === "opinionRisk"
-                        ? "点击关闭详细证据"
-                        : "点击查看详细证据"
-                    }}
+                  <el-icon><WarningFilled /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">
+                    潜在舆论风险
+                    <span class="evidence-badge"
+                      >({{
+                        analysisResult.opinionRisk.evidences?.length || 0
+                      }})</span
+                    >
+                    <span class="ai-predict-badge">AI预测</span>
                   </div>
                   <div
-                    class="pro-icon"
+                    class="pro-value"
                     :class="
-                      getOpinionRiskIconClass(
+                      getOpinionRiskTextClass(
                         getRiskLevelByScore(
                           analysisResult.opinionRisk.modalityFusion.finalScore,
                         ),
                       )
                     "
                   >
-                    <el-icon><WarningFilled /></el-icon>
+                    {{ mockOpinionRisk?.riskLabel || "-" }}
                   </div>
-                  <div class="pro-content">
-                    <div class="pro-label">
-                      潜在舆论风险
-                      <span class="evidence-badge"
-                        >({{
-                          analysisResult.opinionRisk.evidences?.length || 0
-                        }})</span
-                      >
-                      <span class="ai-predict-badge">AI预测</span>
-                    </div>
-                    <div
-                      class="pro-value"
-                      :class="
-                        getOpinionRiskTextClass(
-                          getRiskLevelByScore(
-                            analysisResult.opinionRisk.modalityFusion.finalScore,
-                          ),
-                        )
-                      "
-                    >
-                      {{ mockOpinionRisk?.riskLabel || "-" }}
-                    </div>
-                    <div class="pro-subtitle">
-                      {{ mockOpinionRisk?.riskReason || "" }}
-                    </div>
+                  <div class="pro-subtitle">
+                    {{ mockOpinionRisk?.riskReason || "" }}
                   </div>
                 </div>
               </div>
 
-              <!-- 第3列：内容主题 + 处置建议 -->
-              <div class="stat-pro-col">
-                <div
-                  class="stat-pro-item"
-                  :class="{ active: currentCardId === 'topic' }"
-                  @click="openEvidenceDrawer('topic')"
-                >
-                  <div class="card-tooltip">
-                    {{
-                      currentCardId === "topic"
-                        ? "点击关闭详细证据"
-                        : "点击查看详细证据"
-                    }}
-                  </div>
-                  <div class="pro-icon icon-bg-topic">
-                    <el-icon><ChatDotRound /></el-icon>
-                  </div>
-                  <div class="pro-content">
-                    <div class="pro-label">
-                      内容主题
-                      <span class="evidence-badge"
-                        >({{ analysisResult.topic.evidences?.length || 0 }})</span
-                        >
-                    </div>
-                    <div class="pro-value text-topic">
-                      {{ mockContentAnalysis?.topicCategory || "-" }}
-                    </div>
-                    <div class="pro-subtitle">
-                      {{ mockContentAnalysis?.topicSubCategory || "" }}
-                    </div>
-                  </div>
+              <div
+                class="stat-pro-item"
+                :class="{ active: currentCardId === 'action' }"
+                @click="openEvidenceDrawer('action')"
+              >
+                <div class="card-tooltip">
+                  {{
+                    currentCardId === "action"
+                      ? "点击关闭详细证据"
+                      : "点击查看详细证据"
+                  }}
                 </div>
-
-                <div
-                  class="stat-pro-item"
-                  :class="{ active: currentCardId === 'action' }"
-                  @click="openEvidenceDrawer('action')"
-                >
-                  <div class="card-tooltip">
-                    {{
-                      currentCardId === "action"
-                        ? "点击关闭详细证据"
-                        : "点击查看详细证据"
-                    }}
+                <div class="pro-icon icon-bg-action">
+                  <el-icon><DocumentChecked /></el-icon>
+                </div>
+                <div class="pro-content">
+                  <div class="pro-label">
+                    处置建议
+                    <span class="evidence-badge"
+                      >({{
+                        analysisResult.action.evidences?.length || 0
+                      }})</span
+                    >
                   </div>
-                  <div class="pro-icon icon-bg-action">
-                    <el-icon><DocumentChecked /></el-icon>
+                  <div class="pro-value text-action">
+                    {{ mockOpinionRisk?.actionSuggestion || "-" }}
                   </div>
-                  <div class="pro-content">
-                    <div class="pro-label">
-                      处置建议
-                      <span class="evidence-badge"
-                        >({{
-                          analysisResult.action.evidences?.length || 0
-                        }})</span
-                        >
-                    </div>
-                    <div class="pro-value text-action">
-                      {{ mockOpinionRisk?.actionSuggestion || "-" }}
-                    </div>
-                    <div class="pro-subtitle">
-                      {{ mockOpinionRisk?.actionDetail || "" }}
-                    </div>
+                  <div class="pro-subtitle">
+                    {{ mockOpinionRisk?.actionDetail || "" }}
                   </div>
                 </div>
               </div>
@@ -548,7 +532,10 @@
                   :style="getDetectionBoxStyle(detection)"
                 >
                   <div class="detection-label-container">
-                    <span class="detection-label">
+                    <span
+                      class="detection-label"
+                      :style="{ color: getDetectionLabelTextColor(detection.type) }"
+                    >
                       {{ detection.label }}
                       <span class="confidence-badge"
                         >{{ Math.round(detection.confidence * 100) }}%</span
@@ -1117,53 +1104,56 @@
                         :key="'text-' + index"
                         :content="evidence.description"
                         placement="top"
-                        :show-after="100"
                         popper-class="text-evidence-tooltip"
+                        :show-after="300"
+                        :hide-after="0"
+                        :disabled="!evidence.description"
+                        teleported
                       >
-                        <div
-                          class="text-evidence-item-inline"
-                          @click="
-                            evidence.timestamp !== undefined &&
-                            jumpToTime(evidence.timestamp)
-                          "
-                        >
-                          <div class="text-keyword-inline">
-                            <!-- 情感标签（只对"对学校态度"卡片显示） -->
-                            <span
-                              v-if="
-                                currentCardId === 'attitude' &&
-                                evidence.sentimentScore !== undefined
-                              "
-                              class="sentiment-tag-inline"
-                              :class="
-                                'sentiment-' +
+                      <div
+                        class="text-evidence-item-inline"
+                        @click="
+                          evidence.timestamp !== undefined &&
+                          jumpToTime(evidence.timestamp)
+                        "
+                      >
+                        <div class="text-keyword-inline">
+                          <!-- 情感标签（只对"对学校态度"卡片显示） -->
+                          <span
+                            v-if="
+                              currentCardId === 'attitude' &&
+                              evidence.sentimentScore !== undefined
+                            "
+                            class="sentiment-tag-inline"
+                            :class="
+                              'sentiment-' +
+                              getSentimentBySentimentScore(
+                                evidence.sentimentScore,
+                              )
+                            "
+                          >
+                            {{
+                              getSentimentText(
                                 getSentimentBySentimentScore(
                                   evidence.sentimentScore,
-                                )
-                              "
-                            >
-                              {{
-                                getSentimentText(
-                                  getSentimentBySentimentScore(
-                                    evidence.sentimentScore,
-                                  ),
-                                )
-                              }}
-                            </span>
-                            {{ evidence.keyword }}
-                          </div>
-                          <div class="text-meta-inline">
-                            <span
-                              v-if="evidence.timestamp !== undefined"
-                              class="text-time-inline"
-                            >
-                              {{ formatTimeDisplay(evidence.timestamp) }}
-                            </span>
-                            <span class="confidence-badge-inline"
-                              >{{ evidence.confidence }}%</span
-                            >
-                          </div>
+                                ),
+                              )
+                            }}
+                          </span>
+                          {{ evidence.keyword }}
                         </div>
+                        <div class="text-meta-inline">
+                          <span
+                            v-if="evidence.timestamp !== undefined"
+                            class="text-time-inline"
+                          >
+                            {{ formatTimeDisplay(evidence.timestamp) }}
+                          </span>
+                          <span class="confidence-badge-inline"
+                            >{{ evidence.confidence }}%</span
+                          >
+                        </div>
+                      </div>
                       </el-tooltip>
                     </div>
                   </div>
@@ -1517,7 +1507,6 @@
         v-else 
         key="report" 
         :data="analysisResult" 
-        :hide-export="hideExport"
         @export-pdf="emit('export-pdf')"
       />
     </transition>
@@ -1542,17 +1531,6 @@ import {
 import VChart from "vue-echarts";
 import { ElMessage } from "element-plus";
 import type { RiskLevel, SentimentLabel } from "@/types";
-
-// 主题版本号：用于触发图表 option 在主题切换时重新计算
-const themeVersion = ref(0);
-
-// Helper function to get CSS variable values for dark mode support
-const getCSSVar = (varName: string): string => {
-  if (typeof window !== 'undefined') {
-    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-  }
-  return '';
-};
 
 // 导入证据抽屉组件和数据
 import EvidenceDrawer from "@/components/EvidenceDrawer.vue";
@@ -1599,9 +1577,8 @@ import {
 // ==================== Props 定义 ====================
 // 接收从父组件传入的分析结果数据
 const props = defineProps<{
-  analysisResult: typeof mockAnalysisResult;
-  viewMode: "interactive" | "report";
-  hideExport?: boolean;
+  analysisResult: typeof mockAnalysisResult; // 分析结果数据
+  viewMode: "interactive" | "report"; // 视图模式
 }>();
 
 // Emits 定义
@@ -1985,6 +1962,16 @@ const showDetectionBoxes = ref(true);
 // 控制图例的展开/收起
 const legendExpanded = ref(false);
 
+// 主题状态（用于图表深色适配 + 检测框文字色）
+const isDarkTheme = ref(document.documentElement.getAttribute("data-theme") === "dark");
+let themeObserver: MutationObserver | null = null;
+
+const syncThemeState = () => {
+  const rootTheme = document.documentElement.getAttribute("data-theme");
+  const bodyTheme = document.body?.getAttribute("data-theme");
+  isDarkTheme.value = rootTheme === "dark" || bodyTheme === "dark";
+};
+
 // ==================== 检测框颜色配置（业界标准） ====================
 const DETECTION_COLORS: Record<string, string> = {
   face: "#00ff88", // 人脸识别 - 绿色
@@ -2010,6 +1997,14 @@ const DETECTION_LABELS: Record<string, string> = {
   banner: "横幅检测",
   gesture: "手势检测",
   object: "物体检测",
+};
+
+// 检测框标签文本颜色（保证不同底色下可读性）
+// 深色模式下统一白色（避免内联色覆盖 CSS）
+const getDetectionLabelTextColor = (type: string): string => {
+  if (isDarkTheme.value) return "#ffffff";
+  const darkTextTypes = new Set(["ocr", "uniform", "object"]);
+  return darkTextTypes.has(type) ? "#111827" : "#ffffff";
 };
 
 // ==================== 风险等级计算工具函数 ====================
@@ -2041,9 +2036,6 @@ let pageResizeObserver: ResizeObserver | null = null;
 
 // 图表容器 ResizeObserver，精准监听图表父容器尺寸变化
 let chartContainerResizeObserver: ResizeObserver | null = null;
-
-// 主题切换监听器（监听 html[data-theme] 变化）
-let themeMutationObserver: MutationObserver | null = null;
 
 // ==================== CV视觉模态：视频显示区域计算（精确定位检测框） ====================
 // 视频播放器ResizeObserver实例
@@ -2352,9 +2344,6 @@ const highRiskSegmentCount = computed(() => {
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
 const multiModalRadarOption = computed(() => {
-  // 建立主题响应依赖：深浅切换时强制重新计算 option
-  themeVersion.value;
-
   // 高校舆情分析维度说明映射
   const dimensionDesc: Record<string, string> = {
     身份置信度: "判定发布者为本校学生/校友的置信程度",
@@ -2364,6 +2353,17 @@ const multiModalRadarOption = computed(() => {
     影响范围: "对学校声誉的潜在影响程度",
     处置紧迫度: "需要校方介入处理的紧迫程度",
   };
+
+  const dark = isDarkTheme.value;
+  const radarNameColor = dark ? "#c8d1e8" : "#666";
+  const radarSplitLineColor = dark
+    ? "rgba(120, 136, 175, 0.45)"
+    : "rgba(209, 217, 230, 0.4)";
+  const radarAxisLineColor = dark
+    ? "rgba(140, 156, 190, 0.55)"
+    : "rgba(209, 217, 230, 0.5)";
+  const baseAreaA = dark ? "rgba(65, 74, 104, 0.3)" : "rgba(236, 240, 243, 0.3)";
+  const baseAreaB = dark ? "rgba(48, 57, 84, 0.45)" : "rgba(236, 240, 243, 0.5)";
 
   return {
     tooltip: {
@@ -2385,17 +2385,17 @@ const multiModalRadarOption = computed(() => {
         return [mouseX - contentWidth - 15, mouseY - contentHeight - 15];
       },
       enterable: true,
-      backgroundColor: getCSSVar('--bg-card') || "rgba(255, 255, 255, 0.98)",
-      borderColor: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
+      backgroundColor: dark ? "rgba(24, 30, 48, 0.96)" : "rgba(255, 255, 255, 0.98)",
+      borderColor: dark ? "rgba(110, 125, 160, 0.45)" : "rgba(209, 217, 230, 0.4)",
       borderWidth: 1,
       padding: 16,
       textStyle: {
-        color: getCSSVar('--text-primary') || "#181818",
+        color: dark ? "#e8ecf7" : "#181818",
         fontSize: 13,
         lineHeight: 20,
       },
       extraCssText:
-        "border-radius: 12px; max-width: 340px; max-height: 550px; overflow-y: auto;",
+        "box-shadow: 0 4px 20px rgba(0,0,0,0.12); border-radius: 12px; max-width: 340px; max-height: 550px; overflow-y: auto;",
       formatter: (params: any) => {
         if (!params || !params.name) return "";
 
@@ -2409,9 +2409,16 @@ const multiModalRadarOption = computed(() => {
           "处置紧迫度",
         ];
 
+        // 深色模式：formatter 内联样式需随主题切换，否则悬浮窗内容在深色背景下不可读
+        const titleColor = dark ? "#e8ecf7" : "#111827";
+        const titleBorder = dark ? "rgba(200, 209, 232, 0.4)" : "#111827";
+        const dimColor = dark ? "#b6c2df" : "#333";
+        const itemBg = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.02)";
+        const barBg = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+
         let html = `
           <div style="min-width: 260px;">
-            <div style="font-size: 14px; font-weight: 600; color: ${getCSSVar('--text-primary')}; margin-bottom: 8px; border-bottom: 1.5px solid ${getCSSVar('--border-color')}; padding-bottom: 6px;">
+            <div style="font-size: 14px; font-weight: 600; color: ${titleColor}; margin-bottom: 8px; border-bottom: 1.5px solid ${titleBorder}; padding-bottom: 6px;">
               <i class="fas fa-chart-area" style="margin-right: 4px;"></i>
               ${params.name}
             </div>
@@ -2436,13 +2443,13 @@ const multiModalRadarOption = computed(() => {
           }
 
           html += `
-            <div style="background: ${getCSSVar('--bg-hover')}; padding: 6px 8px; border-radius: 4px;">
+            <div style="background: ${itemBg}; padding: 6px 8px; border-radius: 4px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                <span style="font-weight: 600; color: ${getCSSVar('--text-primary')}; font-size: 12px;">${dim}</span>
+                <span style="font-weight: 600; color: ${dimColor}; font-size: 12px;">${dim}</span>
                 <span style="font-weight: 700; font-size: 14px; color: ${levelColor};">${value}%</span>
               </div>
               <div style="display: flex; align-items: center; gap: 6px;">
-                <div style="flex: 1; height: 5px; background: ${getCSSVar('--bg-page')}; border-radius: 2px; overflow: hidden;">
+                <div style="flex: 1; height: 5px; background: ${barBg}; border-radius: 2px; overflow: hidden;">
                   <div style="width: ${value}%; height: 100%; background: ${levelColor};"></div>
                 </div>
                 <span style="font-size: 10px; font-weight: 600; color: ${levelColor}; min-width: 40px; text-align: right;">${levelText}</span>
@@ -2477,8 +2484,8 @@ const multiModalRadarOption = computed(() => {
 
         html += `
             </div>
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid ${getCSSVar('--border-color')}; text-align: center;">
-              <span style="font-size: 11px; color: ${getCSSVar('--text-secondary')};">综合风险：</span>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8e8e8; text-align: center;">
+              <span style="font-size: 11px; color: #666;">综合风险：</span>
               <span style="font-size: 16px; font-weight: 700; color: ${overallColor}; margin-left: 4px;">
                 ${Math.round(avgRisk)}
               </span>
@@ -2507,23 +2514,23 @@ const multiModalRadarOption = computed(() => {
       splitNumber: 4,
       name: {
         textStyle: {
-          color: getCSSVar('--text-secondary'),
+          color: radarNameColor,
           fontSize: 11,
         },
       },
       splitLine: {
         lineStyle: {
-          color: getCSSVar('--border-color'),
+          color: radarSplitLineColor,
         },
       },
       splitArea: {
         areaStyle: {
-          color: [getCSSVar('--bg-hover'), getCSSVar('--bg-page')],
+          color: [baseAreaA, baseAreaB],
         },
       },
       axisLine: {
         lineStyle: {
-          color: getCSSVar('--border-color'),
+          color: radarAxisLineColor,
         },
       },
     },
@@ -2537,12 +2544,12 @@ const multiModalRadarOption = computed(() => {
             value: mockAverageRadarData.value, // 静态数据：全片平均值
             name: "全片平均水平",
             lineStyle: {
-              color: "rgba(180, 188, 208, 0.6)", // 浅灰蓝色
+              color: dark ? "rgba(160, 178, 220, 0.7)" : "rgba(180, 188, 208, 0.6)", // 浅灰蓝色
               width: 2,
               type: "dashed", // 虚线
             },
             areaStyle: {
-              color: "rgba(180, 188, 208, 0.08)", // 极低透明度填充
+              color: dark ? "rgba(90, 108, 152, 0.18)" : "rgba(180, 188, 208, 0.08)", // 极低透明度填充
             },
           },
         ],
@@ -2561,14 +2568,14 @@ const multiModalRadarOption = computed(() => {
             value: currentRadarData.value, // 动态数据：根据视频时间变化
             name: "高校舆情风险画像",
             itemStyle: {
-              color: "#f56c6c",
+              color: dark ? "#ff7a7a" : "#f56c6c",
             },
             lineStyle: {
-              color: "#f56c6c",
+              color: dark ? "#ff7a7a" : "#f56c6c",
               width: 2,
             },
             areaStyle: {
-              color: "rgba(245, 108, 108, 0.25)",
+              color: dark ? "rgba(255, 122, 122, 0.3)" : "rgba(245, 108, 108, 0.25)",
             },
           },
         ],
@@ -2615,6 +2622,14 @@ const peakRiskData = computed(() => {
 
 // 2. 平均雷达图配置 - 使用后端提供的全片平均数据
 const averageRadarOption = computed(() => {
+  const dark = isDarkTheme.value;
+  const splitColor = dark ? "rgba(120, 136, 175, 0.45)" : "rgba(209, 217, 230, 0.4)";
+  const axisColor = dark ? "rgba(140, 156, 190, 0.55)" : "rgba(209, 217, 230, 0.5)";
+  const areaColors = dark
+    ? ["rgba(65, 74, 104, 0.3)", "rgba(48, 57, 84, 0.45)"]
+    : ["rgba(236, 240, 243, 0.3)", "rgba(236, 240, 243, 0.5)"];
+  const nameColor = dark ? "#c8d1e8" : "#666";
+
   const dimensionNames = [
     "身份置信度",
     "学校关联度",
@@ -2637,24 +2652,18 @@ const averageRadarOption = computed(() => {
       splitNumber: 4,
       name: {
         textStyle: {
-          color: "#666",
+          color: nameColor,
           fontSize: 12,
         },
       },
       splitLine: {
-        lineStyle: {
-          color: "rgba(209, 217, 230, 0.4)",
-        },
+        lineStyle: { color: splitColor },
       },
       splitArea: {
-        areaStyle: {
-          color: ["rgba(236, 240, 243, 0.3)", "rgba(236, 240, 243, 0.5)"],
-        },
+        areaStyle: { color: areaColors },
       },
       axisLine: {
-        lineStyle: {
-          color: "rgba(209, 217, 230, 0.5)",
-        },
+        lineStyle: { color: axisColor },
       },
     },
     series: [
@@ -2685,6 +2694,14 @@ const averageRadarOption = computed(() => {
 
 // 最高风险雷达图配置
 const peakRiskRadarOption = computed(() => {
+  const dark = isDarkTheme.value;
+  const splitColor = dark ? "rgba(120, 136, 175, 0.45)" : "rgba(209, 217, 230, 0.4)";
+  const axisColor = dark ? "rgba(140, 156, 190, 0.55)" : "rgba(209, 217, 230, 0.5)";
+  const areaColors = dark
+    ? ["rgba(65, 74, 104, 0.3)", "rgba(48, 57, 84, 0.45)"]
+    : ["rgba(236, 240, 243, 0.3)", "rgba(236, 240, 243, 0.5)"];
+  const nameColor = dark ? "#c8d1e8" : "#666";
+
   const dimensionNames = [
     "身份置信度",
     "学校关联度",
@@ -2719,24 +2736,18 @@ const peakRiskRadarOption = computed(() => {
       splitNumber: 4,
       name: {
         textStyle: {
-          color: "#666",
+          color: nameColor,
           fontSize: 12,
         },
       },
       splitLine: {
-        lineStyle: {
-          color: "rgba(209, 217, 230, 0.4)",
-        },
+        lineStyle: { color: splitColor },
       },
       splitArea: {
-        areaStyle: {
-          color: ["rgba(236, 240, 243, 0.3)", "rgba(236, 240, 243, 0.5)"],
-        },
+        areaStyle: { color: areaColors },
       },
       axisLine: {
-        lineStyle: {
-          color: "rgba(209, 217, 230, 0.5)",
-        },
+        lineStyle: { color: axisColor },
       },
     },
     series: [
@@ -2768,10 +2779,10 @@ const peakRiskRadarOption = computed(() => {
 // 新拟态配色
 const neuColors = {
   purple: "#4b70e2",
-  gray: getCSSVar('--text-secondary') || "#a0a5a8",
-  black: getCSSVar('--text-primary') || "#181818",
-  neu1: getCSSVar('--bg-card') || "#ecf0f3",
-  neu2: getCSSVar('--border-color') || "#d1d9e6",
+  gray: "#a0a5a8",
+  black: "#181818",
+  neu1: "#ecf0f3",
+  neu2: "#d1d9e6",
 };
 
 // 风险评分图表配置
@@ -2856,7 +2867,7 @@ const audienceChartOption = computed(() => {
       type: "value",
       max: 100,
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: getCSSVar('--border-color') || "#e8edf3" } },
+      splitLine: { lineStyle: { color: "#e8edf3" } },
       axisLabel: {
         color: neuColors.gray,
         fontSize: 11,
@@ -2895,18 +2906,15 @@ const audienceChartOption = computed(() => {
 
 // 多模态时间轴配置（交互视图专用 - 增强版）
 const multiModalTimelineOption = computed(() => {
-  // 建立主题响应依赖：深浅切换时强制重新计算 option
-  themeVersion.value;
-
   // 使用视频真实时长，确保时间轴与视频进度精确对齐（不依赖analysisData，使用mock数据）
   const duration = videoDuration.value;
+  const dark = isDarkTheme.value;
+  const axisColor = dark ? "#b6c2df" : "#666";
+  const borderColor = dark ? "rgba(110, 126, 166, 0.45)" : "rgba(209, 217, 230, 0.3)";
+  const splitColor = dark ? "rgba(108, 122, 160, 0.35)" : "rgba(209, 217, 230, 0.4)";
   const timePoints: number[] = [];
   for (let t = 0; t <= duration; t += 5) {
     timePoints.push(t);
-  }
-  // 确保视频末尾时间点始终被包含（避免最后几秒折线缺失）
-  if (timePoints.length === 0 || timePoints[timePoints.length - 1] < duration) {
-    timePoints.push(duration);
   }
 
   // 多模态数据（三条独立曲线）
@@ -3014,13 +3022,13 @@ const multiModalTimelineOption = computed(() => {
           },
         },
       },
-      backgroundColor: getCSSVar('--bg-card') || "rgba(255, 255, 255, 0.98)",
-      borderColor: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
+      backgroundColor: dark ? "rgba(24, 30, 48, 0.96)" : "rgba(255, 255, 255, 0.98)",
+      borderColor: dark ? "rgba(110, 125, 160, 0.45)" : "rgba(209, 217, 230, 0.4)",
       borderWidth: 1,
       padding: [8, 15],
-      textStyle: { color: getCSSVar('--text-primary') || "#181818", fontSize: 12 },
+      textStyle: { color: dark ? "#e8ecf7" : "#181818", fontSize: 12 },
       extraCssText:
-        "border-radius: 10px;",
+        "box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 10px;",
       formatter: (params: any) => {
         if (!params || params.length === 0) return "";
 
@@ -3040,18 +3048,27 @@ const multiModalTimelineOption = computed(() => {
           riskBg = "rgba(245, 158, 11, 0.1)";
         }
 
+        // 深色模式：formatter 内联样式需随主题切换
+        const titleColor = dark ? "#e8ecf7" : "#111827";
+        const dividerColor = dark ? "rgba(200, 209, 232, 0.3)" : "#e5e7eb";
+        const labelColor = dark ? "#b6c2df" : "#374151";
+        const descColor = dark ? "#9ca8c4" : "#6b7280";
+        const hintColor = dark ? "#8b95b0" : "#9ca3af";
+        const borderColor = dark ? "rgba(200, 209, 232, 0.3)" : "#e5e7eb";
+        const linkColor = dark ? "#7c9aff" : "#6588ed";
+
         let html = `
           <div style="min-width: 200px; max-width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
             <!-- 综合风险标题 -->
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-              <span style="color: ${getCSSVar('--text-primary')}; font-weight: 600; font-size: 15px; flex-shrink: 0; margin-right: 10px;">综合风险</span>
+              <span style="color: ${titleColor}; font-weight: 600; font-size: 15px; flex-shrink: 0; margin-right: 10px;">综合风险</span>
               <div style="display: inline-flex; align-items: center; gap: 6px; background: ${riskBg}; padding: 5px 12px; border-radius: 6px;">
                 <div style="width: 6px; height: 6px; border-radius: 50%; background: ${riskColor};"></div>
                 <span style="color: ${riskColor}; font-weight: 700; font-size: 16px;">${comprehensiveScore.toFixed(0)}%</span>
               </div>
             </div>
-
-            <div style="width: 100%; height: 1px; background: ${getCSSVar('--border-color')}; margin-bottom: 14px;"></div>
+            
+            <div style="width: 100%; height: 1px; background: ${dividerColor}; margin-bottom: 14px;"></div>
         `;
 
         // 1. 视频风险
@@ -3064,13 +3081,13 @@ const multiModalTimelineOption = computed(() => {
         html += `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span style="color: ${getCSSVar('--text-primary')}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">视频风险</span>
+              <span style="color: ${labelColor}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">视频风险</span>
               <span style="color: ${videoColor}; font-weight: 700; font-size: 15px;">${data.videoScore.toFixed(0)}%</span>
             </div>
             ${
               data.videoRisk
-                ? `<div style="color: ${getCSSVar('--text-secondary')}; font-size: 12px; line-height: 1.5; padding-left: 8px; ">${data.videoRisk.reason}</div>`
-                : `<div style="color: ${getCSSVar('--text-tertiary')}; font-size: 12px; padding-left: 8px;">该时段画面正常</div>`
+                ? `<div style="color: ${descColor}; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${videoColor};">${data.videoRisk.reason}</div>`
+                : `<div style="color: ${hintColor}; font-size: 12px; padding-left: 8px;">该时段画面正常</div>`
             }
           </div>
         `;
@@ -3085,13 +3102,13 @@ const multiModalTimelineOption = computed(() => {
         html += `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span style="color: ${getCSSVar('--text-primary')}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">音频情绪</span>
+              <span style="color: ${labelColor}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">音频情绪</span>
               <span style="color: ${audioColor}; font-weight: 700; font-size: 15px;">${data.audioScore.toFixed(0)}%</span>
             </div>
             ${
               data.audioEmotion
-                ? `<div style="color: ${getCSSVar('--text-secondary')}; font-size: 12px; line-height: 1.5; padding-left: 8px; ">${data.audioEmotion.reason}</div>`
-                : `<div style="color: ${getCSSVar('--text-tertiary')}; font-size: 12px; padding-left: 8px;">该时段情绪稳定</div>`
+                ? `<div style="color: ${descColor}; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${audioColor};">${data.audioEmotion.reason}</div>`
+                : `<div style="color: ${hintColor}; font-size: 12px; padding-left: 8px;">该时段情绪稳定</div>`
             }
           </div>
         `;
@@ -3106,21 +3123,21 @@ const multiModalTimelineOption = computed(() => {
         html += `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-              <span style="color: ${getCSSVar('--text-primary')}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">文本内容</span>
+              <span style="color: ${labelColor}; font-size: 13px; font-weight: 600; min-width: 60px; margin-right: 20px;">文本内容</span>
               <span style="color: ${textColor}; font-weight: 700; font-size: 15px;">${data.textScore.toFixed(0)}%</span>
             </div>
             ${
               data.textSegment
-                ? `<div style="color: ${getCSSVar('--text-secondary')}; font-size: 12px; line-height: 1.5; padding-left: 8px; ">${data.textSegment.reason}</div>`
-                : `<div style="color: ${getCSSVar('--text-tertiary')}; font-size: 12px; padding-left: 8px;">该时段内容正常</div>`
+                ? `<div style="color: ${descColor}; font-size: 12px; line-height: 1.5; padding-left: 8px; border-left: 2px solid ${textColor};">${data.textSegment.reason}</div>`
+                : `<div style="color: ${hintColor}; font-size: 12px; padding-left: 8px;">该时段内容正常</div>`
             }
           </div>
         `;
 
         html += `
             <!-- 底部操作提示 -->
-            <div style="margin-top: 14px; padding-top: 8px; border-top: 1px solid ${getCSSVar('--border-color')}; text-align: center;">
-              <span style="color: #6588ed; font-size: 14px; font-weight: 500;">点 击 跳 转</span>
+            <div style="margin-top: 14px; padding-top: 8px; border-top: 1px solid ${borderColor}; text-align: center;">
+              <span style="color: ${linkColor}; font-size: 14px; font-weight: 500;">点 击 跳 转</span>
             </div>
           </div>
         `;
@@ -3132,7 +3149,7 @@ const multiModalTimelineOption = computed(() => {
       data: ["视频风险", "音频情绪", "文本风险", "综合风险"],
       bottom: 5,
       textStyle: {
-        color: getCSSVar('--text-secondary') || "#666",
+        color: axisColor,
         fontSize: 11,
         fontWeight: "normal",
       },
@@ -3163,7 +3180,7 @@ const multiModalTimelineOption = computed(() => {
       axisLine: {
         show: true,
         lineStyle: {
-          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.3)",
+          color: borderColor,
           width: 1,
         },
       },
@@ -3171,21 +3188,22 @@ const multiModalTimelineOption = computed(() => {
         show: true,
         length: 4,
         lineStyle: {
-          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.5)",
+          color: dark ? "rgba(140, 156, 190, 0.6)" : "rgba(209, 217, 230, 0.5)",
           width: 1,
         },
       },
       axisLabel: {
-        color: getCSSVar('--text-secondary') || "#666",
+        color: axisColor,
         fontSize: 11,
         formatter: (value: number) => formatTimestamp(value),
         margin: 8,
       },
+      // 深色模式：时间节点处的竖直线（splitLine）需适配，否则在深色背景下显示为刺眼白色
       splitLine: {
         show: true,
         lineStyle: {
-          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
-          type: "solid",
+          color: splitColor,
+          type: "dashed",
           width: 1,
         },
       },
@@ -3225,7 +3243,7 @@ const multiModalTimelineOption = computed(() => {
       axisLine: {
         show: true,
         lineStyle: {
-          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.3)",
+          color: borderColor,
           width: 1,
         },
       },
@@ -3233,21 +3251,21 @@ const multiModalTimelineOption = computed(() => {
         show: true,
         length: 4,
         lineStyle: {
-          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.5)",
+          color: dark ? "rgba(140, 156, 190, 0.6)" : "rgba(209, 217, 230, 0.5)",
           width: 1,
         },
       },
       splitLine: {
         show: true,
         lineStyle: {
-          color: getCSSVar('--border-color') || "rgba(209, 217, 230, 0.4)",
+          color: splitColor,
           type: "solid",
           width: 1,
         },
       },
       axisLabel: {
         show: true, // 显示Y轴标签（0%、20%、40%等）
-        color: getCSSVar('--text-secondary') || "#666",
+        color: axisColor,
         fontSize: 11,
         formatter: "{value}%",
         margin: 8,
@@ -3452,9 +3470,6 @@ const multiModalTimelineOption = computed(() => {
 
 // 风险时间轴图表配置
 const riskTimelineOption = computed(() => {
-  // 建立主题响应依赖：深浅切换时强制重新计算 option
-  themeVersion.value;
-
   const timelineData = getRiskTimelineData();
   if (
     !timelineData ||
@@ -3464,6 +3479,7 @@ const riskTimelineOption = computed(() => {
     return {};
   }
 
+  const dark = isDarkTheme.value;
   const times = timelineData.timeSeriesData.map((d: any) => d.time);
   const risks = timelineData.timeSeriesData.map((d: any) => d.risk * 100); // 转为百分比
   const riskPoints = timelineData.riskPoints || [];
@@ -3474,10 +3490,18 @@ const riskTimelineOption = computed(() => {
     riskPointsMap.set(p.time, p);
   });
 
+  const tooltipTitleColor = dark ? "#e8ecf7" : "#181818";
+  const tooltipBorderColor = dark ? "rgba(200, 209, 232, 0.3)" : "#eee";
+  const tooltipDescColor = dark ? "#9ca8c4" : "#666";
+  const tooltipHintColor = dark ? "#8b95b0" : "#6b7280";
+
   return {
     tooltip: {
       trigger: "axis",
       confine: true, // 限制在图表区域内，防止被遮挡
+      backgroundColor: dark ? "rgba(24, 30, 48, 0.96)" : "rgba(255, 255, 255, 0.98)",
+      borderColor: dark ? "rgba(110, 125, 160, 0.45)" : "rgba(209, 217, 230, 0.4)",
+      textStyle: { color: tooltipTitleColor, fontSize: 12 },
       position: function (
         point: any,
         params: any,
@@ -3511,7 +3535,7 @@ const riskTimelineOption = computed(() => {
           riskValue > 70 ? "#f56c6c" : riskValue > 40 ? "#faad14" : "#52c41a";
 
         let html = `<div style="padding: 10px; min-width: 180px;">
-          <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px;">⏱️ 时间: ${timeStr}</div>
+          <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: ${tooltipTitleColor};">⏱️ 时间: ${timeStr}</div>
           <div style="color: ${color}; font-weight: 600; font-size: 15px;">
             📊 风险指数: ${riskValue.toFixed(1)}%
           </div>`;
@@ -3521,18 +3545,18 @@ const riskTimelineOption = computed(() => {
           (p: any) => Math.abs(p.time - timeValue) < 15,
         );
         if (nearbyPoint) {
-          html += `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+          html += `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid ${tooltipBorderColor};">
             <div style="font-size: 12px; color: #f56c6c; font-weight: 600;">⚠️ 检测到风险</div>
-            <div style="font-size: 11px; color: #666; margin-top: 4px;">${nearbyPoint.description}</div>
+            <div style="font-size: 11px; color: ${tooltipDescColor}; margin-top: 4px;">${nearbyPoint.description}</div>
           </div>`;
         } else {
-          html += `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee;">
+          html += `<div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid ${tooltipBorderColor};">
             <div style="font-size: 11px; color: #52c41a;">✅ 该时段无明显风险</div>
           </div>`;
         }
 
         html += `<div style="margin-top: 10px; text-align: center;">
-          <div style="font-size: 11px; color: #4b70e2; padding: 6px 12px; background: rgba(75,112,226,0.1); border-radius: 6px;">
+          <div style="font-size: 11px; color: #7c9aff; padding: 6px 12px; background: ${dark ? "rgba(75,112,226,0.2)" : "rgba(75,112,226,0.1)"}; border-radius: 6px;">
             💡 点击图表跳转播放此时段
           </div>
         </div></div>`;
@@ -3556,7 +3580,13 @@ const riskTimelineOption = computed(() => {
         fontSize: 11,
         formatter: (value: number) => formatTimestamp(value),
       },
-      splitLine: { lineStyle: { color: "#e8edf3", type: "dashed" } },
+      // 深色模式：时间节点竖直线，避免 #e8edf3 在深色背景下显示为刺眼白色
+      splitLine: {
+        lineStyle: {
+          color: dark ? "rgba(108, 122, 160, 0.35)" : "#e8edf3",
+          type: "dashed",
+        },
+      },
     },
     yAxis: {
       type: "value",
@@ -3564,7 +3594,11 @@ const riskTimelineOption = computed(() => {
       max: 100,
       nameTextStyle: { color: neuColors.gray, fontSize: 11 },
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: "#e8edf3" } },
+      splitLine: {
+        lineStyle: {
+          color: dark ? "rgba(108, 122, 160, 0.35)" : "#e8edf3",
+        },
+      },
       axisLabel: {
         color: neuColors.gray,
         fontSize: 11,
@@ -3654,12 +3688,12 @@ const initializeComponent = () => {
     updateTextEvidenceTooltipPosition();
   });
 
-  // 5. 【开发模式】验证事件流数据（已禁用，避免控制台噪音）
-  // if (import.meta.env.DEV && timelineEvents.value.length > 0) {
-  //   import("@/utils/verifyTimelineEvents").then(({ printValidationReport }) => {
-  //     printValidationReport();
-  //   });
-  // }
+  // 5. 【开发模式】验证事件流数据
+  if (import.meta.env.DEV && timelineEvents.value.length > 0) {
+    import("@/utils/verifyTimelineEvents").then(({ printValidationReport }) => {
+      printValidationReport();
+    });
+  }
 };
 
 // ==================== 其他方法 ====================
@@ -4108,13 +4142,13 @@ const updateProgressLine = (time: number) => {
     const s = Math.floor(time % 60);
     const timeLabel = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 
-    // 只更新 series[3]（综合风险）的 markLine，其余 series 不传，避免覆盖 series[2] 的高/中风险线
+    // 只更新 series[3]（融合风险），避免覆盖 series[2] 的高/中/低风险系列
     timelineChartRef.value.setOption(
       {
         series: [
           {
-            // series[3]: 综合风险 - 添加红色播放进度线
-            name: "综合风险",
+            // series[3]: 融合风险 - 通过名称锁定，避免误伤
+            name: "融合风险",
             markLine: {
               symbol: "none",
               animation: false,
@@ -4241,6 +4275,14 @@ const calculateVideoDisplayArea = () => {
     containerHeight,
   };
 
+  console.log("[检测框定位] 计算完成:", {
+    视频原始尺寸: `${videoWidth}x${videoHeight}`,
+    容器尺寸: `${containerWidth}x${containerHeight}`,
+    视频宽高比: videoRatio.toFixed(3),
+    容器宽高比: containerRatio.toFixed(3),
+    显示区域: `${displayWidth.toFixed(1)}x${displayHeight.toFixed(1)}`,
+    偏移量: `(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`,
+  });
 };
 
 // 视频加载完成
@@ -4531,12 +4573,12 @@ const exportToPdf = async () => {
     let pageContentHeight = 0;
 
     // 查找最接近但不超过目标高度的分页点
-    const findBestBreakPoint = (currentY: number, maxHeight: number): number => {
+    const findBestBreakPoint = (currentY: number, maxHeight: number) => {
       const targetY = currentY + maxHeight;
       // 找到小于targetY但最接近的breakPoint
       let bestPoint = targetY;
       for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
-        const bp = sortedBreakPoints[i] as number;
+        const bp = sortedBreakPoints[i];
         if (bp > currentY && bp <= targetY) {
           // 检查这个分页点会不会太小（至少要有一半页面内容）
           if (bp - currentY >= maxHeight * 0.4) {
@@ -4638,7 +4680,18 @@ const exportToPdf = async () => {
   } catch (error: any) {
     console.error("PDF导出失败:", error);
     loadingMsg.close();
-    const errorMessage = error?.message || "PDF导出失败，请稍后重试";
+    let errorMessage: string = error?.message || "";
+    // 将英文浏览器错误翻译为中文
+    if (!errorMessage || /failed to fetch/i.test(errorMessage) || /network/i.test(errorMessage)) {
+      errorMessage = "网络错误，PDF导出失败，请检查网络连接后重试";
+    } else if (/timeout/i.test(errorMessage)) {
+      errorMessage = "请求超时，PDF导出失败，请稍后重试";
+    } else if (/memory/i.test(errorMessage) || /out of/i.test(errorMessage)) {
+      errorMessage = "内存不足，请尝试关闭其他标签页后重试";
+    } else if (!/[\u4e00-\u9fa5]/.test(errorMessage)) {
+      // 如果错误信息中没有中文，统一替换
+      errorMessage = "PDF导出失败，请稍后重试";
+    }
     ElMessage.error(errorMessage);
   } finally {
     exportingPdf.value = false;
@@ -4911,22 +4964,21 @@ onMounted(() => {
   // 初始化组件数据
   initializeComponent();
 
-  // 监听主题切换（data-theme / 内联 style 变量变化）
-  themeMutationObserver = new MutationObserver((mutations) => {
-    if (
-      mutations.some(
-        (m) =>
-          m.type === "attributes" &&
-          (m.attributeName === "data-theme" || m.attributeName === "style"),
-      )
-    ) {
-      themeVersion.value++;
-    }
+  // 初始化主题并监听 data-theme 变化
+  syncThemeState();
+  themeObserver = new MutationObserver(() => {
+    syncThemeState();
   });
-  themeMutationObserver.observe(document.documentElement, {
+  themeObserver.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ["data-theme", "style"],
+    attributeFilter: ["data-theme", "class"],
   });
+  if (document.body) {
+    themeObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-theme", "class"],
+    });
+  }
 
   // 立即调用一次，确保初始状态正确
   updateContainerPadding();
@@ -4994,6 +5046,11 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener("resize", handleChartResize);
 
+  if (themeObserver) {
+    themeObserver.disconnect();
+    themeObserver = null;
+  }
+
   if (pageResizeObserver) {
     pageResizeObserver.disconnect();
     pageResizeObserver = null;
@@ -5010,11 +5067,6 @@ onUnmounted(() => {
     videoResizeObserver = null;
   }
 
-  if (themeMutationObserver) {
-    themeMutationObserver.disconnect();
-    themeMutationObserver = null;
-  }
-
   // 清理容器 padding 控制
   const mainContent = document.querySelector(".main-content");
   if (mainContent) {
@@ -5029,14 +5081,14 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
-// 新拟态配色变量 - 使用CSS变量以支持深色模式
+// 新拟态配色变量（接入全局主题变量）
 $bg: var(--bg-page);
 $neu-1: var(--bg-card);
 $neu-2: var(--border-color);
 $white: var(--bg-card);
 $gray: var(--text-secondary);
 $black: var(--text-primary);
-$purple: #409EFF;
+$purple: #409eff;
 
 // 全局图标向下微调0.5px，改善视觉对齐
 .el-icon {
@@ -5070,10 +5122,11 @@ $purple: #409EFF;
       align-items: center;
       gap: 12px;
       padding: 8px 16px;
-      background: $white;
+      background: $neu-1;
       border-radius: 12px;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid var(--border-color);
+      box-shadow:
+        2px 2px 6px $neu-2,
+        -2px -2px 6px $white;
 
       .stat-item-header {
         display: flex;
@@ -5111,15 +5164,20 @@ $purple: #409EFF;
       gap: 8px;
       padding: 4px;
       background: $neu-1;
-      border-radius: 8px;
-      border: 1px solid $neu-2;
+      border-radius: 12px;
+      box-shadow:
+        inset 2px 2px 4px $neu-2,
+        inset -2px -2px 4px $white;
 
       .neu-btn {
-        background: $white;
-        border: 1px solid $neu-2;
-        border-radius: 8px;
+        background: $neu-1;
+        border: none;
+        border-radius: 12px;
         cursor: pointer;
         transition: all 0.25s;
+        box-shadow:
+          4px 4px 8px $neu-2,
+          -4px -4px 8px $white;
         color: $gray;
         font-family: "Montserrat", sans-serif;
         padding: 12px 24px;
@@ -5129,22 +5187,27 @@ $purple: #409EFF;
         gap: 8px;
 
         &:hover {
-          border-color: $purple;
+          box-shadow:
+            2px 2px 4px $neu-2,
+            -2px -2px 4px $white;
           color: $purple;
         }
 
         &:active {
-          background: $neu-1;
+          box-shadow:
+            inset 2px 2px 4px $neu-2,
+            inset -2px -2px 4px $white;
         }
 
         &.primary-btn {
-          background: $purple;
-          color: #fff !important;
-          border-color: $purple;
+          background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+          color: #fff;
 
           &:hover {
-            background: #66b1ff;
-            color: #fff !important;
+            box-shadow:
+              4px 4px 8px $neu-2,
+              -2px -2px 6px $white;
+            color: #fff;
           }
         }
       }
@@ -5189,8 +5252,10 @@ $purple: #409EFF;
     right: -420px;
     width: 400px;
     height: 100vh;
-    background: var(--bg-page);
-    box-shadow: var(--shadow-lg);
+    background: linear-gradient(145deg, #f5f7fa, #e8ecef);
+    box-shadow:
+      -8px 0 24px rgba(0, 0, 0, 0.15),
+      -4px 0 12px rgba(0, 0, 0, 0.1);
     z-index: 999;
     transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
@@ -5206,8 +5271,8 @@ $purple: #409EFF;
       align-items: center;
       justify-content: space-between;
       padding: 20px 24px;
-      border-bottom: 1px solid var(--border-color);
-      background: var(--bg-card);
+      border-bottom: 1px solid rgba(209, 217, 230, 0.5);
+      background: rgba(255, 255, 255, 0.5);
       backdrop-filter: blur(10px);
 
       h3 {
@@ -5229,7 +5294,9 @@ $purple: #409EFF;
         color: $gray;
         cursor: pointer;
         transition: all 0.25s ease;
-        box-shadow: var(--shadow-sm);
+        box-shadow:
+          3px 3px 6px rgba(163, 177, 198, 0.4),
+          -3px -3px 6px rgba(255, 255, 255, 0.9);
 
         .el-icon {
           font-size: 18px;
@@ -5241,7 +5308,9 @@ $purple: #409EFF;
         }
 
         &:active {
-          background: $neu-1;
+          box-shadow:
+            inset 3px 3px 6px rgba(163, 177, 198, 0.5),
+            inset -3px -3px 6px rgba(255, 255, 255, 0.8);
         }
       }
     }
@@ -5260,11 +5329,11 @@ $purple: #409EFF;
       }
 
       &::-webkit-scrollbar-thumb {
-        background: var(--text-tertiary);
+        background: rgba(160, 165, 168, 0.3);
         border-radius: 3px;
 
         &:hover {
-          background: var(--text-secondary);
+          background: rgba(160, 165, 168, 0.5);
         }
       }
     }
@@ -5284,7 +5353,9 @@ $purple: #409EFF;
       background: $neu-1;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: var(--shadow-sm);
+      box-shadow:
+        4px 4px 8px rgba(163, 177, 198, 0.3),
+        -4px -4px 8px rgba(255, 255, 255, 0.9);
       border: 2px solid transparent;
 
       .video-item-icon {
@@ -5294,10 +5365,12 @@ $purple: #409EFF;
         width: 40px;
         height: 40px;
         border-radius: 12px;
-        background: $purple;
-        color: white !important;
+        background: linear-gradient(135deg, $purple, #6b8be8);
+        color: white;
         flex-shrink: 0;
-        box-shadow: none;
+        box-shadow:
+          0 4px 12px rgba(75, 112, 226, 0.3),
+          inset 0 1px 2px rgba(255, 255, 255, 0.2);
       }
 
       .video-item-info {
@@ -5334,7 +5407,7 @@ $purple: #409EFF;
 
           &.pending {
             background: rgba(144, 147, 153, 0.15);
-            color: $gray;
+            color: var(--text-tertiary);
           }
 
           &.processing {
@@ -5357,13 +5430,23 @@ $purple: #409EFF;
       &:hover {
         transform: translateX(-4px);
         border-color: rgba($purple, 0.3);
-        box-shadow: var(--shadow-md);
+        box-shadow:
+          6px 6px 12px rgba(163, 177, 198, 0.4),
+          -6px -6px 12px rgba(255, 255, 255, 1),
+          0 0 0 3px rgba($purple, 0.1);
       }
 
       &.active {
-        background: rgba($purple, 0.08);
+        background: linear-gradient(
+          135deg,
+          rgba($purple, 0.1),
+          rgba(107, 139, 232, 0.05)
+        );
         border-color: $purple;
-        box-shadow: var(--shadow-primary);
+        box-shadow:
+          inset 2px 2px 4px rgba(0, 0, 0, 0.05),
+          0 6px 16px rgba(75, 112, 226, 0.2),
+          0 0 0 2px rgba($purple, 0.15);
 
         .video-item-icon {
           box-shadow:
@@ -5405,21 +5488,22 @@ $purple: #409EFF;
   align-items: center;
   gap: 16px;
   padding: 18px 24px;
-  background: $white;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  background: $neu-1;
+  border-radius: 16px;
+  box-shadow:
+    6px 6px 12px $neu-2,
+    -6px -6px 12px $white;
   margin-bottom: 24px;
 
   .video-icon {
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    background: $purple;
+    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff !important;
+    color: #fff;
   }
 
   .video-details {
@@ -5443,34 +5527,6 @@ $purple: #409EFF;
       }
     }
 
-    .video-source-url {
-      margin-top: 6px;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      overflow: hidden;
-
-      .source-url-label {
-        flex-shrink: 0;
-        color: $gray;
-        font-weight: 500;
-      }
-
-      .source-url-link {
-        color: #409eff;
-        text-decoration: none;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 320px;
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
-    }
-
     .video-description {
       margin-top: 8px;
       font-size: 13px;
@@ -5483,9 +5539,10 @@ $purple: #409EFF;
 // 新拟态卡片
 .neu-card {
   background: $neu-1;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow:
+    8px 8px 16px $neu-2,
+    -8px -8px 16px $white;
   overflow: hidden;
 
   .card-header {
@@ -5525,11 +5582,14 @@ $purple: #409EFF;
 }
 
 .neu-btn {
-  background: $white;
-  border: 1px solid $neu-2;
-  border-radius: 8px;
+  background: $neu-1;
+  border: none;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s;
+  box-shadow:
+    4px 4px 8px $neu-2,
+    -4px -4px 8px $white;
   color: $gray;
   font-family: "Montserrat", sans-serif;
   padding: 12px 24px;
@@ -5539,22 +5599,27 @@ $purple: #409EFF;
   gap: 8px;
 
   &:hover {
-    border-color: $purple;
+    box-shadow:
+      2px 2px 4px $neu-2,
+      -2px -2px 4px $white;
     color: $purple;
   }
 
   &:active {
-    background: $neu-1;
+    box-shadow:
+      inset 2px 2px 4px $neu-2,
+      inset -2px -2px 4px $white;
   }
 
   &.primary-btn {
-    background: $purple;
-    color: #fff !important;
-    border-color: $purple;
+    background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+    color: #fff;
 
     &:hover {
-      background: #66b1ff;
-      color: #fff !important;
+      box-shadow:
+        4px 4px 8px $neu-2,
+        -2px -2px 6px $white;
+      color: #fff;
     }
   }
 }
@@ -5573,7 +5638,9 @@ $purple: #409EFF;
       height: 100px;
       border-radius: 50%;
       background: $neu-1;
-      box-shadow: var(--shadow-md);
+      box-shadow:
+        8px 8px 16px $neu-2,
+        -8px -8px 16px $white;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -5618,7 +5685,7 @@ $purple: #409EFF;
     padding: 24px;
 
     &.risk-low {
-      
+      border-left: 4px solid #52c41a;
       .risk-icon {
         background: rgba(82, 196, 26, 0.12);
         color: #52c41a;
@@ -5629,7 +5696,7 @@ $purple: #409EFF;
     }
 
     &.risk-medium {
-      
+      border-left: 4px solid #faad14;
       .risk-icon {
         background: rgba(250, 173, 20, 0.12);
         color: #faad14;
@@ -5640,7 +5707,7 @@ $purple: #409EFF;
     }
 
     &.risk-high {
-      
+      border-left: 4px solid #f56c6c;
       .risk-icon {
         background: rgba(245, 108, 108, 0.12);
         color: #f56c6c;
@@ -5832,8 +5899,8 @@ $purple: #409EFF;
               -2px -2px 4px $white;
 
             &.primary {
-              background: $purple;
-              color: #fff !important;
+              background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+              color: #fff;
               box-shadow:
                 2px 2px 6px $neu-2,
                 -1px -1px 4px $white;
@@ -5881,8 +5948,8 @@ $purple: #409EFF;
         -3px -3px 6px $white;
 
       &.primary {
-        background: $purple;
-        color: #fff !important;
+        background: linear-gradient(135deg, $purple 0%, #7c9df7 100%);
+        color: #fff;
         box-shadow:
           3px 3px 8px $neu-2,
           -2px -2px 6px $white;
@@ -6103,7 +6170,9 @@ $purple: #409EFF;
         background: $neu-1;
         border-radius: 12px;
         margin-bottom: 8px;
-        box-shadow: var(--shadow-sm);
+        box-shadow:
+          inset 2px 2px 4px $neu-2,
+          inset -2px -2px 4px $white;
 
         .sensitive-word {
           color: #f56c6c;
@@ -6203,21 +6272,6 @@ $purple: #409EFF;
         .el-icon {
           color: var(--text-tertiary);
         }
-
-        .badge-source-link {
-          color: #409eff;
-          text-decoration: none;
-          font-weight: 400;
-          max-width: 280px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          display: inline-block;
-
-          &:hover {
-            text-decoration: underline;
-          }
-        }
       }
 
       .source-hint {
@@ -6244,12 +6298,12 @@ $purple: #409EFF;
           width: 52px;
           height: 52px;
           border-radius: 14px;
-          background: $purple;
+          background: linear-gradient(135deg, $purple, #7c9df7);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white !important;
-          box-shadow: none;
+          color: white;
+          box-shadow: 0 4px 12px rgba(75, 112, 226, 0.3);
           margin-left: -10px;
         }
 
@@ -6302,7 +6356,7 @@ $purple: #409EFF;
               &:not(:last-child)::after {
                 content: "|";
                 margin-left: 12px;
-                color: var(--border-color);
+                color: rgba(160, 165, 168, 0.3);
               }
             }
           }
@@ -6409,17 +6463,18 @@ $purple: #409EFF;
     }
 
     .global-stats-section {
-      display: flex;
-      flex-direction: row;
-      align-items: stretch;
-      gap: 12px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr); // 改为3列
+      gap: 16px 12px; // 增加列间距
       padding: 0;
 
       .stat-item-archive {
         background: $neu-1;
         border-radius: 12px;
         padding: 14px 16px;
-        box-shadow: var(--shadow-sm);
+        box-shadow:
+          2px 2px 6px $neu-2,
+          -2px -2px 6px $white;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -6429,7 +6484,9 @@ $purple: #409EFF;
 
         &:hover {
           transform: translateY(-2px);
-          box-shadow: var(--shadow-md);
+          box-shadow:
+            3px 3px 8px $neu-2,
+            -3px -3px 8px $white;
         }
 
         .stat-label-archive {
@@ -6447,7 +6504,7 @@ $purple: #409EFF;
           align-items: baseline;
 
           &.risk-high {
-            background: #f56c6c;
+            background: linear-gradient(135deg, #f56c6c, #ff8585);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -6873,14 +6930,13 @@ $purple: #409EFF;
 
   &.evidence-detail-mode {
     background: var(--bg-hover);
+    border: 1px solid var(--border-color);
     border-radius: 20px;
     padding: 14px 16px 12px 16px; // 保持内边距
-    box-shadow:
-      8px 8px 16px $neu-2,
-      -8px -8px 16px $white;
+    box-shadow: none;
     gap: 0; // 移除间距，让证据面板占满
     max-height: calc(806px - 15px); // 限制高度并预留底部10px间距
-    overflow: visible; // 改为visible，允许tooltip显示在外部
+    overflow: hidden; // 裁剪溢出内容
   }
 }
 
@@ -6891,7 +6947,7 @@ $purple: #409EFF;
   height: 100%;
   min-height: 0; // 关键：允许 flex 子元素缩小
   gap: 12px;
-  overflow: visible; // 改为visible，允许tooltip显示在外部
+  overflow: hidden; // 裁剪溢出内容，让内部的 evidence-list-scroll 处理滚动
 }
 
 // ==================== 多模态融合区域 - 新拟态风格 ====================
@@ -6921,18 +6977,19 @@ $purple: #409EFF;
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--bg-hover);
+    background: rgba(0, 0, 0, 0.03);
     border-radius: 3px;
   }
 }
 
-// 模态卡片 - 新拟态风格，内容从上到下自然排列
+// 模态卡片 - 扁平化风格（深色模式完整适配）
 .modality-card {
   flex: 1 1 auto; // 允许伸缩以适应容器
-  background: $neu-1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 14px;
   padding: 14px 12px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   transition: all 0.2s ease;
   min-width: 90px; // 减小最小宽度，允许更紧凑
   max-width: 150px; // 添加最大宽度，防止过宽
@@ -6941,7 +6998,7 @@ $purple: #409EFF;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    box-shadow: none;
   }
 
   // 🎯 统计类型 - 三个模态小卡片（视频、音频、文本）
@@ -6962,7 +7019,9 @@ $purple: #409EFF;
 
   // 结果卡片 - 外凸弹出效果，给更多空间
   &.result-card {
-    box-shadow: var(--shadow-sm);
+    box-shadow:
+      4px 4px 8px $neu-2,
+      -4px -4px 8px $white;
     flex: 1.2 1 auto; // 允许适度伸缩
     min-width: 100px; // 减小最小宽度
     max-width: 160px; // 添加最大宽度限制，防止超出容器
@@ -7131,7 +7190,7 @@ $purple: #409EFF;
   .score-unit {
     font-size: 16px;
     font-weight: 500;
-    color: #999;
+    color: var(--text-tertiary);
     margin-left: 2px;
   }
 
@@ -7162,11 +7221,11 @@ $purple: #409EFF;
   justify-content: center;
   gap: 4px;
   font-size: 11px;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.4;
 
   .el-icon {
-    color: #999;
+    color: var(--text-tertiary);
   }
 }
 
@@ -7198,7 +7257,7 @@ $purple: #409EFF;
 
   .stat-label {
     font-size: 13px;
-    color: #666;
+    color: var(--text-secondary);
     margin-left: 4px;
   }
 }
@@ -7248,7 +7307,7 @@ $purple: #409EFF;
   justify-content: space-between;
   align-items: center;
   padding-bottom: 12px;
-  border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0; // 头部不缩小
 }
 
@@ -7269,9 +7328,8 @@ $purple: #409EFF;
   font-size: 32px; // 增大图标字体
   padding: 12px; // 增加内边距
   flex-shrink: 0;
-  box-shadow:
-    4px 4px 8px $neu-2,
-    -4px -4px 8px $white;
+  box-shadow: none;
+  border: 1px solid var(--border-color);
 }
 
 .header-info {
@@ -7291,7 +7349,7 @@ $purple: #409EFF;
 .panel-category {
   font-size: 11px;
   font-weight: 600;
-  color: #999;
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
@@ -7299,7 +7357,7 @@ $purple: #409EFF;
 .panel-confidence-inline {
   font-size: 11px;
   font-weight: 600;
-  color: #666;
+  color: var(--text-secondary);
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -7310,7 +7368,7 @@ $purple: #409EFF;
     padding: 2px 6px;
     font-size: 10px;
     font-weight: 500;
-    color: $gray;
+    color: var(--text-tertiary);
     background: var(--bg-hover);
     border-radius: 3px;
     border: 1px solid var(--border-color);
@@ -7339,9 +7397,9 @@ $purple: #409EFF;
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  border: none;
-  background: $neu-1;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-hover);
+  box-shadow: none;
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
@@ -7351,12 +7409,14 @@ $purple: #409EFF;
   margin-right: 8px;
 
   &:hover {
-    color: #667eea;
+    color: var(--color-primary);
     transform: scale(1.05);
   }
 
   &:active {
-    box-shadow: var(--shadow-sm);
+    box-shadow:
+      inset 2px 2px 4px $neu-2,
+      inset -2px -2px 4px $white;
   }
 }
 
@@ -7369,7 +7429,7 @@ $purple: #409EFF;
   color: var(--text-primary);
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .evidence-count {
@@ -7384,7 +7444,7 @@ $purple: #409EFF;
   display: flex;
   flex-direction: column;
   min-height: 0; // 关键：允许缩小
-  overflow: visible; // 改为visible，允许tooltip显示在外部
+  overflow: visible; // 允许tooltip超出边界显示，内部滚动由evidence-list-scroll处理
 }
 
 .section-title-inline {
@@ -7394,7 +7454,7 @@ $purple: #409EFF;
 .evidence-list-scroll {
   flex: 1; // 占据剩余空间
   overflow-y: auto; // 可滚动
-  overflow-x: hidden;
+  overflow-x: visible; // 允许tooltip超出横向边界正常显示（clip会截断::before伪元素tooltip）
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -7424,7 +7484,7 @@ $purple: #409EFF;
   border-radius: 12px;
   padding: 12px;
   box-shadow: none;
-  overflow: visible; // 允许tooltip悬浮窗超出容器显示
+  overflow: visible;
 }
 
 .group-title-inline {
@@ -7449,14 +7509,14 @@ $purple: #409EFF;
   gap: 10px;
   padding: 10px;
   border-radius: 8px;
-  background: $white;
+  background: var(--bg-card);
   cursor: pointer;
   transition: all 0.2s;
-  
+  border-left: 3px solid transparent;
 
   &:hover {
     background: var(--bg-hover);
-    border-left-color: #1976d2;
+    border-left-color: var(--color-primary);
     transform: translateX(3px);
   }
 
@@ -7549,8 +7609,8 @@ $purple: #409EFF;
 
 .confidence-tag-inline {
   font-size: 11px;
-  color: #666;
-  background: #d1d9e6;
+  color: var(--text-secondary);
+  background: var(--bg-hover);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -7579,12 +7639,12 @@ $purple: #409EFF;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
-  overflow: visible; // 允许tooltip悬浮窗超出容器显示
 }
 
 .text-evidence-item-inline {
   padding: 10px;
-  background: $white;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -7596,7 +7656,13 @@ $purple: #409EFF;
   &:hover {
     background: var(--bg-hover);
     transform: translateY(-2px);
-    box-shadow: none;
+    box-shadow: var(--shadow-sm);
+  }
+
+  // tooltip 已换为 el-tooltip（teleported to body），不再需要 CSS ::before 方案
+  // tooltip-left / tooltip-right：已废弃，tooltip 由 el-tooltip 处理
+  &.tooltip-left, &.tooltip-right {
+    // 无需额外样式
   }
 }
 
@@ -7747,7 +7813,7 @@ $purple: #409EFF;
       rgba(255, 255, 255, 0.6) 100%
     );
     border-radius: 2px;
-    box-shadow: none;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
     transition: left 0.1s linear;
     z-index: 2;
   }
@@ -7767,7 +7833,7 @@ $purple: #409EFF;
 
       .mark-dot {
         transform: scale(1.5);
-        box-shadow: none;
+        box-shadow: 0 0 20px currentColor;
       }
 
       .mark-popup {
@@ -7803,7 +7869,7 @@ $purple: #409EFF;
     &.mark-active {
       .mark-dot {
         transform: scale(1.3);
-        box-shadow: none;
+        box-shadow: 0 0 15px currentColor;
         animation: pulse-mark 2s infinite;
       }
     }
@@ -7815,7 +7881,7 @@ $purple: #409EFF;
     border-radius: 50%;
     border: 3px solid white;
     transition: all 0.2s ease;
-    box-shadow: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   // 不同类型的标记颜色（默认，会被卡片特定样式覆盖）
@@ -7838,19 +7904,19 @@ $purple: #409EFF;
   .mark-card-attitude.mark-sentiment-positive .mark-dot {
     background: #52c41a !important; // 正面 - 绿色
     color: #52c41a !important;
-    border-color: white !important;
+    border-color: white;
   }
 
   .mark-card-attitude.mark-sentiment-neutral .mark-dot {
     background: #1890ff !important; // 中性 - 蓝色
     color: #1890ff !important;
-    border-color: white !important;
+    border-color: white;
   }
 
   .mark-card-attitude.mark-sentiment-negative .mark-dot {
     background: #f56c6c !important; // 负面 - 红色
     color: #f56c6c !important;
-    border-color: white !important;
+    border-color: white;
   }
 
   // 其他卡片 - 统一使用紫色（覆盖原有的类型颜色）
@@ -7861,7 +7927,7 @@ $purple: #409EFF;
   .mark-card-action .mark-dot {
     background: #8b5cf6 !important; // 紫色
     color: #8b5cf6 !important;
-    border-color: white !important;
+    border-color: white;
   }
 
   // 悬停弹窗
@@ -7872,7 +7938,7 @@ $purple: #409EFF;
     transform: translateX(-50%) translateY(-20px);
     background: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(10px);
-    color: white !important;
+    color: white;
     padding: 12px;
     border-radius: 8px;
     font-size: 12px;
@@ -7884,7 +7950,7 @@ $purple: #409EFF;
     min-width: 200px;
     max-width: 300px;
     white-space: normal;
-    box-shadow: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     z-index: 9999;
 
     &::after {
@@ -7947,10 +8013,10 @@ $purple: #409EFF;
   @keyframes pulse-mark {
     0%,
     100% {
-      box-shadow: none;
+      box-shadow: 0 0 15px currentColor;
     }
     50% {
-      box-shadow: none;
+      box-shadow: 0 0 25px currentColor;
     }
   }
 
@@ -7960,7 +8026,7 @@ $purple: #409EFF;
     border-width: 2px;
     border-style: solid;
     border-radius: 2px;
-    box-shadow: none;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
     transition: all 0.3s ease;
     animation: fadeIn 0.3s ease;
 
@@ -7987,11 +8053,11 @@ $purple: #409EFF;
       gap: 4px;
       padding: 2px 8px;
       background: var(--detection-color);
-      color: #fff !important;
+      color: #fff;
       font-size: 12px;
       font-weight: 600;
       border-radius: 2px;
-      box-shadow: none;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
       font-family:
         "SF Pro Display",
         -apple-system,
@@ -8040,7 +8106,7 @@ $purple: #409EFF;
     border-radius: 20px;
     font-size: 13px;
     font-weight: 600;
-    box-shadow: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease;
 
     .breathing-dot {
@@ -8059,11 +8125,11 @@ $purple: #409EFF;
     &.low {
       background: rgba(16, 185, 129, 0.95);
       border: 1px solid rgba(16, 185, 129, 1);
-      color: #fff !important;
+      color: #fff;
 
       .breathing-dot {
         background: #fff;
-        box-shadow: none;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
         animation: breathing-green 2s ease-in-out infinite;
       }
     }
@@ -8072,11 +8138,11 @@ $purple: #409EFF;
     &.medium {
       background: rgba(245, 158, 11, 0.95);
       border: 1px solid rgba(245, 158, 11, 1);
-      color: #fff !important;
+      color: #fff;
 
       .breathing-dot {
         background: #fff;
-        box-shadow: none;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
         animation: breathing-orange 1.5s ease-in-out infinite;
       }
     }
@@ -8085,11 +8151,11 @@ $purple: #409EFF;
     &.high {
       background: rgba(239, 68, 68, 0.95);
       border: 1px solid rgba(239, 68, 68, 1);
-      color: #fff !important;
+      color: #fff;
 
       .breathing-dot {
         background: #fff;
-        box-shadow: none;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
         animation: breathing-red 1s ease-in-out infinite;
       }
     }
@@ -8113,7 +8179,7 @@ $purple: #409EFF;
     backdrop-filter: blur(10px);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     animation: slideInRight 0.4s ease;
 
     .scene-icon {
@@ -8127,7 +8193,7 @@ $purple: #409EFF;
     }
 
     .scene-name {
-      color: #fff !important;
+      color: #fff;
       font-size: 14px;
       font-weight: 600;
     }
@@ -8272,7 +8338,7 @@ $purple: #409EFF;
     }
 
     .legend-label {
-      color: #fff !important;
+      color: #fff;
       font-size: 11px; /* 紧凑模式：从 12px 减少 */
     }
   }
@@ -8300,29 +8366,29 @@ $purple: #409EFF;
         font-size: 11px;
         font-weight: 600;
         backdrop-filter: blur(8px);
-        box-shadow: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
         &.emotion {
           &.emotion-angry {
             background: rgba(245, 108, 108, 0.9);
-            color: white !important;
+            color: white;
           }
 
           &.emotion-calm {
             background: rgba(82, 196, 26, 0.9);
-            color: white !important;
+            color: white;
           }
 
           &.emotion-tense,
           &.emotion-serious {
             background: rgba(250, 173, 20, 0.9);
-            color: white !important;
+            color: white;
           }
         }
 
         &.risk-alert {
           background: rgba(245, 108, 108, 0.95);
-          color: white !important;
+          color: white;
           animation: pulse-glow 1.5s ease-in-out infinite;
         }
       }
@@ -8349,7 +8415,7 @@ $purple: #409EFF;
       display: flex;
       align-items: center;
       gap: 10px;
-      color: white !important;
+      color: white;
     }
 
     .control-icon {
@@ -8386,10 +8452,10 @@ $purple: #409EFF;
 
       .progress-now {
         height: 100%;
-        background: $purple;
+        background: linear-gradient(90deg, $purple, #7c9df7);
         border-radius: 3px;
         transition: width 0.5s ease;
-        box-shadow: none;
+        box-shadow: 0 0 8px rgba(75, 112, 226, 0.6);
         position: relative;
 
         &::after {
@@ -8448,7 +8514,7 @@ $purple: #409EFF;
 @keyframes breathing-green {
   0%,
   100% {
-    box-shadow: none;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
     opacity: 1;
   }
   50% {
@@ -8463,7 +8529,7 @@ $purple: #409EFF;
 @keyframes breathing-orange {
   0%,
   100% {
-    box-shadow: none;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
     opacity: 1;
   }
   50% {
@@ -8478,7 +8544,7 @@ $purple: #409EFF;
 @keyframes breathing-red {
   0%,
   100% {
-    box-shadow: none;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
     opacity: 1;
   }
   50% {
@@ -8518,10 +8584,10 @@ $purple: #409EFF;
 @keyframes pulse {
   0%,
   100% {
-    box-shadow: none;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
   }
   50% {
-    box-shadow: none;
+    box-shadow: 0 0 20px var(--detection-color);
   }
 }
 
@@ -8627,10 +8693,10 @@ $purple: #409EFF;
 .transcript-panel {
   display: flex;
   flex-direction: column;
-  background: $neu-1;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow: none;
   overflow: hidden;
   max-height: 480px;
 
@@ -8684,7 +8750,7 @@ $purple: #409EFF;
         border: 1px solid var(--border-color);
         border-radius: 6px;
         background: var(--bg-card);
-        color: $gray;
+        color: var(--text-secondary);
         cursor: pointer;
         transition: all 0.2s ease;
         display: inline-flex;
@@ -8700,24 +8766,24 @@ $purple: #409EFF;
         &.active {
           border-color: $purple;
           background: $purple;
-          color: #fff !important;
-          box-shadow: none;
+          color: #fff;
+          box-shadow: 0 2px 6px rgba($purple, 0.25);
         }
 
         // 【新增】模态筛选器特定样式
         &.modality-filter {
           &.risk.active {
             border-color: #f56c6c;
-            background: #f56c6c;
-            color: white !important;
-            box-shadow: none;
+            background: linear-gradient(135deg, #f56c6c, #ff8a80);
+            color: white;
+            box-shadow: 0 2px 8px rgba(245, 108, 108, 0.35);
           }
 
           &.speech.active {
             border-color: #52c41a;
-            background: #52c41a;
-            color: white !important;
-            box-shadow: none;
+            background: linear-gradient(135deg, #52c41a, #73d13d);
+            color: white;
+            box-shadow: 0 2px 8px rgba(82, 196, 26, 0.35);
           }
         }
       }
@@ -8743,7 +8809,7 @@ $purple: #409EFF;
         border-color: #f59e0b;
         background: rgba(250, 173, 20, 0.15);
         transform: translateY(-1px);
-        box-shadow: none;
+        box-shadow: 0 2px 6px rgba(250, 173, 20, 0.25);
 
         .resume-text {
           opacity: 1;
@@ -8773,7 +8839,7 @@ $purple: #409EFF;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: var(--text-tertiary);
+      background: rgba(160, 165, 168, 0.3);
       border-radius: 3px;
     }
   }
@@ -8789,15 +8855,15 @@ $purple: #409EFF;
     transition: all 0.25s ease;
 
     &:hover {
-      background: var(--bg-hover);
+      background: var(--bg-card);
       transform: translateX(-4px);
-      box-shadow: var(--shadow-sm);
+      box-shadow: none;
     }
 
     &.active {
-      background: var(--bg-hover);
+      background: var(--bg-card);
       border-left-color: $purple;
-      box-shadow: var(--shadow-sm);
+      box-shadow: none;
       transform: scale(1.02);
     }
 
@@ -8883,12 +8949,12 @@ $purple: #409EFF;
 
         &.high {
           background: #f56c6c;
-          color: white !important;
+          color: white;
         }
 
         &.medium {
           background: #faad14;
-          color: white !important;
+          color: white;
         }
       }
     }
@@ -8971,7 +9037,7 @@ $purple: #409EFF;
       font-size: 11px;
       color: #f56c6c;
       font-weight: 500;
-      
+      border-left: 3px solid #f56c6c;
     }
   }
 
@@ -9021,15 +9087,15 @@ $purple: #409EFF;
 
       // 【双轨编码】激活态外发光 = 风险色
       &.risk-high .event-timeline-anchor .event-dot {
-        box-shadow: none; // 红色外发光
+        box-shadow: 0 0 0 4px rgba(245, 108, 108, 0.25); // 红色外发光
       }
 
       &.risk-medium .event-timeline-anchor .event-dot {
-        box-shadow: none; // 橙色外发光
+        box-shadow: 0 0 0 4px rgba(250, 173, 20, 0.25); // 橙色外发光
       }
 
       &.risk-low .event-timeline-anchor .event-dot {
-        box-shadow: none; // 绿色外发光
+        box-shadow: 0 0 0 4px rgba(82, 196, 26, 0.25); // 绿色外发光
       }
     }
 
@@ -9061,7 +9127,7 @@ $purple: #409EFF;
         justify-content: center;
         border: 2px solid transparent;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: none;
+        box-shadow: 0 2px 4px rgba($neu-2, 0.3);
         color: white; // 【统一】图标颜色为白色
 
         // 【双轨编码】圆点背景色 = 风险等级（所有模态统一）
@@ -9154,7 +9220,7 @@ $purple: #409EFF;
         max-width: 85%;
         padding: 6px 12px; // 紧凑内边距
         border-radius: 6px;
-        
+        border-left: 3px solid;
         transition: all 0.2s ease;
 
         // 【模态色标系统】蓝色系 - Visual
@@ -9180,16 +9246,16 @@ $purple: #409EFF;
             flex-shrink: 0;
           }
 
-        .notif-label {
-          font-size: 12px; // 小字号
-          line-height: 1.5;
-          color: rgba($black, 0.85);
-          font-weight: 400; // 浅色模式下细一点
+          .notif-label {
+            font-size: 12px; // 小字号
+            line-height: 1.5;
+            color: var(--text-primary);
+            font-weight: 400; // 浅色模式更细腻
 
-          [data-theme='dark'] & {
-            font-weight: 500; // 深色模式保持原字重
+            [data-theme='dark'] & {
+              font-weight: 500; // 深色模式恢复可读性
+            }
           }
-        }
         }
 
         // 【模态色标】显式标签颜色
@@ -9214,8 +9280,8 @@ $purple: #409EFF;
             border-radius: 3px;
             font-size: 9px;
             font-weight: 600;
-            background: rgba($black, 0.05);
-            color: $gray;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
 
             &.risk {
               &.risk-high {
@@ -9418,7 +9484,7 @@ $purple: #409EFF;
 
     .card-header-compact {
       padding: 12px 16px;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -9465,7 +9531,7 @@ $purple: #409EFF;
 
           .keyword-chip-small {
             padding: 3px 8px;
-            background: rgba(#667eea, 0.1);
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
             border-radius: 10px;
             font-size: 11px;
             color: #667eea;
@@ -9483,7 +9549,7 @@ $purple: #409EFF;
             background: var(--bg-hover);
             border-radius: 10px;
             font-size: 11px;
-            color: $gray;
+            color: var(--text-secondary);
             display: flex;
             align-items: center;
             gap: 4px;
@@ -9525,7 +9591,7 @@ $purple: #409EFF;
 .global-stats-top {
   .card-header-compact {
     padding: 12px 16px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -9654,34 +9720,6 @@ $purple: #409EFF;
   font-size: 12px;
   color: #409eff;
   white-space: nowrap; // 确保不换行
-}
-
-.video-source-url {
-  margin: 4px 0 6px 0;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-
-  .source-url-label {
-    flex-shrink: 0;
-    color: var(--text-tertiary);
-    font-weight: 500;
-  }
-
-  .source-url-link {
-    color: #409eff;
-    text-decoration: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 320px;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
 }
 
 .video-description {
@@ -9832,7 +9870,7 @@ $purple: #409EFF;
 
 .pack-tooltip-word::after {
   content: '、';
-  color: #c0c4cc;
+  color: var(--text-tertiary);
 }
 
 .pack-tooltip-word:last-child::after {
@@ -9841,7 +9879,7 @@ $purple: #409EFF;
 
 .pack-tooltip-empty {
   font-size: 12px;
-  color: #c0c4cc;
+  color: var(--text-tertiary);
 }
 
 /* AI 侧写相关样式 */
@@ -9863,9 +9901,9 @@ $purple: #409EFF;
   margin-left: 12px;
 }
 .identity-badge.identity-suspected {
-  background: rgba(245, 108, 108, 0.12);
+  background: #fef0f0;
   color: #f56c6c;
-  border: 1px solid rgba(245, 108, 108, 0.25);
+  border: 1px solid #fde2e2;
 }
 
 .profile-tag {
@@ -9875,6 +9913,7 @@ $purple: #409EFF;
   padding: 2px 8px;
   background: var(--bg-hover);
   color: var(--text-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 11px;
 }
@@ -9888,7 +9927,7 @@ $purple: #409EFF;
 }
 
 .divider-vertical {
-  color: var(--border-color);
+  color: #dcdfe6;
   margin: 0 4px;
   font-size: 10px;
 }
@@ -9897,11 +9936,11 @@ $purple: #409EFF;
 .stats-ribbon-container {
   display: flex;
   align-items: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #ebeef5;
   border-radius: 12px;
   padding: 10px 0;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
   height: auto;
   min-height: 70px;
 }
@@ -9917,7 +9956,7 @@ $purple: #409EFF;
 }
 
 .ribbon-item:hover {
-  background-color: var(--bg-hover);
+  background-color: #fafafa;
 }
 
 .ribbon-divider {
@@ -9974,7 +10013,7 @@ $purple: #409EFF;
 .ribbon-value {
   font-size: 18px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #303133;
   line-height: 1.2;
   display: flex;
   align-items: center;
@@ -10005,7 +10044,7 @@ $purple: #409EFF;
 .ribbon-badge {
   font-size: 10px;
   background: #f56c6c;
-  color: white !important;
+  color: white;
   padding: 1px 5px;
   border-radius: 4px;
   vertical-align: middle;
@@ -10055,7 +10094,7 @@ $purple: #409EFF;
 /* 极小标签 */
 .stat-label-tiny {
   font-size: 10px;
-  color: $gray;
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 2px;
@@ -10074,18 +10113,18 @@ $purple: #409EFF;
 .stat-value-large {
   font-size: 18px;
   font-weight: 700;
-  color: $black;
+  color: #303133;
 }
 
 .stat-value-medium {
   font-size: 18px;
   font-weight: 600;
-  color: $gray;
+  color: var(--text-secondary);
 }
 
 .unit-text {
   font-size: 12px;
-  color: $gray;
+  color: var(--text-tertiary);
   font-weight: 400;
 }
 
@@ -10105,34 +10144,34 @@ $purple: #409EFF;
   background: #f56c6c;
   border-radius: 50%;
   display: inline-block;
-  box-shadow: none;
+  box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
   animation: pulse-red 2s infinite;
 }
 
 @keyframes pulse-red {
   0% {
-    box-shadow: none;
+    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.7);
   }
   70% {
-    box-shadow: none;
+    box-shadow: 0 0 0 6px rgba(245, 108, 108, 0);
   }
   100% {
-    box-shadow: none;
+    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0);
   }
 }
 
 /* --- V4 最终版：彩色胶囊样式 --- */
-/* 1. 大容器：半透明底座 */
+/* 1. 大容器：半透明白色底座 */
 .stats-ribbon-container {
   display: flex;
   align-items: center;
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.7);
   border-radius: 16px; /* 更圆润 */
   padding: 6px; /* 内边距，让胶囊悬浮 */
-  box-shadow: none; /* 恢复阴影 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04); /* 恢复阴影 */
   gap: 8px; /* 胶囊之间的间距 */
   height: auto;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
 /* 2. 通用胶囊块 */
@@ -10208,14 +10247,14 @@ $purple: #409EFF;
 
 .capsule-label {
   font-size: 11px;
-  color: $gray;
+  color: var(--text-tertiary);
   margin-bottom: 2px;
 }
 
 .capsule-value {
   font-size: 16px;
   font-weight: 600;
-  color: $black;
+  color: #303133;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -10224,7 +10263,7 @@ $purple: #409EFF;
 .capsule-tag {
   font-size: 10px;
   background: #f56c6c;
-  color: white !important;
+  color: white;
   padding: 1px 5px;
   border-radius: 4px;
   line-height: 1.4;
@@ -10232,30 +10271,22 @@ $purple: #409EFF;
 
 .unit {
   font-size: 12px;
-  color: $gray;
+  color: var(--text-tertiary);
   font-weight: 400;
 }
 
 /* --- V5 最终版：专业仪表盘样式 --- */
-/* 容器：3列flex横向排列，每列宽度独立自适应，互不影响 */
+/* 容器：4列x2行网格布局 */
 .stats-pro-container {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); // 改为3列
+  grid-template-rows: repeat(2, 1fr); // 2行
   background: transparent;
   padding: 0 10px;
-  gap: 12px;
+  gap: 16px 12px; // 行间距16px, 列间距12px（增加列间距）
   border: none;
   margin-right: -12px;
   box-shadow: none;
-}
-
-/* 每一列：纵向flex，两张卡片上下对齐，宽度由本列内容决定 */
-.stat-pro-col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  flex: 0 0 auto; /* 宽度完全由内容撑开，不参与均分，不留多余空白 */
 }
 
 /* 单个数据项 */
@@ -10286,7 +10317,7 @@ $purple: #409EFF;
     transform: translateX(-50%);
     padding: 8px 12px;
     background: rgba(75, 112, 226, 0.95);
-    color: white !important;
+    color: white;
     font-size: 12px;
     font-weight: 500;
     border-radius: 6px;
@@ -10296,7 +10327,7 @@ $purple: #409EFF;
     transition: opacity 0.3s ease;
     transition-delay: 0s;
     z-index: 1000;
-    box-shadow: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
     // 小箭头
     &::after {
@@ -10347,7 +10378,7 @@ $purple: #409EFF;
       transform: translateY(1px) scale(0.98); // 激活时保持按下状态
     }
 
-    // 深色模式：避免浅色内阴影导致“发光边框”观感
+    // 暗色模式覆盖：浅色内嵌阴影在深色背景下会产生"白边框"观感
     [data-theme='dark'] & {
       box-shadow:
         inset 4px 4px 8px rgba(0, 0, 0, 0.45),
@@ -10381,7 +10412,16 @@ $purple: #409EFF;
   vertical-align: middle;
 }
 
-/* nth-child padding 规则已随grid布局移除，现为flex列布局 */
+/* 针对不同列的卡片设置不同的padding */
+/* 第1列（1,4）- 左侧：增加左边距 */
+.stat-pro-item:nth-child(3n + 1) {
+  padding-left: 10px;
+}
+
+/* 第3列（3,6）- 右侧：右边距减为0 */
+.stat-pro-item:nth-child(3n + 3) {
+  padding-right: 0;
+}
 
 /* 图标容器：大、方、淡色背景 */
 .pro-icon {
@@ -10408,7 +10448,7 @@ $purple: #409EFF;
 
 .icon-bg-normal {
   background: rgba(144, 147, 153, 0.1);
-  color: $gray;
+  color: var(--text-tertiary);
 }
 
 .icon-bg-account {
@@ -10527,7 +10567,7 @@ $purple: #409EFF;
 
 .pro-label {
   font-size: 11px;
-  color: $gray;
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -10538,8 +10578,8 @@ $purple: #409EFF;
     padding: 2px 6px;
     font-size: 10px;
     font-weight: 500;
-    color: $gray;
-    background: rgba(0, 0, 0, 0.04);
+    color: var(--text-tertiary);
+    background: var(--bg-hover);
     border-radius: 3px;
     border: 1px solid var(--border-color);
   }
@@ -10564,7 +10604,7 @@ $purple: #409EFF;
 }
 
 .text-normal {
-  color: $black;
+  color: var(--text-primary);
 }
 
 .text-account {
@@ -10592,7 +10632,7 @@ $purple: #409EFF;
 
 .pro-subtitle {
   font-size: 12px;
-  color: $gray;
+  color: var(--text-secondary);
   font-weight: 500;
   margin-top: 3px;
 }
@@ -10601,7 +10641,7 @@ $purple: #409EFF;
 .pro-tag-risk {
   font-size: 10px;
   background: #f56c6c;
-  color: white !important;
+  color: white;
   padding: 1px 5px;
   border-radius: 4px;
   vertical-align: middle;
@@ -10695,7 +10735,7 @@ $purple: #409EFF;
     background: $neu-1;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     page-break-inside: avoid;
   }
 
@@ -10778,9 +10818,9 @@ $purple: #409EFF;
     border-radius: 2px;
     flex-shrink: 0;
     
-    &.mark-video { background: #667eea; }
-    &.mark-audio { background: #f093fb; }
-    &.mark-text { background: #4facfe; }
+    &.mark-video { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    &.mark-audio { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    &.mark-text { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
   }
 
   .evidence-content-report {
@@ -10857,7 +10897,7 @@ $purple: #409EFF;
     padding: 15px;
     border-radius: 8px;
     text-align: center;
-    box-shadow: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   }
 
   .fusion-header {
@@ -10926,7 +10966,7 @@ $purple: #409EFF;
     background: #fff8f0;
     padding: 15px;
     border-radius: 8px;
-    
+    border-left: 4px solid #faad14;
     page-break-inside: avoid;
   }
 
@@ -10981,7 +11021,7 @@ $purple: #409EFF;
     background: white;
     padding: 20px;
     border-radius: 12px;
-    box-shadow: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     margin-bottom: 10px;
   }
 
@@ -11070,7 +11110,7 @@ $purple: #409EFF;
     
     &.primary {
       background: $purple;
-      color: white !important;
+      color: white;
       
       &:hover {
         background: darken($purple, 5%);
@@ -11079,55 +11119,198 @@ $purple: #409EFF;
   }
   */
 
+// 深色模式兜底：覆盖仍使用浅色硬编码的分析页局部样式
+:deep(html[data-theme='dark'] .analysis-content-wrapper) {
+  .video-archive-card,
+  .transcript-panel,
+  .dashboard-radar,
+  .video-item,
+  .evidence-group-inline,
+  .evidence-item-inline,
+  .text-evidence-item-inline,
+  .modality-card,
+  .neu-card {
+    background: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+    box-shadow: none !important;
+  }
+
+  .video-source-badge,
+  .panel-header-compact,
+  .card-header-compact,
+  .group-title-inline,
+  .section-title-inline,
+  .drawer-header {
+    background: var(--bg-hover) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .right-panel-container.evidence-detail-mode {
+    background: var(--bg-hover) !important;
+    box-shadow: none !important;
+  }
+
+  .evidence-item-inline:hover,
+  .text-evidence-item-inline:hover,
+  .stat-pro-item:hover::after {
+    background: rgba(64, 158, 255, 0.12) !important;
+  }
+
+  .file-name,
+  .panel-main-value,
+  .speech-transcript,
+  .event-body,
+  .pro-value,
+  .modality-score,
+  .stat-count,
+  .statistics-total,
+  .text-keyword-inline {
+    color: var(--text-primary) !important;
+  }
+
+  // 视频属性栏 + 六卡副标题增强对比度
+  .feature-label,
+  .description-text,
+  .panel-category,
+  .panel-confidence-inline,
+  .event-time,
+  .notif-label,
+  .card-title-compact,
+  .current-frame-badge-small,
+  .stat-label,
+  .stat-label-compact,
+  .modality-name,
+  .detail-item,
+  .result-label,
+  .pro-label,
+  .video-source-badge .source-label,
+  .video-source-badge .source-hint,
+  .description-label,
+  .profile-tag,
+  .keyword-tag-detected,
+  .word-pack-tag,
+  .word-pack-tag .pack-word-count {
+    color: #cdd7ef !important;
+  }
+
+  // profile-tag 深色模式背景也需要覆盖
+  .profile-tag {
+    background: rgba(120, 140, 180, 0.15) !important;
+    border-color: rgba(120, 140, 180, 0.3) !important;
+  }
+
+  .pro-subtitle {
+    color: #b0bdd8 !important;
+  }
+
+  .pro-label .ai-predict-badge {
+    background: rgba(120, 140, 180, 0.12) !important;
+    border-color: rgba(120, 140, 180, 0.25) !important;
+    color: #9ba3c4 !important;
+  }
+
+  /* 播放器左上角风险状态 + CV 框：样式已移至 App.vue [data-theme='dark'] 全局块确保生效 */
+
+  .risk-status-indicator {
+    border-width: 1px !important;
+    border-style: solid !important;
+
+    &.low {
+      background: rgba(16, 140, 103, 0.96) !important;
+      border-color: rgba(88, 215, 175, 0.5) !important;
+    }
+
+    &.medium {
+      background: rgba(180, 108, 20, 0.96) !important;
+      border-color: rgba(251, 191, 36, 0.55) !important;
+    }
+
+    &.high {
+      background: rgba(190, 52, 52, 0.96) !important;
+      border-color: rgba(248, 113, 113, 0.55) !important;
+    }
+  }
+
+  .timeline-vertical-line {
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(90, 96, 128, 0.35) 5%,
+      rgba(90, 96, 128, 0.35) 95%,
+      transparent 100%
+    ) !important;
+  }
+
+  .video-drawer {
+    background: var(--bg-card) !important;
+    border-left: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+  }
+}
+
+/* 浅色模式 risk-keyword 字重已移至 App.vue [data-theme='light'] 全局块 */
+
+// 词库包悬浮提示（neumorphic风格，浅色固定）
 :global(.pack-tooltip-popper.el-popper) {
-  background: #ecf0f3 !important;
-  border: none !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
   border-radius: 10px !important;
-  box-shadow:
-    6px 6px 12px #d1d9e6,
-    -6px -6px 12px #f9f9f9 !important;
+  box-shadow: var(--shadow-md) !important;
   padding: 12px 14px !important;
+  color: var(--text-primary) !important;
 }
 
 :global(.pack-tooltip-popper.el-popper .el-popper__arrow::before) {
-  background: #ecf0f3 !important;
-  border-color: transparent !important;
-  box-shadow: none;
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: none !important;
 }
 
-// 文本证据tooltip自定义样式
+// 文本证据悬浮提示（挂载到body，避免overflow截断）
 :global(.text-evidence-tooltip.el-popper) {
   max-width: 320px !important;
-  padding: 14px 18px !important;
-
-  // 统一跟随主题变量（深浅色均适配）
+  padding: 12px 16px !important;
   background: var(--bg-card) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-
-  // 样式
+  border: 1px solid var(--border-color) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-md) !important;
   color: var(--text-primary) !important;
   font-size: 13px !important;
   line-height: 1.7 !important;
   font-weight: 400 !important;
-  border-radius: 12px !important;
-  border: 1px solid var(--border-color) !important;
-  box-shadow: var(--shadow-md) !important;
 }
 
-:global(.text-evidence-tooltip.el-popper[data-popper-placement^="top"] .el-popper__arrow) {
-  bottom: -10px !important; // 向下移动5px (原来-8px，现在-13px)
+:global(.text-evidence-tooltip.el-popper .el-popper__arrow::before) {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
 }
+</style>
 
-:global(.text-evidence-tooltip.el-popper[data-popper-placement^="top"] .el-popper__arrow::before) {
-  background: transparent !important;
-  border-style: solid !important;
-  border-width: 8px 8px 0 8px !important;
-  border-top-color: var(--bg-card) !important;
-  border-right-color: transparent !important;
-  border-bottom-color: transparent !important;
-  border-left-color: transparent !important;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04)) !important;
-  transform: rotate(0deg) !important; // 移除Element Plus默认的旋转
+<!-- 非 scoped：分析页主题覆盖，确保 html[data-theme] 选择器优先级生效 -->
+<style lang="scss">
+html[data-theme='dark'] .analysis-content-wrapper .risk-status-indicator .risk-label {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+html[data-theme='dark'] .analysis-content-wrapper .detection-label,
+html[data-theme='dark'] .analysis-content-wrapper .detection-label .confidence-badge {
+  color: #ffffff !important;
+}
+html[data-theme='dark'] .analysis-content-wrapper .detection-label .confidence-badge {
+  opacity: 1 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px;
+}
+/* 六卡主标题在深色模式下要明显可见 */
+html[data-theme='dark'] .analysis-content-wrapper .pro-label {
+  color: #8fa3c8 !important;
+}
+html[data-theme='dark'] .analysis-content-wrapper .panel-category {
+  color: #8fa3c8 !important;
+}
+html[data-theme='light'] .analysis-content-wrapper .risk-keyword {
+  font-weight: 400 !important;
 }
 </style>

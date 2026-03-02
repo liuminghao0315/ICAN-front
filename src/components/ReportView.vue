@@ -1,21 +1,23 @@
 <template>
   <div class="report-view">
-    <div class="report-actions" v-if="!hideExport">
+    <div class="report-actions">
       <button class="export-btn" @click="handleExport">
         <el-icon><Download /></el-icon>
         导出报告
       </button>
     </div>
-    <div v-else class="report-actions-placeholder"></div>
 
     <div class="report-paper">
       <!-- 封面区 -->
       <div class="cover">
         <div class="cover-rule-thick"></div>
         <div class="cover-rule-thin"></div>
+
         <div class="cover-confidential">内部资料 · 仅供参考</div>
+
         <h1 class="cover-title">视频内容分析报告</h1>
         <div class="cover-subtitle">Video Content Analysis Report</div>
+
         <div class="cover-info">
           <table class="cover-table">
             <tbody>
@@ -31,23 +33,27 @@
             </tbody>
           </table>
         </div>
+
         <div class="cover-org">基于多模态深度学习的高校内容创作者行为分析平台</div>
         <div class="cover-version">系统版本 v1.0</div>
+
         <div class="cover-rule-thin"></div>
         <div class="cover-rule-thick"></div>
       </div>
 
       <!-- 综合结论 -->
       <section class="section">
-        <h2 class="section-heading no-border first">综合结论</h2>
-        <table class="info-table">
-          <tr>
-            <td class="it-key">最终建议</td>
-            <td><span class="risk-tag" :class="getConclusionClass()">{{ data.action.actionSuggestion }}</span></td>
-          </tr>
-          <tr><td class="it-key">详细说明</td><td>{{ data.action.actionDetail }}</td></tr>
-          <tr><td class="it-key">身份判定</td><td>{{ data.identity.identityLabel }}（置信度 {{ data.identity.modalityFusion.finalScore }}%）</td></tr>
-          <tr><td class="it-key">涉及高校</td><td>{{ data.university.universityName }}（关联度 {{ data.university.modalityFusion.finalScore }}%）</td></tr>
+        <h2 class="section-heading">综合结论</h2>
+        <table class="info-table conclusion-table">
+          <tbody>
+            <tr>
+              <td class="it-key">最终建议</td>
+              <td><span class="risk-tag" :class="getConclusionClass()">{{ data.action.actionSuggestion }}</span></td>
+            </tr>
+            <tr><td class="it-key">详细说明</td><td>{{ data.action.actionDetail }}</td></tr>
+            <tr><td class="it-key">身份判定</td><td>{{ data.identity.identityLabel }}（置信度 {{ data.identity.modalityFusion.finalScore }}%）</td></tr>
+            <tr><td class="it-key">涉及高校</td><td>{{ data.university.universityName }}（关联度 {{ data.university.modalityFusion.finalScore }}%）</td></tr>
+          </tbody>
         </table>
       </section>
 
@@ -60,10 +66,20 @@
         </div>
         <div v-if="data.videoInfo.mainCharacter" class="sub-block">
           <h3 class="sub-heading">人物特征</h3>
-          <p v-if="data.videoInfo.mainCharacter.gender" class="char-item"><strong class="char-key">性别：</strong>{{ data.videoInfo.mainCharacter.gender }}</p>
-          <p v-if="data.videoInfo.mainCharacter.ageRange" class="char-item"><strong class="char-key">年龄段：</strong>{{ data.videoInfo.mainCharacter.ageRange }}</p>
-          <p v-if="data.videoInfo.mainCharacter.voiceProfile" class="char-item"><strong class="char-key">语音特征：</strong>{{ data.videoInfo.mainCharacter.voiceProfile }}</p>
-          <p v-if="data.videoInfo.mainCharacter.clothing" class="char-item"><strong class="char-key">着装：</strong>{{ data.videoInfo.mainCharacter.clothing }}</p>
+          <div class="char-list">
+            <p v-if="data.videoInfo.mainCharacter.gender" class="char-item">
+              <strong class="char-key">性别：</strong>{{ data.videoInfo.mainCharacter.gender }}
+            </p>
+            <p v-if="data.videoInfo.mainCharacter.ageRange" class="char-item">
+              <strong class="char-key">年龄段：</strong>{{ data.videoInfo.mainCharacter.ageRange }}
+            </p>
+            <p v-if="data.videoInfo.mainCharacter.voiceProfile" class="char-item">
+              <strong class="char-key">语音特征：</strong>{{ data.videoInfo.mainCharacter.voiceProfile }}
+            </p>
+            <p v-if="data.videoInfo.mainCharacter.clothing" class="char-item">
+              <strong class="char-key">着装：</strong>{{ data.videoInfo.mainCharacter.clothing }}
+            </p>
+          </div>
         </div>
         <div v-if="data.videoInfo.detectedKeywords && data.videoInfo.detectedKeywords.length > 0" class="sub-block">
           <h3 class="sub-heading">检测到的关键词</h3>
@@ -79,17 +95,8 @@
         <h2 class="section-heading">二、风险画像</h2>
         <div class="two-col">
           <div class="col">
-            <h3 class="sub-heading center">综合风险评估</h3>
-            <table class="radar-table">
-              <thead><tr><th>维度</th><th class="bar-cell"></th><th class="center">得分</th></tr></thead>
-              <tbody>
-                <tr v-for="rd in radarRows" :key="rd.name">
-                  <td>{{ rd.name }}</td>
-                  <td class="bar-cell"><div class="radar-bar-bg"><div class="radar-bar-fill" :style="{ width: rd.value + '%' }"></div></div></td>
-                  <td class="score-cell">{{ rd.value }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <h3 class="sub-heading center">综合风险雷达图</h3>
+            <div class="radar-chart" ref="radarChartRef"></div>
           </div>
           <div class="col">
             <h3 class="sub-heading center">多模态分析贡献度</h3>
@@ -117,27 +124,11 @@
       <!-- 三、风险走势分析 -->
       <section class="section">
         <h2 class="section-heading">三、风险走势分析</h2>
-        <table class="trend-table">
-          <thead><tr><th style="width:18%">时间段</th><th class="bar-cell">风险强度</th><th style="width:12%;text-align:center">数值</th><th style="width:12%;text-align:center">等级</th></tr></thead>
-          <tbody>
-            <tr v-for="(point, idx) in riskTrendRows" :key="idx">
-              <td>{{ point.timeLabel }}</td>
-              <td class="bar-cell">
-                <div class="trend-bar-bg">
-                  <div class="trend-bar-fill" :class="point.fillClass" :style="{ width: (point.intensity * 100) + '%' }"></div>
-                </div>
-              </td>
-              <td class="center">{{ (point.intensity * 100).toFixed(1) }}%</td>
-              <td class="center">
-                <span v-if="point.intensity >= 0.667" class="tag-danger">高风险</span>
-                <span v-else-if="point.intensity >= 0.333">中风险</span>
-                <span v-else>低风险</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="note-box">
-          <template v-if="riskPeakAnalysis.peakIntensity >= 0.9"><strong>【极高风险红色预警】</strong></template>
+        <div class="chart-box chart-box-wide">
+          <div class="trend-chart" ref="trendChartRef"></div>
+        </div>
+        <div class="note-box" :class="{ 'note-danger': riskPeakAnalysis.peakIntensity >= 0.9 }">
+          <template v-if="riskPeakAnalysis.peakIntensity >= 0.9"><strong>【极高风险红色预警】</strong><br/></template>
           <template v-else><strong>风险峰值分析：</strong></template>
           本视频风险峰值出现在 {{ riskPeakAnalysis.peakTime }}，风险强度达到 {{ (riskPeakAnalysis.peakIntensity * 100).toFixed(1) }}%，主要由 {{ riskPeakAnalysis.triggerEvent }} 触发。
         </div>
@@ -170,7 +161,7 @@
 
       <!-- 五、详细证据清单 -->
       <section class="section page-break">
-        <h2 class="section-heading no-border">五、详细证据清单</h2>
+        <h2 class="section-heading">五、详细证据清单</h2>
         <table class="ev-table">
           <thead>
             <tr>
@@ -182,7 +173,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="event in data.timelineEvents" :key="event.id">
+            <tr v-for="event in data.timelineEvents" :key="event.id" :class="{ 'row-danger': event.riskScore > 66.7 }">
               <td>{{ formatTime(event.startTime) }}-{{ formatTime(event.endTime) }}</td>
               <td>{{ getModalityText(event.modality) }}</td>
               <td>
@@ -200,7 +191,7 @@
 
       <!-- 六、场景识别轨迹 -->
       <section class="section page-break">
-        <h2 class="section-heading no-border">六、场景识别轨迹</h2>
+        <h2 class="section-heading">六、场景识别轨迹</h2>
         <table class="info-table">
           <thead><tr><th>序号</th><th>场景名称</th><th>时间段</th><th>置信度</th></tr></thead>
           <tbody>
@@ -223,57 +214,47 @@
 
       <!-- 签章区 -->
       <div class="sign-area">
-        <table class="sign-table">
-          <tr>
-            <td><span class="sign-label">分析员：</span>________________</td>
-            <td><span class="sign-label">审核员：</span>________________</td>
-          </tr>
-          <tr>
-            <td><span class="sign-label">签发日期：</span>________________</td>
-            <td></td>
-          </tr>
-        </table>
+        <div class="sign-row">
+          <div class="sign-item"><span class="sign-label">分析员：</span><span class="sign-line"></span></div>
+          <div class="sign-item"><span class="sign-label">审核员：</span><span class="sign-line"></span></div>
+        </div>
+        <div class="sign-row">
+          <div class="sign-item"><span class="sign-label">签发日期：</span><span class="sign-line"></span></div>
+          <div class="sign-item"></div>
+        </div>
       </div>
 
       <!-- 页脚 -->
       <div class="report-foot">
         <div class="foot-rule"></div>
-        <div class="foot-row">生成时间：{{ currentDateTime }}&nbsp;&nbsp;&nbsp;&nbsp;报告编号：{{ data.videoInfo.videoId }}</div>
-        <div class="foot-row">系统版本：多模态高校内容创作者行为分析系统 v1.0</div>
+        <div class="foot-row">
+          <span>生成时间：{{ currentDateTime }}</span>
+          <span>报告编号：{{ data.videoInfo.videoId }}</span>
+        </div>
+        <div class="foot-row">
+          <span>系统版本：多模态高校内容创作者行为分析系统 v1.0</span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
-<!-- SCRIPT_PLACEHOLDER -->
 <script setup lang="ts">
-import { computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import * as echarts from 'echarts'
 import { Download } from '@element-plus/icons-vue'
 import type { AnalysisResult } from '@/data/mockAnalysisResult'
-import { useExportReport } from '@/composables/useExportReport'
 
-defineEmits<{ 'export-pdf': [] }>()
-const props = defineProps<{ data: AnalysisResult; hideExport?: boolean }>()
-const { exportReportByUrl } = useExportReport()
+const emit = defineEmits<{ 'export-pdf': [] }>()
+
+const props = defineProps<{ data: AnalysisResult }>()
 
 const handleExport = () => {
-  const pdfUrl = (props.data as any).reportPdfUrl
-  if (pdfUrl) {
-    const fileName = props.data.videoInfo?.fileName
-      ? props.data.videoInfo.fileName.replace(/\.[^.]+$/, '.pdf')
-      : undefined
-    exportReportByUrl(pdfUrl, fileName)
-  } else {
-    ElMessage.warning('PDF 报告尚未生成，请稍后重试')
-  }
+  emit('export-pdf')
 }
 
-const radarRows = computed(() => {
-  const names = ['身份置信', '学校关联', '负面情感', '传播风险', '影响范围', '处置紧迫']
-  const values = props.data.timelineData.averageRadarData
-  return names.map((name, i) => ({ name, value: values[i] ?? 0 }))
-})
+const radarChartRef = ref<HTMLElement>()
+const trendChartRef = ref<HTMLElement>()
 
 const attitudeStats = computed(() => {
   const evidences = props.data.attitude.evidences
@@ -315,16 +296,6 @@ const riskPeakAnalysis = computed(() => {
   }
 
   return { peakTime: `${formatTime(peakStartSec)} - ${formatTime(peakEndSec)}`, peakIntensity, triggerEvent, peakIndex }
-})
-
-const riskTrendRows = computed(() => {
-  const risks = props.data.timelineData.comprehensiveRisks
-  const g = props.data.timelineData.timeGranularity
-  return risks.map((r, i) => ({
-    timeLabel: `${formatTime(i * g)} - ${formatTime((i + 1) * g)}`,
-    intensity: r.intensity,
-    fillClass: r.intensity >= 0.667 ? 'trend-fill-high' : r.intensity >= 0.333 ? 'trend-fill-mid' : 'trend-fill-low'
-  }))
 })
 
 const contribPercent = computed(() => {
@@ -395,284 +366,668 @@ const currentDateTime = computed(() => {
 
 const formatDuration = (seconds: number) => `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
+
 const getConclusionClass = () => {
   const s = props.data.action.modalityFusion.finalScore
   return s >= 67 ? 'risk-high' : s >= 34 ? 'risk-mid' : 'risk-low'
 }
+
 const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'audio-effect': '声学' }[m] || m)
+
+const initRadarChart = () => {
+  if (!radarChartRef.value) return
+  const chart = echarts.init(radarChartRef.value)
+  chart.setOption({
+    animation: false,
+    radar: {
+      radius: '58%',
+      center: ['50%', '54%'],
+      indicator: [
+        { name: '身份置信', max: 100 }, { name: '学校关联', max: 100 },
+        { name: '负面情感', max: 100 }, { name: '传播风险', max: 100 },
+        { name: '影响范围', max: 100 }, { name: '处置紧迫', max: 100 }
+      ],
+      shape: 'polygon', splitNumber: 4,
+      axisName: { color: '#333', fontSize: 11, padding: [0, 4] },
+      splitLine: { lineStyle: { color: '#ddd' } },
+      splitArea: { show: true, areaStyle: { color: ['#fafafa', '#f5f5f5'] } }
+    },
+    series: [{ type: 'radar', data: [{
+      value: props.data.timelineData.averageRadarData, name: '综合评估',
+      areaStyle: { color: 'rgba(0,0,0,0.06)' },
+      lineStyle: { color: '#333', width: 1.5 },
+      itemStyle: { color: '#333' }
+    }] }]
+  })
+  window.addEventListener('beforeprint', () => chart.resize())
+}
+
+const initTrendChart = () => {
+  if (!trendChartRef.value) return
+  const chart = echarts.init(trendChartRef.value)
+  const g = props.data.timelineData.timeGranularity
+  const xData = props.data.timelineData.comprehensiveRisks.map((_, i) => formatTime(i * g))
+  chart.setOption({
+    animation: false,
+    grid: { left: 50, right: 72, top: 28, bottom: 36 },
+    xAxis: { type: 'category', data: xData, axisLabel: { color: '#666', fontSize: 10 }, axisLine: { lineStyle: { color: '#ccc' } } },
+    yAxis: { type: 'value', name: '风险强度', min: 0, max: 1, axisLabel: { color: '#666', fontSize: 10 }, splitLine: { lineStyle: { color: '#eee', type: 'dashed' } } },
+    series: [{
+      name: '综合风险', type: 'line', smooth: true,
+      data: props.data.timelineData.comprehensiveRisks.map(r => r.intensity),
+      lineStyle: { color: '#333', width: 1.5 },
+      areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,0,0,0.1)' }, { offset: 1, color: 'rgba(0,0,0,0.02)' }] } },
+      itemStyle: { color: '#333' },
+      markLine: { silent: true, symbol: 'none', lineStyle: { color: '#c00', type: 'dashed', width: 1 }, label: { show: true, position: 'end', formatter: '高风险阈值', color: '#c00', fontSize: 10 }, data: [{ yAxis: 0.67 }] },
+      markArea: { silent: true, data: [[ { xAxis: riskPeakAnalysis.value.peakIndex, itemStyle: { color: 'rgba(200,0,0,0.08)' } }, { xAxis: riskPeakAnalysis.value.peakIndex } ]] }
+    }]
+  })
+  window.addEventListener('beforeprint', () => chart.resize())
+}
+
+onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
 </script>
 
-<!-- STYLE_PLACEHOLDER -->
 <style scoped lang="scss">
-@page { size: A4 portrait; margin: 20mm; }
+// ====================================================================
+//  专业研报 / 公文排版 —— A4 打印优先
+// ====================================================================
 
+// -------------------- 打印页面设置 --------------------
+@page {
+  size: A4 portrait;
+  margin: 20mm;
+}
+
+// -------------------- 屏幕容器 --------------------
 .report-view {
-  background: var(--bg-page);
+  background: var(--bg-page, #f5f5f5);
   min-height: 100vh;
   padding: 24px;
   position: relative;
 }
 
-.report-actions {
-  position: sticky; top: 8px; z-index: 10;
-  display: flex; justify-content: flex-end;
-  padding: 0 0 10px 0; pointer-events: none;
-}
-.report-actions-placeholder {
-  height: 45px;
-}
-.export-btn {
-  pointer-events: auto;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 16px; background: #4461f2; border: none; border-radius: 6px;
-  font-size: 13px; font-weight: 500; color: #fff; cursor: pointer;
-  box-shadow: none;
-  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
-  letter-spacing: 0.5px;
-  .el-icon { font-size: 14px; color: #fff; }
-  &:hover { background: #3451d1; box-shadow: none; transform: scale(1.02); }
-  &:active { transform: scale(0.98); box-shadow: none; }
+// 深色模式：报告纸面保持白色（打印文档），但容器背景随主题
+[data-theme='dark'] .report-view .report-paper {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
+// -------------------- 导出按钮（仅屏幕可见） --------------------
+.report-actions {
+  position: sticky;
+  top: 8px;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 10px 0;
+  pointer-events: none;
+}
+
+.export-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: #4461f2;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(68, 97, 242, 0.35);
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  letter-spacing: 0.5px;
+
+  .el-icon {
+    font-size: 14px;
+    color: #fff;
+  }
+
+  &:hover {
+    background: #3451d1;
+    box-shadow: 0 4px 16px rgba(68, 97, 242, 0.45);
+    transform: scale(1.02);
+  }
+
+  &:active {
+    transform: scale(0.98);
+    box-shadow: 0 1px 6px rgba(68, 97, 242, 0.25);
+  }
+}
+
+// -------------------- A4 纸面 --------------------
+// 纸张内容始终使用印刷风格（深浅色模式均相同）
+// App.vue 的 [data-theme='dark'] p/span/div 全局规则会被我们在 App.vue 中专门排除
 .report-paper {
-  position: relative; max-width: 794px; min-height: 297mm;
-  margin: 0 auto; transform: translateY(-50px);
-  background: var(--bg-card); box-shadow: var(--shadow-md);
-  padding: 20mm; color: var(--text-primary);
-  font-size: 14px; line-height: 1.8;
+  position: relative;
+  max-width: 794px;
+  min-height: 297mm;
+  margin: 0 auto;
+  transform: translateY(-50px);
+  background: #ffffff !important; // 始终白色纸张
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  padding: 28mm 24mm;
+  color: #333333 !important; // 始终深色文字（打印风格）
+  font-size: 14px;
+  line-height: 1.8;
   font-family: "SimSun", "Songti SC", "Microsoft YaHei", "PingFang SC", serif;
 }
 
-// ===== 封面 =====
+// -------------------- 封面 --------------------
 .cover {
-  text-align: center; padding-top: 60px; margin-bottom: 0;
-  page-break-after: always; break-after: page;
+  text-align: center;
+  padding-bottom: 48px;
+  margin-bottom: 48px;
+  page-break-after: always;
+  break-after: page;
 }
-.cover-rule-thick { height: 3px; background: var(--text-primary); }
-.cover-rule-thin { height: 1px; background: var(--text-primary); margin-top: 2px; margin-bottom: 2px; }
-.cover-confidential { margin-top: 40px; font-size: 13.3px; color: var(--text-tertiary); letter-spacing: 6px; }
+.cover-rule-thick { height: 3px; background: #333; }
+.cover-rule-thin { height: 1px; background: #333; margin-top: 2px; margin-bottom: 2px; }
+.cover-confidential {
+  margin-top: 40px;
+  font-size: 13px;
+  color: #888;
+  letter-spacing: 6px;
+}
 .cover-title {
-  font-size: 29.3px; font-weight: 800; letter-spacing: 8px;
-  margin: 36px 0 8px; color: var(--text-primary);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 8px;
+  margin: 36px 0 8px;
+  color: #000;
   font-family: "SimHei", "Microsoft YaHei", sans-serif;
 }
-.cover-subtitle { font-size: 13.3px; color: var(--text-tertiary); letter-spacing: 2px; margin-bottom: 52px; }
+.cover-subtitle {
+  font-size: 13px;
+  color: #999;
+  letter-spacing: 2px;
+  margin-bottom: 52px;
+}
 .cover-info { display: flex; justify-content: center; margin-bottom: 52px; }
 .cover-table {
-  border-collapse: collapse; font-size: 14px; text-align: left;
-  td { padding: 10px 8px; color: var(--text-secondary); }
-  .ct-key { font-weight: 600; color: var(--text-primary); white-space: nowrap; text-align: right; padding-right: 0; letter-spacing: 1px; }
-  .ct-sep { padding: 10px 10px 10px 4px; color: var(--text-tertiary); width: 20px; }
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: left;
+  td { padding: 10px 8px; color: #333; }
+  .ct-key { font-weight: 600; color: #1a1a1a; white-space: nowrap; text-align: right; padding-right: 0; letter-spacing: 1px; }
+  .ct-sep { padding: 10px 10px 10px 4px; color: #999; width: 20px; }
 }
-.cover-org { font-size: 14.7px; font-weight: 600; color: var(--text-secondary); letter-spacing: 2px; margin-bottom: 6px; }
-.cover-version { font-size: 13.3px; color: var(--text-tertiary); margin-bottom: 40px; }
+.cover-org { font-size: 15px; font-weight: 600; color: #333; letter-spacing: 2px; margin-bottom: 6px; }
+.cover-version { font-size: 13px; color: #999; margin-bottom: 40px; }
 .text-link { color: #1565c0; text-decoration: none; word-break: break-all; &:hover { text-decoration: underline; } }
 
-// ===== 通用区块 =====
-.section { margin-bottom: 20px; page-break-inside: avoid; break-inside: avoid; }
-.page-break { page-break-before: always; break-before: page; }
-.section-heading {
-  font-size: 17.3px; font-weight: 700; color: var(--text-primary);
-  border-bottom: 2px solid var(--text-primary); padding-bottom: 6px;
-  margin: 24px 0 12px; letter-spacing: 1px;
-  font-family: "SimHei", "Microsoft YaHei", sans-serif;
-  &:first-child, &.first { margin-top: 8px; }
-  &.no-border { border-bottom: none; padding-bottom: 0; margin-bottom: 8px; }
+// -------------------- 通用区块 --------------------
+.section {
+  margin-bottom: 24px;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
-.sub-block { margin-bottom: 12px; }
+.page-break {
+  page-break-before: always;
+  break-before: page;
+}
+.section-heading {
+  font-size: 17px;
+  font-weight: 700;
+  color: #000;
+  border-bottom: 2px solid #333;
+  padding-bottom: 6px;
+  // 章节感：与上方内容保持足够间距，但不过大以免页面底部大片留白
+  margin: 28px 0 14px;
+  letter-spacing: 1px;
+  font-family: "SimHei", "Microsoft YaHei", sans-serif;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+.sub-block { margin-bottom: 14px; }
 .sub-heading {
-  font-size: 14.7px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; margin-top: 10px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #1a1a1a;
   &.center { text-align: center; }
 }
-.body-text { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin: 0 0 6px; }
+.body-text { font-size: 14px; color: #333; line-height: 1.8; margin: 0 0 8px; }
 .indent-text { text-indent: 2em; }
 
-// ===== 三线表 =====
+// ====================================================================
+//  学术三线表 —— 所有表格通用基础
+// ====================================================================
 .info-table {
-  width: 100%; border-collapse: collapse; font-size: 14px;
-  line-height: 1.8; margin-bottom: 10px;
-  border-top: 2px solid var(--border-color); border-bottom: 2px solid var(--border-color);
-  th, td { border: none; padding: 10px 10px; text-align: left; vertical-align: top; }
-  th { border-bottom: 1px solid var(--border-color); background: none; font-weight: 600; color: var(--text-primary); padding: 8px 10px; }
-  .it-key { background: none; font-weight: 600; color: var(--text-primary); white-space: nowrap; width: 100px; }
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.8;
+  margin-bottom: 12px;
+  border-top: 2px solid #333;
+  border-bottom: 2px solid #333;
+
+  th, td {
+    border: none;
+    padding: 12px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    border-bottom: 1px solid #333;
+    background: none;
+    font-weight: 600;
+    color: #000;
+    padding: 10px 12px;
+  }
+
+  .it-key {
+    background: none;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: nowrap;
+    width: 110px;
+  }
 }
 
-// ===== 风险标签 =====
+// -------------------- 风险标签（唯一保留高饱和色的元素） --------------------
 .risk-tag {
-  display: inline; padding: 2px 12px; font-size: 14px;
+  display: inline-block;
+  padding: 3px 14px;
+  font-size: 14px;
   font-weight: 700;
+  letter-spacing: 1px;
+  // 降低圆角感，更接近公文严肃感
+  border-radius: 2px;
 }
-.risk-high { background: #C00000; color: #fff; }
-.risk-mid  { background: #e8a000; color: #fff; }
-.risk-low  { background: #2e7d32; color: #fff; }
+// 深红色更稳重庄严
+.risk-high { background: #C00000; color: #fff; font-weight: 700; }
+.risk-mid  { background: #e8a000; color: #fff; font-weight: 700; }
+.risk-low  { background: #2e7d32; color: #fff; font-weight: 700; }
 
-// ===== 关键词 =====
-.kw-list { display: flex; flex-wrap: wrap; gap: 3px 4px; width: 100%; align-items: center; }
+// -------------------- 关键词（紧凑排版，避免最后一个词单独换行；减少与下节留白） --------------------
+.kw-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  width: 100%;
+  align-items: center;
+}
 .kw-item {
-  padding: 1px 6px; font-size: 12px; border: 1px solid var(--border-color);
-  color: var(--text-secondary); flex-shrink: 0; white-space: nowrap;
+  padding: 2px 8px;
+  font-size: 13px;
+  border: 1px solid #d0d0d0;
+  border-radius: 2px;
+  background: none;
+  color: #333;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
-.kw-highlight { border-color: var(--text-primary); font-weight: 700; color: var(--text-primary); }
+.kw-highlight {
+  border-color: #333;
+  font-weight: 700;
+  color: #000;
+}
 
-// ===== 两栏布局 =====
+// -------------------- 两栏布局 --------------------
 .two-col {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
-  align-items: stretch;
-  page-break-inside: avoid; break-inside: avoid;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .col {
-  display: flex; flex-direction: column;
-  page-break-inside: avoid; break-inside: avoid;
-  &:first-child { padding-right: 10px; }
-  &:last-child { padding-left: 10px; }
+  border: 1px solid #d0d0d0;
+  border-radius: 2px;
+  padding: 16px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.radar-chart {
+  width: 100%;
+  height: 300px;
+  min-height: 300px;
+  overflow: visible;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.chart-box {
+  border: 1px solid #d0d0d0;
+  border-radius: 2px;
+  padding: 14px;
+  overflow: visible;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.chart-box-wide {
+  // 突破报告纸左右内边距，让折线图获得更大展示宽度
+  margin-left: -16mm;
+  margin-right: -16mm;
+  border-radius: 0;
+  border: none;
+  padding: 16px 20px;
+  overflow: visible;
+}
+.trend-chart {
+  width: 100%;
+  height: 260px;
+  min-height: 260px;
+  overflow: visible;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
-// ===== 雷达数据表 =====
-.radar-table {
-  width: 100%; border-collapse: collapse; font-size: 13.3px;
-  border-top: 1.5pt solid var(--border-color); border-bottom: 1.5pt solid var(--border-color); margin-top: 8px;
-  th {
-    padding: 6px 8px; text-align: left; font-weight: 700; color: var(--text-primary);
-    border-bottom: 1pt solid var(--border-color); border-top: none;
-  }
-  td { padding: 5px 8px; border: none; }
-  .bar-cell { width: 45%; }
-  .score-cell { text-align: center; font-weight: 600; }
-}
-.radar-bar-bg { background: var(--bg-hover); height: 8px; width: 100%; }
-.radar-bar-fill { height: 8px; background: var(--text-secondary); }
-
-// ===== 贡献度 =====
+// -------------------- 贡献度 --------------------
 .contrib-list {
-  display: flex; flex-direction: column; gap: 0;
-  justify-content: center; flex: 1;
-  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  justify-content: center;
+  height: calc(100% - 32px);
 }
 .contrib-row {
-  display: grid; grid-template-columns: 60px 1fr 50px;
-  align-items: center; gap: 6px; padding: 8px 6px;
+  display: grid;
+  grid-template-columns: 70px 1fr 50px;
+  align-items: center;
+  gap: 10px;
 }
-.contrib-label { font-size: 13.3px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
-.contrib-bar { height: 8px; background: var(--bg-hover); min-width: 0; }
+.contrib-label { font-size: 13px; font-weight: 600; color: #1a1a1a; white-space: nowrap; }
+.contrib-bar { height: 7px; background: #eee; overflow: hidden; min-width: 0; border-radius: 1px; }
 .contrib-fill { height: 100%; }
 .fill-video { background: #444; }
 .fill-audio { background: #777; }
 .fill-text  { background: #aaa; }
-.contrib-num { font-size: 12px; color: var(--text-secondary); text-align: right; }
+.contrib-num { font-size: 12px; color: #555; text-align: right; }
 
-// ===== 风险走势表 =====
-.trend-table {
-  width: 100%; border-collapse: collapse; font-size: 13.3px; line-height: 1.8;
-  border-top: 1.5pt solid var(--border-color); border-bottom: 1.5pt solid var(--border-color);
-  thead {
-    background: var(--bg-hover);
-    th {
-      padding: 6px 8px; text-align: left; font-weight: 700; color: var(--text-primary);
-      background: var(--bg-hover); border: none;
-      border-bottom: 1pt solid var(--border-color);
-    }
-  }
-  tbody {
-    tr { page-break-inside: avoid; break-inside: avoid; }
-    td { padding: 4px 8px; border: none; color: var(--text-secondary); vertical-align: middle; }
-  }
-  .bar-cell { width: 40%; }
-}
-.trend-bar-bg { background: var(--bg-hover); height: 6px; width: 100%; }
-.trend-bar-fill { height: 6px; }
-.trend-fill-low  { background: #2e7d32; }
-.trend-fill-mid  { background: #e8a000; }
-.trend-fill-high { background: #C00000; }
-
-// ===== 提示框 =====
+// -------------------- 提示框 --------------------
 .note-box {
-  margin-top: 12px; padding: 10px 14px;
-   background: none;
-  font-size: 14px; color: var(--text-secondary); line-height: 1.8;
-  page-break-inside: avoid; break-inside: avoid;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-left: 3px solid #C00000;
+  background: none;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.8;
+  page-break-inside: avoid;
+  break-inside: avoid;
   strong { color: #C00000; }
 }
+.note-danger { border-left-width: 4px; }
 
-// ===== 六大维度卡片 =====
-.dim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 16px; }
+// ====================================================================
+//  六大维度卡片
+// ====================================================================
+.dim-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px 20px;
+}
 .dim-card {
-  border-top: 1px solid var(--border-color); padding-top: 6px;
-  page-break-inside: avoid; break-inside: avoid;
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 4px;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .dim-header {
-  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: none;
+  background: none;
 }
-.dim-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-.dim-score { font-size: 12px; font-weight: 600; padding: 1px 6px; margin-left: 8px; }
-.sc-high { background: #f5e0e0; color: #C00000; }
-.sc-mid  { background: #fdf0d5; color: #9a5f00; }
-.sc-low  { background: #e0f0e0; color: #1b5e20; }
-.dim-body { padding: 4px 0 0; font-size: 13.3px; line-height: 1.8; }
-.dim-row { margin-bottom: 3px; }
-.dim-row-key { font-weight: 600; color: var(--text-secondary); margin-right: 4px; }
+.dim-title { font-size: 14px; font-weight: 700; color: #000; }
+.dim-score { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 2px; }
+// 淡化维度标签：浅色背景 + 深色文字，视觉降噪
+.sc-high { background: rgba(192, 0, 0, 0.10);  color: #C00000; font-weight: 700; border-radius: 2px; }
+.sc-mid  { background: rgba(200, 120, 0, 0.12); color: #9a5f00; font-weight: 700; border-radius: 2px; }
+.sc-low  { background: rgba(46, 125, 50, 0.10); color: #1b5e20; font-weight: 700; border-radius: 2px; }
+.dim-body { padding: 6px 0 0; font-size: 13px; line-height: 1.8; }
+.dim-row { margin-bottom: 4px; }
+.dim-row-key { font-weight: 600; color: #333; margin-right: 6px; }
 .dim-modality {
-  display: flex; gap: 14px; margin-top: 6px;
-  font-size: 12px; color: var(--text-secondary);
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 5px 0;
+  border-top: none;
+  background: none;
+  font-size: 12px;
+  color: #555;
 }
-.dim-evidence { text-align: right; font-size: 12px; color: var(--text-tertiary); margin-top: 3px; }
+.dim-evidence { text-align: right; font-size: 12px; color: #999; margin-top: 4px; }
 
-// ===== 证据表格 =====
+// ====================================================================
+//  证据表格 —— 学术三线表（严格三线规范）
+// ====================================================================
 .ev-table {
-  width: 100%; border-collapse: collapse; font-size: 13.3px; line-height: 1.8;
-  border-top: 1.5pt solid var(--border-color); border-bottom: 1.5pt solid var(--border-color);
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.8;
+  // 三线：顶线（粗）+ 底线（粗），竖线全部禁止
+  border-top: 1.5pt solid #333;
+  border-bottom: 1.5pt solid #333;
+
   thead {
-    background: var(--bg-hover);
+    // 极微弱灰色背景作为视觉锚点，不抢夺注意力
+    background: #f9f9f9;
     th {
-      padding: 8px 8px; text-align: left; font-weight: 700; color: var(--text-primary);
-      background: var(--bg-hover); border: none;
-      border-bottom: 1.5pt solid var(--border-color);
+      padding: 10px 10px;
+      text-align: left;
+      // 表头加粗深色，确保标题栏的锚点感
+      font-weight: 700;
+      color: #1a1a1a;
+      background: #f9f9f9;
+      // 三线：thead 下方的细分隔线
+      border: none;
+      border-top: 1.5pt solid #333;
+      border-bottom: 1.5pt solid #333;
+      // 严禁竖线
+      border-left: none;
+      border-right: none;
     }
   }
   tbody {
-    tr { page-break-inside: avoid; break-inside: avoid; }
-    td { padding: 8px 8px; border: none; color: var(--text-secondary); vertical-align: top; }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+      // 条纹区分行，替代内部横线
+      &:nth-child(even) {
+        background: rgba(0, 0, 0, 0.02);
+      }
+    }
+    td {
+      // 扩容：增大呼吸感
+      padding: 12px 8px;
+      // tbody 内部无任何边线
+      border: none;
+      border-left: none;
+      border-right: none;
+      color: #333;
+      vertical-align: top;
+    }
   }
   .center { text-align: center; vertical-align: middle; }
 }
-.center { text-align: center; }
-.tag-danger {
-  display: inline; padding: 1px 4px; background: #C00000; color: #fff !important;
-  font-size: 10.7px; font-weight: 700; margin-right: 4px;
+.row-danger {
+  td:first-child { border-left: 3px solid #C00000; }
 }
-.ev-kw { color: var(--text-tertiary); font-size: 12px; }
+.tag-danger {
+  display: inline-block;
+  padding: 1px 6px;
+  background: #C00000;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+.ev-kw { color: #777; font-size: 12px; }
+// 风险分值超过80分加粗醒目
 .score-critical { font-weight: 700; color: #C00000; }
 
-// ===== 人物特征 =====
-.char-item { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin: 0 0 2px; }
-.char-key { font-weight: 700; color: var(--text-primary); }
+// -------------------- 人物特征自然描述 --------------------
+.char-list { margin: 0; }
+.char-item {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.8;
+  margin: 0 0 3px;
+}
+.char-key {
+  font-weight: 700;
+  color: #1a1a1a;
+}
 
-// ===== 签章区 =====
+// -------------------- 签章 --------------------
 .sign-area {
-  margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color);
-  page-break-inside: avoid; break-inside: avoid;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #999;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
-.sign-table {
-  width: 100%; border-collapse: collapse;
-  td { padding: 10px 0; width: 50%; }
+.sign-row { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-bottom: 22px; }
+.sign-item { display: flex; align-items: flex-end; gap: 10px; }
+.sign-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+  // 固定等宽：以最长标签"签发日期："为基准，确保签字线起点对齐
+  min-width: 5.5em;
+  display: inline-block;
 }
-.sign-label { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.sign-line { flex: 1; border-bottom: 1px solid #888; min-height: 30px; }
 
-// ===== 页脚 =====
-.report-foot { margin-top: 30px; page-break-inside: avoid; break-inside: avoid; }
-.foot-rule { height: 1px; background: var(--border-color); margin-bottom: 6px; }
-.foot-row { font-size: 10.7px; color: var(--text-tertiary); margin-bottom: 2px; }
+// -------------------- 页脚 --------------------
+.report-foot {
+  margin-top: 36px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.foot-rule { height: 1px; background: #999; margin-bottom: 8px; }
+.foot-row { display: flex; justify-content: space-between; font-size: 11px; color: #999; margin-bottom: 3px; }
 
-// ===== 打印 =====
+// ====================================================================
+//  @media print —— 打印 / PDF 导出核心
+// ====================================================================
 @media print {
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .report-actions, .export-btn { display: none !important; }
-  .report-view { padding: 0; background: #fff; }
-  .report-paper { max-width: 100%; box-shadow: none; margin: 0; padding: 0; background: #fff; color: #333; }
-  .cover { page-break-after: always; break-after: page; }
-  .section { page-break-inside: avoid; break-inside: avoid; }
-  .page-break { page-break-before: always; break-before: page; }
-  .two-col, .col, .note-box, .dim-card, .sign-area, .report-foot { page-break-inside: avoid; break-inside: avoid; }
-  .ev-table { thead { display: table-header-group; } tr { page-break-inside: avoid; break-inside: avoid; } }
-  .info-table tr { page-break-inside: avoid; break-inside: avoid; }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-actions,
+  .export-btn { display: none !important; }
+
+  .report-view {
+    padding: 0;
+    background: #fff;
+  }
+
+  .report-paper {
+    max-width: 100%;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #333;
+  }
+
+  .cover {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  .two-col,
+  .col,
+  .radar-chart,
+  .chart-box,
+  .trend-chart,
+  .note-box,
+  .dim-card,
+  .sign-area,
+  .report-foot {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .ev-table {
+    thead { display: table-header-group; }
+    tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  }
+
+  .info-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 }
 </style>
+
+<!-- 非 scoped：报告纸张内容完全硬编码为浅色印刷配色，不随主题变化 -->
+<style>
+.report-paper {
+  color: #333333 !important;
+  background: #ffffff !important;
+}
+.report-paper *:not(.risk-high):not(.risk-mid):not(.risk-low):not(.sc-high):not(.sc-mid):not(.sc-low):not(.tag-danger):not(.score-critical):not(.note-box strong) {
+  color: #333333 !important;
+}
+.report-paper .cover-title,
+.report-paper .section-heading,
+.report-paper .dim-title,
+.report-paper .kw-highlight {
+  color: #000000 !important;
+}
+.report-paper .cover-confidential,
+.report-paper .cover-subtitle,
+.report-paper .cover-version,
+.report-paper .ct-sep,
+.report-paper .dim-evidence,
+.report-paper .ev-kw,
+.report-paper .foot-row {
+  color: #999999 !important;
+}
+.report-paper .sub-heading,
+.report-paper .ct-key,
+.report-paper .it-key,
+.report-paper .contrib-label,
+.report-paper .char-key,
+.report-paper .sign-label {
+  color: #1a1a1a !important;
+}
+.report-paper .contrib-num,
+.report-paper .dim-modality {
+  color: #555555 !important;
+}
+.report-paper .text-link {
+  color: #1565c0 !important;
+}
+.report-paper .risk-high { color: #ffffff !important; background: #C00000 !important; }
+.report-paper .risk-mid  { color: #ffffff !important; background: #e8a000 !important; }
+.report-paper .risk-low  { color: #ffffff !important; background: #2e7d32 !important; }
+.report-paper .sc-high { color: #C00000 !important; }
+.report-paper .sc-mid { color: #9a5f00 !important; }
+.report-paper .sc-low { color: #1b5e20 !important; }
+.report-paper .tag-danger { color: #ffffff !important; background: #C00000 !important; }
+.report-paper .score-critical,
+.report-paper .note-box strong {
+  color: #C00000 !important;
+}
+</style>
+

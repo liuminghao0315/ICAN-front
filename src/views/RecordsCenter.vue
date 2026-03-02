@@ -374,9 +374,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getTaskList, cancelTask, deleteVideo, renameVideo, retryTask } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { storeToRefs } from 'pinia'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useFolderStore } from '@/stores/folder'
 import { useFavoritesStore } from '@/stores/favorites'
+import { useSettingsStore } from '@/stores/settings'
 import { useExportReport } from '@/composables/useExportReport'
 import { formatDate } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
@@ -391,6 +393,8 @@ const route = useRoute()
 const wsStore = useWebSocketStore()
 const folderStore = useFolderStore()
 const favStore = useFavoritesStore()
+const settingsStore = useSettingsStore()
+const { recordsViewMode: viewMode } = storeToRefs(settingsStore)
 const { exportReportByUrl, exportReportsByUrls, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
 
@@ -462,16 +466,13 @@ const handlePreview = (record: AnalysisTaskVO) => {
   previewVisible.value = true
 }
 
-// 视图模式：card | list，持久化到 localStorage
-const VIEW_MODE_KEY = 'records_view_mode'
-const viewMode = ref<'card' | 'list'>((localStorage.getItem(VIEW_MODE_KEY) as 'card' | 'list') || 'card')
+// 视图模式：card | list，持久化到 settings store
 const viewMenuOpen = ref(false)
 const viewSwitcherRef = ref<HTMLElement | null>(null)
 
 const setViewMode = (mode: 'card' | 'list') => {
   viewMode.value = mode
   viewMenuOpen.value = false
-  localStorage.setItem(VIEW_MODE_KEY, mode)
 }
 
 // 列表数据
@@ -1093,7 +1094,7 @@ watch(() => wsStore.isConnected, (connected, wasConnected) => {
     &.is-current { color: var(--text-primary); font-weight: 700; cursor: default; pointer-events: none; }
   }
   .crumb-sep {
-    display: flex; align-items: center; color: var
+    display: flex; align-items: center; color: var(--text-secondary);
     svg { width: 14px; height: 14px; }
   }
 }

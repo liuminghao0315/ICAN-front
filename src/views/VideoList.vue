@@ -466,7 +466,7 @@ const analysisOptions = ref({
 const analysisStartTimes = ref<Record<string, number>>({})
 
 // WebSocket 连接 - 使用订阅模式
-const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
+const { subscribeProgress, subscribeCompleted, subscribeFailed, notifyTaskChanged } = useWebSocket()
 
 // 订阅任务进度更新
 subscribeProgress((data) => {
@@ -585,6 +585,8 @@ const confirmCreateTask = async () => {
         // 记录分析开始时间，用于正确判断超时
         analysisStartTimes.value[video.id] = Date.now()
       }
+      // 通知 Dashboard 等其他页面同步刷新统计数据
+      notifyTaskChanged()
     } else {
       ElMessage.error(response.message || '创建任务失败')
     }
@@ -623,6 +625,8 @@ const confirmDelete = async () => {
     if (response.code === 200) {
       ElMessage.success('删除成功')
       fetchVideos()
+      // 通知 Dashboard 等其他页面同步刷新统计数据（高校相关内容个数等）
+      notifyTaskChanged()
     } else {
       ElMessage.error(response.message || '删除失败')
     }

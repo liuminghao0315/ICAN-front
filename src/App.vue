@@ -192,6 +192,11 @@ body {
   --shadow-primary: 0 2px 8px rgba(64, 158, 255, 0.3);
 }
 
+/* 浅色模式：分析页事件流关键词字重（Cline 做法：400，避免 700 过粗） */
+[data-theme='light'] .analysis-content-wrapper .risk-keyword {
+  font-weight: 400 !important;
+}
+
 [data-theme='dark'] {
   --bg-page: #0f1117;
   --bg-card: #1a1d2e;
@@ -253,6 +258,57 @@ body {
     background-color: var(--bg-input) !important;
     color: var(--text-primary) !important;
     border-color: var(--border-color) !important;
+  }
+
+  /* 分析页：视频播放器左上角「高/中/低风险」标签 - 深色模式下保持白色（无阴影，简洁扁平） */
+  .analysis-content-wrapper .risk-status-indicator .risk-label {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+  }
+  .analysis-content-wrapper .detection-label,
+  .analysis-content-wrapper .detection-label .confidence-badge {
+    color: #ffffff !important;
+  }
+  .analysis-content-wrapper .detection-label .confidence-badge {
+    opacity: 1 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.2px;
+  }
+
+  /* 分析页：六卡主标题（pro-label）和证据面板标题（panel-category）在深色模式需更亮 */
+  .analysis-content-wrapper .pro-label,
+  .analysis-content-wrapper .panel-category {
+    color: #8fa3c8 !important;
+  }
+
+  /* 报告视图：纸面（.report-paper）内容始终保持打印风格，不随主题变色 */
+  .report-paper {
+    background: #ffffff !important;
+    color: #333333 !important;
+  }
+  .report-paper p,
+  .report-paper div,
+  .report-paper h1,
+  .report-paper h2,
+  .report-paper h3,
+  .report-paper h4,
+  .report-paper td,
+  .report-paper th,
+  .report-paper li,
+  .report-paper a,
+  .report-paper label {
+    color: inherit !important;
+  }
+  /* 仅对普通文本 span 继承颜色，排除需要保持白字/强调色的标签 */
+  .report-paper span:not(.risk-high):not(.risk-mid):not(.risk-low):not(.tag-danger):not(.score-critical) {
+    color: inherit !important;
+  }
+  /* 深色模式兜底：强制保留标签白字，不再被全局规则污染 */
+  .report-paper span.risk-high,
+  .report-paper span.risk-mid,
+  .report-paper span.risk-low,
+  .report-paper span.tag-danger {
+    color: #ffffff !important;
   }
 }
 

@@ -33,12 +33,18 @@ async function exportReportByUrl(pdfUrl: string, fileName?: string): Promise<voi
   try {
     const response = await fetch(pdfUrl)
     if (!response.ok) {
-      throw new Error(`下载失败，状态码: ${response.status}`)
+      if (response.status === 403) {
+        throw new Error('报告链接已过期，请重新生成报告后再导出')
+      } else if (response.status === 404) {
+        throw new Error('报告文件不存在，可能尚未生成完毕')
+      } else {
+        throw new Error(`下载失败（错误 ${response.status}），请稍后重试`)
+      }
     }
 
     const blob = await response.blob()
     if (!blob || blob.size === 0) {
-      throw new Error('PDF 报告文件为空')
+      throw new Error('报告文件内容为空，请重新生成后导出')
     }
 
     const url = URL.createObjectURL(blob)
@@ -53,8 +59,18 @@ async function exportReportByUrl(pdfUrl: string, fileName?: string): Promise<voi
     ElMessage.success('PDF 报告下载成功！')
   } catch (error: any) {
     console.error('PDF 下载失败:', error)
-    const msg = error?.message || 'PDF 下载失败，请稍后重试'
-    ElMessage.error(msg)
+    // 将所有英文浏览器错误替换为中文提示
+    let msg: string = error?.message || ''
+    if (!msg || /failed to fetch/i.test(msg) || /network error/i.test(msg) || /load failed/i.test(msg)) {
+      msg = '网络连接失败，报告链接可能已过期，请重新生成报告后再试'
+    } else if (/cors/i.test(msg)) {
+      msg = '跨域请求被拒绝，请联系管理员检查服务器配置'
+    } else if (/timeout/i.test(msg) || /timed out/i.test(msg)) {
+      msg = '下载请求超时，请检查网络后重试'
+    } else if (/abort/i.test(msg)) {
+      msg = '下载已取消'
+    }
+    ElMessage.error(msg || 'PDF 下载失败，请稍后重试')
   } finally {
     unmarkExporting(pdfUrl)
   }

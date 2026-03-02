@@ -292,7 +292,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 // WebSocket - 使用 composable，自动处理订阅和取消订阅
-const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
+const { subscribeProgress, subscribeCompleted, subscribeFailed, subscribeTaskChanged } = useWebSocket()
 
 // 主题变化触发器
 const themeVersion = ref(0)
@@ -792,6 +792,11 @@ subscribeCompleted(() => {
 })
 
 subscribeFailed(() => {
+  fetchData()
+})
+
+// 当视频删除或新建分析任务时，立即同步刷新分析统计（高校相关内容个数等）
+subscribeTaskChanged(() => {
   fetchData()
 })
 

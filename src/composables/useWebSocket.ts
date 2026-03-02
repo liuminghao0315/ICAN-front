@@ -76,6 +76,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     return unsubscribe
   }
 
+  // 订阅任务/视频数据变更通知（删除、新建分析任务等本地操作后触发，用于跨页面同步统计数据）
+  function subscribeTaskChanged(handler: () => void) {
+    const unsubscribe = wsStore.onTaskChanged(handler)
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
+  }
+
+  // 主动通知数据已变更（在删除或创建分析任务成功后调用）
+  function notifyTaskChanged() {
+    wsStore.notifyTaskChanged()
+  }
+
   // 监听登录状态变化，自动连接 WebSocket
   watch(
     () => userStore.isLoggedIn,
@@ -108,6 +120,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     subscribeFeedbackNew,
     subscribeFeedbackUpdated,
     subscribeFeedbackLocked,
-    subscribeFeedbackSync
+    subscribeFeedbackSync,
+    subscribeTaskChanged,
+    notifyTaskChanged
   }
 }

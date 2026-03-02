@@ -3,10 +3,16 @@ import { ref } from 'vue'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type Language = 'zh-CN' | 'en-US'
+export type ViewMode = 'card' | 'list'
 
 export const useSettingsStore = defineStore('settings', () => {
   const themeMode = ref<ThemeMode>('system')
   const language = ref<Language>('zh-CN')
+
+  // ── 用户界面偏好 ──
+  const sidebarCollapsed = ref(false)
+  const recordsViewMode = ref<ViewMode>('card')
+  const favoritesViewMode = ref<ViewMode>('card')
 
   const getThemeVars = (theme: 'light' | 'dark') => {
     return theme === 'dark'
@@ -66,14 +72,22 @@ export const useSettingsStore = defineStore('settings', () => {
     language.value = lang
   }
 
-  // 初始化时应用主题
+  // 初始化时应用主题，并迁移旧版 localStorage 偏好数据
   function init() {
-    // 兼容旧版本：若还在使用 localStorage.theme，则迁移到 themeMode
     const hasAppSettings = !!localStorage.getItem('app-settings')
+
+    // 迁移旧版主题设置（localStorage.theme → themeMode）
     const legacyTheme = localStorage.getItem('theme')
     if (!hasAppSettings && (legacyTheme === 'light' || legacyTheme === 'dark')) {
       themeMode.value = legacyTheme
       localStorage.removeItem('theme')
+    }
+
+    // 迁移旧版记录中心视图模式（records_view_mode → recordsViewMode）
+    const legacyRecordsView = localStorage.getItem('records_view_mode')
+    if (legacyRecordsView === 'card' || legacyRecordsView === 'list') {
+      recordsViewMode.value = legacyRecordsView
+      localStorage.removeItem('records_view_mode')
     }
 
     applyTheme(themeMode.value)
@@ -85,10 +99,19 @@ export const useSettingsStore = defineStore('settings', () => {
     })
   }
 
-  return { themeMode, language, setTheme, setLanguage, init }
+  return {
+    themeMode,
+    language,
+    sidebarCollapsed,
+    recordsViewMode,
+    favoritesViewMode,
+    setTheme,
+    setLanguage,
+    init
+  }
 }, {
   persist: {
     key: 'app-settings',
-    pick: ['themeMode', 'language']
+    pick: ['themeMode', 'language', 'sidebarCollapsed', 'recordsViewMode', 'favoritesViewMode']
   }
 })

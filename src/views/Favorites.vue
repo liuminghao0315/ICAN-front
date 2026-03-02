@@ -242,6 +242,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Check, Grid, List, Warning, DCaret, Search, Close, Loading, ArrowLeft, ArrowRight, Connection } from '@element-plus/icons-vue'
@@ -249,6 +250,7 @@ import { getFavoriteList, renameVideo, deleteVideo, getResultById } from '@/api'
 import type { AnalysisTaskVO } from '@/types'
 import { useFavoritesStore } from '@/stores/favorites'
 import { useFolderStore } from '@/stores/folder'
+import { useSettingsStore } from '@/stores/settings'
 import { useExportReport } from '@/composables/useExportReport'
 import CardView from '@/components/CardView.vue'
 import ListView from '@/components/ListView.vue'
@@ -258,10 +260,11 @@ import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
 const router = useRouter()
 const favStore = useFavoritesStore()
 const folderStore = useFolderStore()
+const settingsStore = useSettingsStore()
 const { exportReportByUrl, exportingIds } = useExportReport()
 
-// ── 视图 ──
-const viewMode = ref<'card' | 'list'>('card')
+// ── 视图（持久化到 settings store）──
+const { favoritesViewMode: viewMode } = storeToRefs(settingsStore)
 const viewMenuOpen = ref(false)
 const viewSwitcherRef = ref<HTMLElement | null>(null)
 const setViewMode = (m: 'card' | 'list') => { viewMode.value = m; viewMenuOpen.value = false }

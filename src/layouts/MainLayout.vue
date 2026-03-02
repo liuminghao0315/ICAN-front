@@ -62,7 +62,11 @@
           <div class="system-zone">
             <el-tooltip v-for="item in systemNavItems" :key="item.key"
               :content="item.label" placement="right" :disabled="!isCollapse" :show-after="300">
-              <div class="system-item" @click="item.action && item.action()">
+              <div 
+                class="system-item" 
+                :class="{ 'is-active': isSystemItemActive(item.key) }"
+                @click="item.action && item.action()"
+              >
                 <span class="nav-icon" v-html="item.icon"></span>
                 <span class="nav-label" :class="{ 'label-hidden': isCollapse }">{{ item.label }}</span>
               </div>
@@ -108,19 +112,16 @@
               </button>
             </el-tooltip>
 
-            <el-tooltip content="分享" placement="right" :show-after="300">
+            <el-tooltip content="复制链接" placement="right" :show-after="300">
               <button 
                 class="analysis-tool-btn"
                 :class="{ 'is-disabled': !analysisActionsStore.hasAnalysisData }"
                 :disabled="!analysisActionsStore.hasAnalysisData"
-                @click="analysisActionsStore.hasAnalysisData && $emit('share')"
+                @click="analysisActionsStore.hasAnalysisData && handleCopyLink()"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="18" cy="5" r="3"/>
-                  <circle cx="6" cy="12" r="3"/>
-                  <circle cx="18" cy="19" r="3"/>
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                 </svg>
               </button>
             </el-tooltip>
@@ -288,6 +289,7 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+  import { storeToRefs } from 'pinia'
   import { useRouter, useRoute } from 'vue-router'
   import { useUserStore } from '@/stores'
   import { useSettingsStore } from '@/stores/settings'
@@ -306,6 +308,7 @@
   const route = useRoute()
   const userStore = useUserStore()
   const settingsStore = useSettingsStore()
+  const { sidebarCollapsed: isCollapse } = storeToRefs(settingsStore)
   const wsStore = useWebSocketStore()
   const uploadStore = useUploadStore()
   const folderStore = useFolderStore()
@@ -379,6 +382,8 @@
   // 顶级激活态：只看路由 path 的第一段
   const activeTopNav = computed(() => {
     const path = route.path
+    // 系统区路由不激活主业务区
+    if (path === '/settings' || path === '/help') return ''
     if (path.startsWith('/records') || path.startsWith('/analysis')) return '/records'
     if (path.startsWith('/favorites')) return '/favorites'
     if (path.startsWith('/risk-dictionary')) return '/risk-dictionary'
@@ -406,6 +411,13 @@
     router.push('/records')
   }
 
+  // 判断系统项是否激活
+  const isSystemItemActive = (key: string) => {
+    if (key === 'settings') return route.path === '/settings'
+    if (key === 'help') return route.path === '/help'
+    return false
+  }
+
   // 检测是否处于分析详情页（Analysis 路由）
   const isAnalysisDetail = computed(() => route.name === 'Analysis')
 
@@ -424,7 +436,15 @@
     ElMessage.success(wasFavorited ? '已取消收藏' : '收藏成功')
   }
 
-  const isCollapse = ref(false)
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      ElMessage.success('链接已复制')
+    } catch (_error) {
+      ElMessage.error('复制失败，请手动复制地址栏链接')
+    }
+  }
+
   const isDropdownOpen = ref(false)
   const showLogoutConfirm = ref(false)
   const userDropdownRef = ref<HTMLElement | null>(null)
@@ -940,6 +960,13 @@
       color: var(--text-secondary);
       .nav-icon :deep(svg) { stroke: var(--text-secondary); }
       .nav-label { color: var(--text-secondary); }
+    }
+
+    &.is-active {
+      background: rgba(64, 158, 255, 0.12);
+      color: var(--color-primary);
+      .nav-icon :deep(svg) { stroke: var(--color-primary); }
+      .nav-label { color: var(--color-primary); font-weight: 600; }
     }
   }
 
