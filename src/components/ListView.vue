@@ -116,7 +116,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
           {{ record.folderName }}
         </button>
-        <span v-else class="location-empty">—</span>
+        <span v-else class="location-btn is-uncategorized" title="未分类">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          未分类
+        </span>
       </div>
 
       <!-- 上传日期 -->
@@ -634,7 +637,11 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   &:hover { background: rgba(64, 158, 255, .12); color: var(--color-primary); border-color: var(--color-primary); svg { opacity: 1; } }
 }
 
-.location-empty {
-  font-size: 12px; color: var(--text-tertiary);
+.location-btn.is-uncategorized {
+  cursor: default;
+  background: rgba(64, 158, 255, .05);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+  pointer-events: none;
 }
 </style>

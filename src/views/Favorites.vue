@@ -364,6 +364,8 @@ const moveToFolderState = reactive({
   visible: false,
   videoIds: [] as string[],
   targetFolderId: null as string | null,
+  // 记录弹窗打开时的原始位置，用于“未发生移动”时静默返回
+  originalFolderMap: {} as Record<string, string | null>,
   loading: false
 })
 const folderOptions = computed(() => folderStore.flatFolders())
@@ -419,14 +421,31 @@ const handleMoveToFolder = (record: AnalysisTaskVO) => {
   openMenuId.value = null
   moveToFolderState.videoIds = [record.videoId]
   moveToFolderState.targetFolderId = record.folderId ?? null
+  moveToFolderState.originalFolderMap = {
+    [record.videoId]: record.folderId ?? null
+  }
   moveToFolderState.visible = true
 }
 
 const confirmMoveToFolder = async () => {
   if (moveToFolderState.videoIds.length === 0) return
+
+  // 新旧位置一致：不调用接口，不弹任何提示
+  const changedVideoIds = moveToFolderState.videoIds.filter((vid) => {
+    const oldFolderId = Object.prototype.hasOwnProperty.call(moveToFolderState.originalFolderMap, vid)
+      ? moveToFolderState.originalFolderMap[vid]
+      : null
+    return oldFolderId !== moveToFolderState.targetFolderId
+  })
+
+  if (changedVideoIds.length === 0) {
+    moveToFolderState.visible = false
+    return
+  }
+
   moveToFolderState.loading = true
   try {
-    await folderStore.moveVideos(moveToFolderState.videoIds, moveToFolderState.targetFolderId)
+    await folderStore.moveVideos(changedVideoIds, moveToFolderState.targetFolderId)
     ElMessage.success('移动成功')
     moveToFolderState.visible = false
     await loadRecords()

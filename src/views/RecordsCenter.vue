@@ -768,6 +768,8 @@ const moveToFolderState = reactive({
   visible: false,
   videoIds: [] as string[],
   targetFolderId: null as string | null,
+  // 记录弹窗打开时每个视频的原始 folderId，用于判断是否真正发生移动
+  originalFolderMap: {} as Record<string, string | null>,
   loading: false
 })
 const folderOptions = computed(() => folderStore.flatFolders())
@@ -776,26 +778,47 @@ const handleMoveToFolder = (record: AnalysisTaskVO) => {
   openMenuId.value = null
   moveToFolderState.videoIds = [record.videoId]
   moveToFolderState.targetFolderId = record.folderId ?? null
+  moveToFolderState.originalFolderMap = {
+    [record.videoId]: record.folderId ?? null
+  }
   moveToFolderState.visible = true
 }
 
 const handleBatchMoveToFolder = () => {
   if (selectedIds.size === 0) return
   // 从已选记录中取出 videoId 列表
-  const videoIds = records.value
-    .filter(r => selectedIds.has(r.id))
-    .map(r => r.videoId)
+  const selectedRecords = records.value.filter(r => selectedIds.has(r.id))
+  const videoIds = selectedRecords.map(r => r.videoId)
   moveToFolderState.videoIds = videoIds
   moveToFolderState.targetFolderId = null
+  const originalMap: Record<string, string | null> = {}
+  selectedRecords.forEach((r) => {
+    originalMap[r.videoId] = r.folderId ?? null
+  })
+  moveToFolderState.originalFolderMap = originalMap
   moveToFolderState.visible = true
 }
 
 const confirmMoveToFolder = async () => {
   if (moveToFolderState.videoIds.length === 0) return
+
+  // 过滤掉“新旧位置一致”的视频：不请求接口，不弹任何提示
+  const changedVideoIds = moveToFolderState.videoIds.filter((vid) => {
+    const oldFolderId = Object.prototype.hasOwnProperty.call(moveToFolderState.originalFolderMap, vid)
+      ? moveToFolderState.originalFolderMap[vid]
+      : null
+    return oldFolderId !== moveToFolderState.targetFolderId
+  })
+
+  if (changedVideoIds.length === 0) {
+    moveToFolderState.visible = false
+    return
+  }
+
   moveToFolderState.loading = true
   try {
-    await folderStore.moveVideos(moveToFolderState.videoIds, moveToFolderState.targetFolderId)
-    const count = moveToFolderState.videoIds.length
+    await folderStore.moveVideos(changedVideoIds, moveToFolderState.targetFolderId)
+    const count = changedVideoIds.length
     ElMessage.success(count > 1 ? `${count} 个视频已移动` : '视频已移动')
     moveToFolderState.visible = false
     // 批量模式下退出并清空选中
