@@ -20,13 +20,22 @@
           <div class="archive-header">
             <div class="file-section">
               <div class="file-icon">
-                <img
+                <div
                   v-if="analysisArchiveCoverUrl && !archiveCoverLoadFailed"
-                  :src="analysisArchiveCoverUrl"
-                  :alt="mockVideoArchive?.fileName || '视频封面'"
                   class="file-cover-img"
-                  @error="handleArchiveCoverError"
-                />
+                  :style="{
+                    backgroundImage: `url(${analysisArchiveCoverUrl})`
+                  }"
+                  role="img"
+                  :aria-label="mockVideoArchive?.fileName || '视频封面'"
+                >
+                  <img
+                    class="file-cover-img-probe"
+                    :src="analysisArchiveCoverUrl"
+                    alt=""
+                    @error="handleArchiveCoverError"
+                  />
+                </div>
                 <div v-else class="file-cover-placeholder">
                   <el-icon :size="28"><VideoCamera /></el-icon>
                 </div>
@@ -2449,6 +2458,10 @@ const highRiskSegmentCount = computed(() => {
   ).length;
 });
 
+// 风险分段阈值（统一口径）
+const RISK_THRESHOLD_HIGH = 66.7;
+const RISK_THRESHOLD_LOW = 33.3;
+
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
 const multiModalRadarOption = computed(() => {
   // 高校舆情分析维度说明映射
@@ -3024,26 +3037,36 @@ const multiModalTimelineOption = computed(() => {
     timePoints.push(t);
   }
 
+  // 兼容后端各模态长度不一致：按各自长度独立钳制索引，避免越界后被置 0
+  const getSeriesPointByTime = <T extends { intensity?: number }>(
+    series: T[],
+    time: number,
+  ): T | null => {
+    if (!series || series.length === 0) return null;
+    const rawIndex = Math.floor(time / timeGranularity.value);
+    const safeIndex = Math.max(0, Math.min(rawIndex, series.length - 1));
+    return series[safeIndex] || null;
+  };
+
   // 多模态数据（三条独立曲线）
   const multiModalData = timePoints.map((t) => {
-    // 根据时间计算索引（使用时间粒度），限制不越界
-    const rawIndex = Math.floor(t / timeGranularity.value);
-    const index = Math.min(rawIndex, mockVideoRisks.value.length - 1);
-
-    // 视频风险（使用索引查询，O(1)复杂度）
-    const videoRisk = mockVideoRisks.value[index];
+    // 视频风险（各模态独立按长度钳制索引）
+    const videoRisk = getSeriesPointByTime(mockVideoRisks.value, t);
     const videoScore = videoRisk ? videoRisk.intensity * 100 : 0;
 
-    // 音频情绪风险（使用索引查询，O(1)复杂度）
-    const audioEmotion = mockAudioEmotions.value[index];
+    // 音频情绪风险（各模态独立按长度钳制索引）
+    const audioEmotion = getSeriesPointByTime(mockAudioEmotions.value, t);
     const audioScore = audioEmotion ? audioEmotion.intensity * 100 : 0;
 
-    // 文本风险（使用索引查询，O(1)复杂度）
-    const textRisk = mockTextRisks.value[index];
+    // 文本风险（各模态独立按长度钳制索引）
+    const textRisk = getSeriesPointByTime(mockTextRisks.value, t);
     const textScore = textRisk ? textRisk.intensity * 100 : 0;
 
-    // 综合风险（使用索引查询，O(1)复杂度）
-    const comprehensiveRisk = mockComprehensiveRisks.value[index];
+    // 综合风险（各模态独立按长度钳制索引）
+    const comprehensiveRisk = getSeriesPointByTime(
+      mockComprehensiveRisks.value,
+      t,
+    );
     const comprehensiveScore = comprehensiveRisk
       ? comprehensiveRisk.intensity * 100
       : 0;
@@ -3147,10 +3170,10 @@ const multiModalTimelineOption = computed(() => {
         const comprehensiveScore = data.comprehensiveScore;
         let riskColor = "#10b981";
         let riskBg = "rgba(16, 185, 129, 0.1)";
-        if (comprehensiveScore >= 70) {
+        if (comprehensiveScore > RISK_THRESHOLD_HIGH) {
           riskColor = "#ef4444";
           riskBg = "rgba(239, 68, 68, 0.1)";
-        } else if (comprehensiveScore >= 40) {
+        } else if (comprehensiveScore >= RISK_THRESHOLD_LOW) {
           riskColor = "#f59e0b";
           riskBg = "rgba(245, 158, 11, 0.1)";
         }
@@ -3507,7 +3530,7 @@ const multiModalTimelineOption = computed(() => {
           },
           data: [
             {
-              yAxis: 70,
+              yAxis: RISK_THRESHOLD_HIGH,
               name: "高风险线",
               lineStyle: {
                 color: "rgba(255, 120, 117, 0.35)",
@@ -3519,8 +3542,8 @@ const multiModalTimelineOption = computed(() => {
               },
             },
             {
-              yAxis: 40,
-              name: "中风险线",
+              yAxis: RISK_THRESHOLD_LOW,
+              name: "低风险线",
               lineStyle: {
                 color: "rgba(255, 169, 64, 0.35)",
                 type: "dashed",
@@ -3536,6 +3559,7 @@ const multiModalTimelineOption = computed(() => {
 
       // 4. 综合风险曲线（加粗显示，突出重要性）
       {
+        id: "timeline-series-comprehensive-risk",
         name: "综合风险",
         type: "line",
         data: comprehensiveData,
@@ -3639,7 +3663,11 @@ const riskTimelineOption = computed(() => {
         const timeStr = `${m}:${s.toString().padStart(2, "0")}`;
 
         const color =
-          riskValue > 70 ? "#f56c6c" : riskValue > 40 ? "#faad14" : "#52c41a";
+          riskValue > RISK_THRESHOLD_HIGH
+            ? "#f56c6c"
+            : riskValue >= RISK_THRESHOLD_LOW
+              ? "#faad14"
+              : "#52c41a";
 
         let html = `<div style="padding: 10px; min-width: 180px;">
           <div style="font-weight: 700; margin-bottom: 8px; font-size: 14px; color: ${tooltipTitleColor};">⏱️ 时间: ${timeStr}</div>
@@ -3759,8 +3787,14 @@ const riskTimelineOption = computed(() => {
           silent: true,
           lineStyle: { type: "dashed", color: "#faad14", width: 1 },
           data: [
-            { yAxis: 40, label: { formatter: "中风险线", position: "end" } },
-            { yAxis: 70, label: { formatter: "高风险线", position: "end" } },
+            {
+              yAxis: RISK_THRESHOLD_LOW,
+              label: { formatter: "低风险线", position: "end" },
+            },
+            {
+              yAxis: RISK_THRESHOLD_HIGH,
+              label: { formatter: "高风险线", position: "end" },
+            },
           ],
         },
       },
@@ -3817,20 +3851,12 @@ const onVideoDialogOpened = () => {
       videoPlayerRef.value ||
       (document.querySelector(".video-player") as HTMLVideoElement);
     if (videoElement) {
-      console.log("视频元素找到，准备跳转到:", videoStartTime.value, "秒");
-
       // 等待视频元数据加载完成
       const jumpToTime = () => {
         if (videoStartTime.value > 0) {
           videoElement.currentTime = videoStartTime.value;
-          console.log(
-            "✅ 视频已跳转到:",
-            videoStartTime.value,
-            "秒，当前时间:",
-            videoElement.currentTime,
-          );
         }
-        videoElement.play().catch((e) => console.log("自动播放失败:", e));
+        videoElement.play().catch(() => undefined);
       };
 
       if (videoElement.readyState >= 2) {
@@ -3842,8 +3868,6 @@ const onVideoDialogOpened = () => {
           once: true,
         });
       }
-    } else {
-      console.error("未找到视频元素");
     }
   }, 300);
 };
@@ -4043,20 +4067,14 @@ const getRiskTimelineData = (): any => {
   try {
     const videoFeatures = result.videoFeatures;
 
-    console.log("videoFeatures类型:", typeof videoFeatures);
-    console.log("videoFeatures数据:", videoFeatures);
-
     let riskTimeline = null;
 
     if (typeof videoFeatures === "string") {
       const parsed = JSON.parse(videoFeatures);
-      console.log("解析后的videoFeatures:", parsed);
       riskTimeline = parsed.riskTimeline;
     } else if (videoFeatures && typeof videoFeatures === "object") {
       riskTimeline = (videoFeatures as any).riskTimeline;
     }
-
-    console.log("riskTimeline数据:", riskTimeline);
 
     // 如果没有数据，生成示例数据用于测试
     if (
@@ -4064,14 +4082,12 @@ const getRiskTimelineData = (): any => {
       !riskTimeline.timeSeriesData ||
       riskTimeline.timeSeriesData.length === 0
     ) {
-      console.warn("风险时间轴数据为空，生成示例数据");
       const duration = videoDuration.value || 50;
       return generateMockRiskTimeline(duration);
     }
 
     return riskTimeline;
-  } catch (e) {
-    console.error("解析风险时间轴数据失败:", e);
+  } catch {
     return null;
   }
 };
@@ -4132,7 +4148,7 @@ const onChartContainerClick = (event: MouseEvent) => {
     clickedTime <= videoDuration.value
   ) {
     mainVideoPlayerRef.value.currentTime = clickedTime;
-    mainVideoPlayerRef.value.play().catch((e) => console.log("播放失败:", e));
+    mainVideoPlayerRef.value.play().catch(() => undefined);
 
     // 【新逻辑】找到最接近的事件并更新选中状态
     if (timelineEvents.value.length > 0) {
@@ -4167,7 +4183,7 @@ const onTimelineClick = (params: any) => {
         mainVideoPlayerRef.value.currentTime = clickedTime;
         mainVideoPlayerRef.value
           .play()
-          .catch((e) => console.log("播放失败:", e));
+          .catch(() => undefined);
       }
 
       // 【新逻辑】找到最接近点击时间的事件，更新选中状态
@@ -4227,7 +4243,7 @@ const onVideoTimeUpdate = () => {
   }
 
   // 根据索引查找当前时间对应的风险点
-  const currentIndex = Math.floor(currentTime / timeGranularity);
+  const currentIndex = Math.floor(currentTime / timeGranularity.value);
   const detection = mockVideoRisks.value[currentIndex];
   currentDetection.value = detection || null;
 };
@@ -4249,13 +4265,13 @@ const updateProgressLine = (time: number) => {
     const s = Math.floor(time % 60);
     const timeLabel = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 
-    // 只更新 series[3]（融合风险），避免覆盖 series[2] 的高/中/低风险系列
+    // 只更新“综合风险”系列的 markLine，避免误合并到其它系列
     timelineChartRef.value.setOption(
       {
         series: [
           {
-            // series[3]: 融合风险 - 通过名称锁定，避免误伤
-            name: "融合风险",
+            id: "timeline-series-comprehensive-risk",
+            name: "综合风险",
             markLine: {
               symbol: "none",
               animation: false,
@@ -4306,47 +4322,25 @@ const updateProgressLine = (time: number) => {
  */
 const calculateVideoDisplayArea = () => {
   const videoElement = mainVideoPlayerRef.value;
-  if (!videoElement) {
-    console.warn("[检测框定位] 视频元素不存在");
-    return;
-  }
+  if (!videoElement) return;
 
   // 获取容器元素（video的父元素）
   const container = videoElement.parentElement;
-  if (!container) {
-    console.warn("[检测框定位] 容器元素不存在");
-    return;
-  }
+  if (!container) return;
 
   // 获取视频原始尺寸
   const videoWidth = videoElement.videoWidth;
   const videoHeight = videoElement.videoHeight;
 
   // 视频元数据未加载完成
-  if (!videoWidth || !videoHeight) {
-    console.warn(
-      "[检测框定位] 视频元数据未加载，videoWidth:",
-      videoWidth,
-      "videoHeight:",
-      videoHeight,
-    );
-    return;
-  }
+  if (!videoWidth || !videoHeight) return;
 
   // 获取容器实际尺寸
   const containerWidth = container.clientWidth;
   const containerHeight = container.clientHeight;
 
   // 容器尺寸异常
-  if (!containerWidth || !containerHeight) {
-    console.warn(
-      "[检测框定位] 容器尺寸异常，containerWidth:",
-      containerWidth,
-      "containerHeight:",
-      containerHeight,
-    );
-    return;
-  }
+  if (!containerWidth || !containerHeight) return;
 
   // 计算宽高比
   const videoRatio = videoWidth / videoHeight;
@@ -4381,15 +4375,6 @@ const calculateVideoDisplayArea = () => {
     containerWidth,
     containerHeight,
   };
-
-  console.log("[检测框定位] 计算完成:", {
-    视频原始尺寸: `${videoWidth}x${videoHeight}`,
-    容器尺寸: `${containerWidth}x${containerHeight}`,
-    视频宽高比: videoRatio.toFixed(3),
-    容器宽高比: containerRatio.toFixed(3),
-    显示区域: `${displayWidth.toFixed(1)}x${displayHeight.toFixed(1)}`,
-    偏移量: `(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`,
-  });
 };
 
 // 视频加载完成
@@ -4417,7 +4402,7 @@ const onVideoLoaded = () => {
 const jumpToTime = (time: number) => {
   if (mainVideoPlayerRef.value) {
     mainVideoPlayerRef.value.currentTime = time;
-    mainVideoPlayerRef.value.play().catch((e) => console.log("播放失败:", e));
+    mainVideoPlayerRef.value.play().catch(() => undefined);
     // 视频已跳转，用户能看到，无需提示消息
   }
 };
@@ -4502,7 +4487,7 @@ const selectEvidence = (evidenceId: string) => {
     mainVideoPlayerRef.value.currentTime = event.startTime;
     mainVideoPlayerRef.value
       .play()
-      .catch((e) => console.log("自动播放失败:", e));
+      .catch(() => undefined);
   }
   // 已定位，无需提示消息
 };
@@ -4562,8 +4547,8 @@ const getCurrentRiskScore = (): number => {
  */
 const getCurrentRiskClass = (): string => {
   const score = getCurrentRiskScore();
-  if (score > 66.7) return "high";
-  if (score >= 33.3) return "medium";
+  if (score > RISK_THRESHOLD_HIGH) return "high";
+  if (score >= RISK_THRESHOLD_LOW) return "medium";
   return "low";
 };
 
@@ -4572,8 +4557,8 @@ const getCurrentRiskClass = (): string => {
  */
 const getCurrentRiskLabel = (): string => {
   const score = getCurrentRiskScore();
-  if (score >= 70) return "高风险";
-  if (score >= 40) return "中风险";
+  if (score > RISK_THRESHOLD_HIGH) return "高风险";
+  if (score >= RISK_THRESHOLD_LOW) return "中风险";
   return "低风险";
 };
 
@@ -4785,7 +4770,6 @@ const exportToPdf = async () => {
     loadingMsg.close();
     ElMessage.success("PDF报告导出成功！");
   } catch (error: any) {
-    console.error("PDF导出失败:", error);
     loadingMsg.close();
     let errorMessage: string = error?.message || "";
     // 将英文浏览器错误翻译为中文
@@ -4994,9 +4978,7 @@ const onRadarChartFinished = () => {
             dataIndex: 0,
           });
         }
-      } catch (e) {
-        console.warn("触发tooltip失败:", e);
-      }
+      } catch {}
     }, 10);
   }
 };
@@ -6416,10 +6398,20 @@ $purple: #409eff;
           overflow: hidden;
 
           .file-cover-img {
+            position: relative;
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            display: block;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+            background-size: cover !important;
+
+            .file-cover-img-probe {
+              position: absolute;
+              width: 1px;
+              height: 1px;
+              opacity: 0;
+              pointer-events: none;
+            }
           }
 
           .file-cover-placeholder {

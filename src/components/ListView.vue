@@ -34,7 +34,20 @@
       <!-- 缩略图 -->
       <div class="col-thumb">
         <div class="thumb-wrap">
-          <img v-if="record.thumbnailUrl" :src="record.thumbnailUrl" class="thumb-img" alt="封面" />
+          <div
+            v-if="shouldShowThumb(record)"
+            class="thumb-img"
+            :style="{ backgroundImage: `url(${record.thumbnailUrl || ''})` }"
+            role="img"
+            :aria-label="record.videoTitle || '封面'"
+          >
+            <img
+              class="thumb-img-probe"
+              :src="record.thumbnailUrl || ''"
+              alt=""
+              @error="onThumbError(record.id)"
+            />
+          </div>
           <div class="thumb-placeholder" v-else>
             <el-icon><VideoPlay /></el-icon>
           </div>
@@ -173,7 +186,7 @@ import { Check, VideoPlay, Calendar, View, MoreFilled, Edit, Download, RefreshRi
 import { formatDate, formatDuration, TASK_STATUS_TEXT, RISK_LEVEL_TEXT } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
 import SourceBadge from './SourceBadge.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useFavoritesStore } from '@/stores/favorites'
 
 const favStore = useFavoritesStore()
@@ -227,6 +240,16 @@ const getStatusClass = (status: string) => ({
 
 const getStatusText = (status: string) => TASK_STATUS_TEXT[status as TaskStatus] || status
 const getRiskText = (level: string | null | undefined) => level ? (RISK_LEVEL_TEXT[level as RiskLevel] || level) : ''
+
+const thumbnailLoadFailedMap = ref<Record<string, boolean>>({})
+
+const shouldShowThumb = (record: AnalysisTaskVO) => {
+  return !!record.thumbnailUrl && !thumbnailLoadFailedMap.value[record.id]
+}
+
+const onThumbError = (recordId: string) => {
+  thumbnailLoadFailedMap.value[recordId] = true
+}
 </script>
 
 <style scoped lang="scss">
@@ -381,7 +404,20 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
   box-shadow: none;
 
   .thumb-img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+
+    .thumb-img-probe {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
   }
 
   .thumb-placeholder {

@@ -151,13 +151,22 @@
               @click="handleVideoClick(video)"
             >
               <div class="video-cover" :class="{ 'is-placeholder': !shouldShowThumbnail(video) }">
-                <img
+                <div
                   v-if="shouldShowThumbnail(video)"
-                  :src="video.thumbnailUrl || ''"
-                  :alt="video.title"
                   class="video-cover-img"
-                  @error="handleVideoThumbnailError(video)"
-                />
+                  :style="{
+                    backgroundImage: `url(${video.thumbnailUrl || ''})`
+                  }"
+                  role="img"
+                  :aria-label="video.title"
+                >
+                  <img
+                    class="video-cover-img-probe"
+                    :src="video.thumbnailUrl || ''"
+                    alt=""
+                    @error="handleVideoThumbnailError(video)"
+                  />
+                </div>
                 <div v-else class="video-cover-placeholder">
                   <el-icon><VideoPlay /></el-icon>
                 </div>
@@ -1452,10 +1461,20 @@ onMounted(() => {
       flex-shrink: 0;
 
       .video-cover-img {
+        position: relative;
         width: 100%;
         height: 100%;
-        object-fit: cover;
-        display: block;
+        background-position: center center !important;
+        background-repeat: no-repeat !important;
+        background-size: cover !important;
+
+        .video-cover-img-probe {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          pointer-events: none;
+        }
       }
 
       .video-cover-placeholder {

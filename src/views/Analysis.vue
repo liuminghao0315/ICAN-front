@@ -75,13 +75,22 @@
             @click="selectVideo(video)"
           >
             <div class="video-item-icon">
-              <img
+              <div
                 v-if="shouldShowDrawerThumbnail(video)"
-                :src="video.thumbnailUrl || ''"
-                :alt="video.title"
                 class="video-item-cover"
-                @error="handleDrawerThumbnailError(video.id)"
-              />
+                :style="{
+                  backgroundImage: `url(${video.thumbnailUrl || ''})`
+                }"
+                role="img"
+                :aria-label="video.title"
+              >
+                <img
+                  class="video-item-cover-probe"
+                  :src="video.thumbnailUrl || ''"
+                  alt=""
+                  @error="handleDrawerThumbnailError(video.id)"
+                />
+              </div>
               <div v-else class="video-item-cover-placeholder">
                 <el-icon :size="20"><VideoPlay /></el-icon>
               </div>
@@ -281,6 +290,25 @@ const viewMode = ref<'interactive' | 'report'>('interactive')  // 视图模式
 const showFeedbackDialog = ref(false)
 const currentFeedback = ref<FeedbackVO | null>(null)
 const analysisContentRef = ref<InstanceType<typeof AnalysisContent> | null>(null)
+let lastAnalysisDebugKey = ''
+
+const safeJsonStringify = (value: unknown) => {
+  try {
+    return JSON.stringify(
+      value,
+      (_key, currentValue) => {
+        if (typeof currentValue === 'bigint') return currentValue.toString()
+        if (currentValue instanceof Date) return currentValue.toISOString()
+        return currentValue
+      },
+      2
+    )
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : 'unknown error'
+    })
+  }
+}
 
 // ==================== 数据加载方法 ====================
 const fetchVideos = async () => {
@@ -312,6 +340,59 @@ const selectVideo = (video: VideoInfo) => {
   loadAnalysisByVideo()
 }
 
+// ==================== 调试日志（用于排查后端返回数据） ====================
+const logAnalysisDebug = (source: string, videoId: string, data: any) => {
+  try {
+    const timelineData = data?.timelineData || {}
+    const summary = {
+      source,
+      videoId,
+      resultId: data?.id,
+      taskId: data?.taskId,
+      isUniversityRelated: data?.isUniversityRelated,
+      timeGranularity: timelineData?.timeGranularity,
+      videoRisksLength: Array.isArray(timelineData?.videoRisks)
+        ? timelineData.videoRisks.length
+        : 'not-array',
+      audioEmotionsLength: Array.isArray(timelineData?.audioEmotions)
+        ? timelineData.audioEmotions.length
+        : 'not-array',
+      textRisksLength: Array.isArray(timelineData?.textRisks)
+        ? timelineData.textRisks.length
+        : 'not-array',
+      comprehensiveRisksLength: Array.isArray(timelineData?.comprehensiveRisks)
+        ? timelineData.comprehensiveRisks.length
+        : 'not-array'
+    }
+
+    const debugKey = [
+      summary.source,
+      summary.videoId,
+      summary.resultId,
+      summary.taskId,
+      summary.timeGranularity,
+      summary.videoRisksLength,
+      summary.audioEmotionsLength,
+      summary.textRisksLength,
+      summary.comprehensiveRisksLength
+    ].join('|')
+
+    if (debugKey === lastAnalysisDebugKey) return
+    lastAnalysisDebugKey = debugKey
+
+    const debugPayload = {
+      source,
+      videoId,
+      summary,
+      rawData: data
+    }
+
+    console.log(`[分析数据排查] 后端分析原始数据(JSON可复制):\n${safeJsonStringify(debugPayload)}`)
+  } catch (e) {
+    // 调试日志不影响业务流程
+  }
+}
+
 const loadAnalysisByVideo = async () => {
   if (!selectedVideoId.value) {
     analysisData.value = null
@@ -326,6 +407,7 @@ const loadAnalysisByVideo = async () => {
     const response = await getResultByVideoId(selectedVideoId.value)
     
     if (response.code === 200 && response.data) {
+      logAnalysisDebug('getResultByVideoId', selectedVideoId.value, response.data)
       analysisData.value = response.data
       emptyMessage.value = ''
       loadFeedbackForVideo(selectedVideoId.value)
@@ -409,6 +491,7 @@ const loadAnalysisById = async (resultId: string) => {
     const response = await getResultById(resultId)
     
     if (response.code === 200 && response.data) {
+      logAnalysisDebug('getResultById', response.data.videoInfo?.videoId || response.data.videoId || '', response.data)
       analysisData.value = response.data
       selectedVideoId.value = response.data.videoId
       emptyMessage.value = ''
@@ -433,6 +516,7 @@ const loadAnalysisByTaskId = async (taskId: string) => {
     const response = await getResultByTaskId(taskId)
     
     if (response.code === 200 && response.data) {
+      logAnalysisDebug('getResultByTaskId', response.data.videoInfo?.videoId || response.data.videoId || '', response.data)
       analysisData.value = response.data
       selectedVideoId.value = response.data.videoId
       emptyMessage.value = ''
@@ -918,10 +1002,20 @@ $purple: #409EFF;
         background: linear-gradient(135deg, #dce4f3, #eef2f8);
 
         .video-item-cover {
+          position: relative;
           width: 100%;
           height: 100%;
-          object-fit: cover;
-          display: block;
+          background-position: center center !important;
+          background-repeat: no-repeat !important;
+          background-size: cover !important;
+
+          .video-item-cover-probe {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+          }
         }
 
         .video-item-cover-placeholder {

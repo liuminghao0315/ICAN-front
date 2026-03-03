@@ -18,13 +18,20 @@
 
       <!-- ① 封面区 16:9 -->
       <div class="card-cover">
-        <img
-          v-if="record.thumbnailUrl"
-          :src="record.thumbnailUrl"
+        <div
+          v-if="shouldShowCover(record)"
           class="cover-img"
-          alt="封面"
-          @error="onImgError"
-        />
+          :style="{ backgroundImage: `url(${record.thumbnailUrl || ''})` }"
+          role="img"
+          :aria-label="record.videoTitle || '封面'"
+        >
+          <img
+            class="cover-img-probe"
+            :src="record.thumbnailUrl || ''"
+            alt=""
+            @error="onImgError(record.id)"
+          />
+        </div>
         <div class="cover-placeholder" v-else>
           <el-icon :size="28"><VideoPlay /></el-icon>
           <span>暂无封面</span>
@@ -148,6 +155,7 @@
 import { Check, VideoPlay, Calendar, View, MoreFilled, Edit, Download, RefreshRight, Close, Delete, School, FolderOpened } from '@element-plus/icons-vue'
 import { formatDate, formatDuration, TASK_STATUS_TEXT, RISK_LEVEL_TEXT } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
+import { ref } from 'vue'
 import SourceBadge from './SourceBadge.vue'
 import { useFavoritesStore } from '@/stores/favorites'
 
@@ -208,10 +216,14 @@ const getStatusClass = (status: string) => ({
 const getStatusText = (status: string) => TASK_STATUS_TEXT[status as TaskStatus] || status
 const getRiskText = (level: string | null | undefined) => level ? (RISK_LEVEL_TEXT[level as RiskLevel] || level) : ''
 
-const onImgError = (e: Event) => {
-  const t = e.target as HTMLImageElement
-  t.style.display = 'none'
-  ;(t.nextElementSibling as HTMLElement)?.removeAttribute('style')
+const thumbnailLoadFailedMap = ref<Record<string, boolean>>({})
+
+const shouldShowCover = (record: AnalysisTaskVO) => {
+  return !!record.thumbnailUrl && !thumbnailLoadFailedMap.value[record.id]
+}
+
+const onImgError = (recordId: string) => {
+  thumbnailLoadFailedMap.value[recordId] = true
 }
 
 const getExportingId = (record: AnalysisTaskVO) => record.resultId || ''
@@ -275,7 +287,21 @@ const handleFavorite = async (record: AnalysisTaskVO) => {
   background: linear-gradient(135deg, #dde3ec, #c8d0e0);
 
   .cover-img {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+
+    .cover-img-probe {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
   }
   .cover-placeholder {
     position: absolute; inset: 0; display: flex; flex-direction: column;
