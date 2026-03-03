@@ -536,6 +536,7 @@
                   class="detection-box"
                   :class="[
                     `detection-type-${detection.type}`,
+                    detection.labelPlacement === 'below' ? 'label-below' : 'label-above',
                     detection.confidence > 0.9 ? 'high-confidence' : '',
                   ]"
                   :style="getDetectionBoxStyle(detection)"
@@ -2028,6 +2029,77 @@ const DETECTION_LABELS: Record<string, string> = {
   object: "物体检测",
 };
 
+// 后端检测类型归一化（兼容 YOLO/YOLO-World 输出）
+const normalizeDetectionType = (
+  rawType: string | undefined,
+  rawLabel: string | undefined,
+): string => {
+  const type = String(rawType || "").toLowerCase();
+  const label = String(rawLabel || "").toLowerCase();
+  const text = `${type} ${label}`;
+
+  // 前后端一致的标准类型，直接透传
+  if (
+    [
+      "face",
+      "ocr",
+      "logo",
+      "scene",
+      "emotion",
+      "mention",
+      "uniform",
+      "banner",
+      "gesture",
+      "object",
+    ].includes(type)
+  ) {
+    return type;
+  }
+
+  // YOLO-World / 开放词汇：按 label 二次归类
+  if (
+    text.includes("person") ||
+    text.includes("face") ||
+    text.includes("人") ||
+    text.includes("人脸")
+  ) {
+    return "face";
+  }
+  if (
+    text.includes("uniform") ||
+    text.includes("校服") ||
+    text.includes("student card") ||
+    text.includes("学生证")
+  ) {
+    return "uniform";
+  }
+  if (
+    text.includes("banner") ||
+    text.includes("flag") ||
+    text.includes("protest") ||
+    text.includes("横幅") ||
+    text.includes("标语")
+  ) {
+    return "banner";
+  }
+  if (text.includes("logo") || text.includes("校徽")) {
+    return "logo";
+  }
+  if (text.includes("text") || text.includes("ocr") || text.includes("文字")) {
+    return "ocr";
+  }
+  if (
+    text.includes("gesture") ||
+    text.includes("hand") ||
+    text.includes("手势")
+  ) {
+    return "gesture";
+  }
+
+  // 无法识别时，统一归为 object（避免出现白框）
+  return "object";
+};
+
 // 检测框标签文本颜色（保证不同底色下可读性）
 // 深色模式下统一白色（避免内联色覆盖 CSS）
 const getDetectionLabelTextColor = (type: string): string => {
@@ -2165,9 +2237,15 @@ const currentDetections = computed(() => {
   activeTimelineEvents.value.forEach((event) => {
     if (event.modality === "visual" && event.boundingBox) {
       const visualEvent = event as any;
+      const normalizedType = normalizeDetectionType(
+        visualEvent.detectionType,
+        visualEvent.detectionLabel,
+      );
       detections.push({
         id: visualEvent.id,
-        type: visualEvent.detectionType,
+        type: normalizedType,
+        labelPlacement:
+          (Number(visualEvent?.boundingBox?.y) || 0) <= 8 ? "below" : "above",
         boundingBox: {
           x: visualEvent.boundingBox.x,
           y: visualEvent.boundingBox.y,
@@ -8092,6 +8170,16 @@ $purple: #409eff;
       bottom: 100%;
       margin-bottom: 2px;
       white-space: nowrap;
+    }
+
+    // 顶部检测框：标签切到框内下方，避免被播放器裁切
+    &.label-below {
+      .detection-label-container {
+        bottom: auto;
+        top: -1px;
+        margin-bottom: 0;
+        margin-top: 0;
+      }
     }
 
     // 标签样式
