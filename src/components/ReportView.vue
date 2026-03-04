@@ -173,11 +173,11 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="event in data.timelineEvents" :key="event.id" :class="{ 'row-danger': event.riskScore > 66.7 }">
+            <tr v-for="event in data.timelineEvents" :key="event.id" :class="{ 'row-danger': event.riskScore > 70 }">
               <td>{{ formatTime(event.startTime) }}-{{ formatTime(event.endTime) }}</td>
               <td>{{ getModalityText(event.modality) }}</td>
               <td>
-                <span v-if="event.riskScore > 66.7" class="tag-danger">高危</span>
+                <span v-if="event.riskScore > 70" class="tag-danger">高危</span>
                 <template v-if="event.modality === 'speech'">{{ event.transcript }}<span v-if="event.keywords && event.keywords.length" class="ev-kw">（{{ event.keywords.join('、') }}）</span></template>
                 <template v-else-if="event.modality === 'visual'">{{ event.detectionLabel }}</template>
                 <template v-else-if="event.modality === 'audio-effect'">{{ event.description }}</template>
@@ -261,8 +261,8 @@ const attitudeStats = computed(() => {
   let positive = 0, neutral = 0, negative = 0
   evidences.forEach(ev => {
     const score = ev.sentimentScore || 50
-    if (score < 33.3) positive++
-    else if (score > 66.7) negative++
+    if (score < 40) positive++
+    else if (score > 70) negative++
     else neutral++
   })
   const total = evidences.length
@@ -311,7 +311,7 @@ const contribPercent = computed(() => {
 
 const dimensionList = computed(() => {
   const d = props.data
-  const cls = (score: number) => score >= 67 ? 'sc-high' : score >= 34 ? 'sc-mid' : 'sc-low'
+  const cls = (score: number) => score >= 70 ? 'sc-high' : score >= 40 ? 'sc-mid' : 'sc-low'
   return [
     {
       title: '1. 身份判定', scoreLabel: `置信度 ${d.identity.modalityFusion.finalScore}%`,
@@ -369,7 +369,7 @@ const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().p
 
 const getConclusionClass = () => {
   const s = props.data.action.modalityFusion.finalScore
-  return s >= 67 ? 'risk-high' : s >= 34 ? 'risk-mid' : 'risk-low'
+  return s >= 70 ? 'risk-high' : s >= 40 ? 'risk-mid' : 'risk-low'
 }
 
 const getModalityText = (m: string) => ({ speech: '语音', visual: '视觉', 'audio-effect': '声学' }[m] || m)
@@ -418,7 +418,7 @@ const initTrendChart = () => {
       lineStyle: { color: '#333', width: 1.5 },
       areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,0,0,0.1)' }, { offset: 1, color: 'rgba(0,0,0,0.02)' }] } },
       itemStyle: { color: '#333' },
-      markLine: { silent: true, symbol: 'none', lineStyle: { color: '#c00', type: 'dashed', width: 1 }, label: { show: true, position: 'end', formatter: '高风险阈值', color: '#c00', fontSize: 10 }, data: [{ yAxis: 0.67 }] },
+      markLine: { silent: true, symbol: 'none', lineStyle: { color: '#c00', type: 'dashed', width: 1 }, label: { show: true, position: 'end', formatter: '高风险阈值', color: '#c00', fontSize: 10 }, data: [{ yAxis: 0.70 }] },
       markArea: { silent: true, data: [[ { xAxis: riskPeakAnalysis.value.peakIndex, itemStyle: { color: 'rgba(200,0,0,0.08)' } }, { xAxis: riskPeakAnalysis.value.peakIndex } ]] }
     }]
   })

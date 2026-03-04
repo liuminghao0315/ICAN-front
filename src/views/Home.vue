@@ -10,11 +10,10 @@
         <div class="nav-links">
           <button @click="scrollTo('multimodal')">多模态分析</button>
           <button @click="scrollTo('canvas')">智能画布</button>
-          <button @click="scrollTo('cases')">任务与案例</button>
+          <button @click="scrollTo('cases')">任务预览</button>
           <button @click="scrollTo('functions')">功能入口</button>
         </div>
         <div class="nav-actions">
-          <button class="btn-ghost" @click="goAuth">切换账号</button>
           <button class="btn-solid" @click="goWorkbench">进入系统</button>
         </div>
       </div>
@@ -32,8 +31,7 @@
         <div class="hero-mask" />
       </div>
       <div class="hero-content">
-        <div class="hero-badge">面向高校的多模态舆情分析平台</div>
-        <h1>高校内容风险</h1>
+        <h1>高校内容风险研判</h1>
         <p class="hero-accent">一帧一音一文，精准研判</p>
         <p class="hero-desc">
           本地上传视频，自动完成视频关键帧、语音转写与文本语义分析，输出高校身份线索、态度判断与风险建议，支持复核与证据定位。
@@ -41,20 +39,6 @@
         <div class="hero-cta-wrap">
           <button class="btn-solid btn-hero" @click="goWorkbench">立即分析</button>
           <button class="btn-ghost btn-hero" @click="scrollTo('multimodal')">了解能力</button>
-        </div>
-        <div class="hero-stats">
-          <div class="stat-card">
-            <span class="stat-num">3</span>
-            <span class="stat-label">模态联合</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-num">实时</span>
-            <span class="stat-label">进度推送</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-num">可追溯</span>
-            <span class="stat-label">证据闭环</span>
-          </div>
         </div>
       </div>
       <div class="hero-dots">
@@ -112,19 +96,25 @@
     <section id="canvas" class="section section-canvas">
       <div class="container narrow">
         <div class="section-head center">
-          <span class="section-tag">证据整理 / 对比分析 / 结果归档</span>
           <h2>智能画布 · 证据协同</h2>
           <p>将时间轴证据、语音转写、风险点与处置建议放在同一视图，便于高校管理场景复核与汇报。</p>
         </div>
         <div class="canvas-preview">
           <div class="canvas-tabs">
-            <span class="active">多维线索总览</span>
-            <span>证据时间定位</span>
+            <button
+              v-for="tab in canvasTabs"
+              :key="tab.key"
+              type="button"
+              :class="['canvas-tab', { active: activeCanvasTabKey === tab.key }]"
+              @click="activeCanvasTabKey = tab.key"
+            >
+              {{ tab.label }}
+            </button>
           </div>
           <div class="canvas-frame">
-            <img :src="shots[0]" alt="分析工作台与证据视图" />
+            <img :src="activeCanvasTab.image" :alt="activeCanvasTab.alt" />
           </div>
-          <p class="canvas-note">支持查看风险词命中、情绪变化、关键帧证据与融合评分，减少人工逐段排查成本。</p>
+          <p class="canvas-note">{{ activeCanvasTab.note }}</p>
           <button class="btn-outline" @click="goWorkbench">进入画布</button>
         </div>
       </div>
@@ -134,17 +124,17 @@
     <section id="cases" class="section section-cases">
       <div class="container narrow">
         <div class="section-head center">
-          <h2>案例复盘 · 经验沉淀</h2>
-          <p>基于历史分析任务沉淀复盘样例，支持快速检索、比对与复用，提升高校舆情研判一致性。</p>
-          <button class="btn-outline" @click="goRecords">查看任务记录</button>
+          <h2>任务预览 · 页面示意</h2>
+          <p>这里展示系统核心页面示意（任务列表、结果查看、证据画布），帮助你快速了解实际使用流程。</p>
+          <button class="btn-outline" @click="goRecords">进入任务中心</button>
         </div>
         <div class="cases-grid">
           <article v-for="(card, idx) in caseCards" :key="`case-${idx}`" class="case-card">
             <div class="case-img-wrap">
-              <img :src="card.img" :alt="`任务样例${idx + 1}`" />
+              <img :src="card.img" :alt="`界面示意${idx + 1}`" />
             </div>
             <div class="case-meta">
-              <span>任务样例 {{ idx + 1 }}</span>
+              <span>界面示意 {{ idx + 1 }}</span>
             </div>
           </article>
         </div>
@@ -155,7 +145,6 @@
     <section id="functions" class="section section-functions">
       <div class="container narrow">
         <div class="section-head center">
-          <span class="section-tag">FUNCTION ENTRY</span>
           <h2>功能入口</h2>
           <p>工作台、记录中心、分析结果、收藏与词库等，一键直达。</p>
         </div>
@@ -202,6 +191,28 @@ const userStore = useUserStore()
 const shots = ['/landing/1.png', '/landing/2.png', '/landing/3.png', '/landing/4.png', '/landing/5.png']
 const heroBackgrounds = computed(() => [shots[0], shots[4], shots[3]])
 const activeBgIndex = ref(0)
+
+const canvasTabs = [
+  {
+    key: 'overview',
+    label: '多维线索总览',
+    image: shots[0],
+    alt: '多维线索总览视图',
+    note: '支持查看风险词命中、情绪变化、关键帧证据与融合评分，减少人工逐段排查成本。'
+  },
+  {
+    key: 'timeline',
+    label: '证据时间定位',
+    image: shots[4],
+    alt: '证据时间定位视图',
+    note: '按时间轴快速跳转至风险片段，联动语音转写与关键帧证据，便于复核与取证。'
+  }
+] as const
+
+const activeCanvasTabKey = ref<(typeof canvasTabs)[number]['key']>('overview')
+const activeCanvasTab = computed(
+  () => canvasTabs.find((tab) => tab.key === activeCanvasTabKey.value) ?? canvasTabs[0]
+)
 
 const multimodalFeatures = [
   {
@@ -362,7 +373,6 @@ onUnmounted(() => {
 
 const goTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
 const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-const goAuth = () => router.push('/login')
 const goWorkbench = () => router.push('/dashboard')
 const goRecords = () => router.push('/records')
 const goHelp = () => router.push('/help')
@@ -407,10 +417,7 @@ const goHelp = () => router.push('/help')
 .home-page .section-tag { color: rgba(255, 255, 255, 0.85); }
 .home-page .canvas-tabs span { color: rgba(255, 255, 255, 0.75); }
 .home-page .canvas-tabs span.active { color: #34f4ff; }
-.home-page .stat-num { color: #ffffff; }
-.home-page .stat-label { color: rgba(255, 255, 255, 0.75); }
 .home-page .feature-index { color: rgba(255, 255, 255, 0.4); }
-.home-page .hero-badge { color: rgba(255, 255, 255, 0.95); }
 .home-page .hero-desc { color: rgba(255, 255, 255, 0.9); }
 .home-page .func-icon { color: #34f4ff; }
 .home-page .func-body h4 { color: #ffffff; }
@@ -442,13 +449,15 @@ const goHelp = () => router.push('/help')
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 28px;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    column-gap: 24px;
     align-items: center;
-    justify-content: space-between;
   }
 }
 
 .brand {
+  justify-self: start;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -475,6 +484,7 @@ const goHelp = () => router.push('/help')
 }
 
 .nav-links {
+  justify-self: center;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -496,6 +506,12 @@ const goHelp = () => router.push('/help')
       transform: translateY(-1px);
     }
   }
+}
+
+.nav-actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
 }
 
 .btn-solid,
@@ -587,37 +603,24 @@ const goHelp = () => router.push('/help')
 .hero-content {
   position: relative;
   z-index: 2;
-  max-width: 880px;
+  max-width: 780px;
   margin: 0 auto;
-  padding: 100px 32px 60px;
+  padding: 124px 32px 56px;
   text-align: center;
 }
 
-.hero-badge {
-  display: inline-block;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  padding: 8px 18px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  margin-bottom: 20px;
-  color: rgba(255, 255, 255, 0.95);
-}
-
 .hero-content h1 {
-  margin: 0 0 8px;
-  font-size: clamp(40px, 5vw, 64px);
+  margin: 0 0 10px;
+  font-size: clamp(38px, 4.6vw, 60px);
   font-weight: 800;
-  line-height: 1.12;
+  line-height: 1.15;
   letter-spacing: -0.02em;
   color: #ffffff;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .hero-accent {
-  margin: 0 0 16px;
+  margin: 0 0 18px;
   font-size: clamp(20px, 2vw, 28px);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -629,13 +632,11 @@ const goHelp = () => router.push('/help')
 }
 
 .hero-desc {
-  margin: 0 0 32px;
+  margin: 0 auto 34px;
   font-size: 16px;
-  line-height: 1.7;
+  line-height: 1.75;
   color: rgba(255, 255, 255, 0.9);
-  max-width: 620px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 660px;
 }
 
 .hero-cta-wrap {
@@ -643,52 +644,13 @@ const goHelp = () => router.push('/help')
   align-items: center;
   justify-content: center;
   gap: 16px;
-  margin-bottom: 48px;
+  margin-bottom: 0;
 }
 
 .btn-hero {
   min-width: 160px;
   height: 52px;
   font-size: 16px;
-}
-
-.hero-stats {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 32px;
-  flex-wrap: wrap;
-}
-
-.stat-card {
-  min-width: 140px;
-  padding: 16px 24px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.3s var(--ease);
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(52, 244, 255, 0.25);
-    transform: scale(1.02);
-  }
-
-  .stat-num {
-    font-size: 24px;
-    font-weight: 700;
-    color: #ffffff;
-  }
-
-  .stat-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.75);
-  }
 }
 
 .hero-dots {
@@ -775,7 +737,7 @@ const goHelp = () => router.push('/help')
       position: absolute;
       top: -40px;
       bottom: 0;
-      left: 445px;
+      left: 490px;
       width: 1px;
       background: linear-gradient(
         180deg,
@@ -833,7 +795,7 @@ const goHelp = () => router.push('/help')
 }
 
 .feature-left {
-  margin-top: -160px;
+  margin-top: -280px;
 
   h3 {
     margin: 0 0 12px;
@@ -956,15 +918,29 @@ const goHelp = () => router.push('/help')
   gap: 24px;
   margin-bottom: 20px;
 
-  span {
+  .canvas-tab {
+    border: none;
+    background: transparent;
     font-size: 14px;
     color: rgba(255, 255, 255, 0.8);
     padding-bottom: 8px;
-    cursor: default;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
 
     &.active {
       color: #34f4ff;
       border-bottom: 2px solid #34f4ff;
+    }
+
+    &:hover {
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    &:focus-visible {
+      outline: 2px solid rgba(52, 244, 255, 0.55);
+      outline-offset: 4px;
+      border-radius: 4px;
     }
   }
 }
@@ -1000,7 +976,8 @@ const goHelp = () => router.push('/help')
 }
 
 .section-head.center .btn-outline {
-  margin-bottom: 48px;
+  margin-top: 30px;
+  // margin-bottom: 10px;
 }
 
 .cases-grid {
@@ -1170,6 +1147,26 @@ const goHelp = () => router.push('/help')
 
 /* ========== 响应式 ========== */
 @media (max-width: 1280px) {
+  .hero {
+    justify-content: center;
+  }
+
+  .hero-content {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    max-width: 760px;
+  }
+
+  .hero-desc {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .hero-cta-wrap {
+    justify-content: center;
+  }
+
   .nav-links {
     display: none;
   }
@@ -1240,15 +1237,6 @@ const goHelp = () => router.push('/help')
 
   .hero-accent {
     font-size: 18px;
-  }
-
-  .hero-stats {
-    gap: 16px;
-  }
-
-  .stat-card {
-    min-width: 110px;
-    padding: 12px 16px;
   }
 
   .hero-dots {

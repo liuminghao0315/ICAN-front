@@ -69,8 +69,8 @@ export function verifyTimelineEvents(): ValidationResult {
     }
     
     // 4. 统计风险等级（根据 riskScore 计算）
-    if (event.riskScore > 66.7) highRiskCount++
-    else if (event.riskScore >= 33.3) mediumRiskCount++
+    if (event.riskScore > 70) highRiskCount++
+    else if (event.riskScore >= 40) mediumRiskCount++
     else lowRiskCount++
   })
   

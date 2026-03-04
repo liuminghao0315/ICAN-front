@@ -1678,16 +1678,16 @@ const attitudeStatistics = computed(() => {
     return { positive: 0, neutral: 0, negative: 0, total: 0 };
   const evidences = currentResult.value.attitude.evidences;
   const positive = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore < 33.3,
+    (e) => e.sentimentScore !== undefined && e.sentimentScore < 40,
   ).length;
   const neutral = evidences.filter(
     (e) =>
       e.sentimentScore !== undefined &&
-      e.sentimentScore >= 33.3 &&
-      e.sentimentScore <= 66.7,
+      e.sentimentScore >= 40 &&
+      e.sentimentScore <= 70,
   ).length;
   const negative = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore > 66.7,
+    (e) => e.sentimentScore !== undefined && e.sentimentScore > 70,
   ).length;
   const total = evidences.length;
   return { positive, neutral, negative, total };
@@ -1914,16 +1914,16 @@ const getModalityStatistics = (modalityType: "video" | "audio" | "text") => {
     (e) => e.type === modalityType,
   );
   const positive = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore < 33.3,
+    (e) => e.sentimentScore !== undefined && e.sentimentScore < 40,
   ).length;
   const neutral = evidences.filter(
     (e) =>
       e.sentimentScore !== undefined &&
-      e.sentimentScore >= 33.3 &&
-      e.sentimentScore <= 66.7,
+      e.sentimentScore >= 40 &&
+      e.sentimentScore <= 70,
   ).length;
   const negative = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore > 66.7,
+    (e) => e.sentimentScore !== undefined && e.sentimentScore > 70,
   ).length;
   const total = evidences.length;
 
@@ -2065,6 +2065,25 @@ const normalizeDetectionType = (
     return type;
   }
 
+  // 场景类（优先于 person/object，避免 classroom 被误归为 object）
+  if (
+    text.includes("classroom") ||
+    text.includes("dormitory") ||
+    text.includes("campus") ||
+    text.includes("lecture hall") ||
+    text.includes("laboratory") ||
+    text.includes("document display") ||
+    text.includes("课件") ||
+    text.includes("文档") ||
+    text.includes("教室") ||
+    text.includes("宿舍") ||
+    text.includes("校园") ||
+    text.includes("报告厅") ||
+    text.includes("实验室")
+  ) {
+    return "scene";
+  }
+
   // YOLO-World / 开放词汇：按 label 二次归类
   if (
     text.includes("person") ||
@@ -2109,6 +2128,11 @@ const normalizeDetectionType = (
   return "object";
 };
 
+// 统一检测标签文案：确保「CV框文字」与「图例文字」完全一致
+const getDetectionLegendLabel = (type: string): string => {
+  return DETECTION_LABELS[type] || DETECTION_LABELS.object;
+};
+
 // 检测框标签文本颜色（保证不同底色下可读性）
 // 深色模式下统一白色（避免内联色覆盖 CSS）
 const getDetectionLabelTextColor = (type: string): string => {
@@ -2117,15 +2141,14 @@ const getDetectionLabelTextColor = (type: string): string => {
   return darkTextTypes.has(type) ? "#111827" : "#ffffff";
 };
 
-// ==================== 风险等级计算工具函数 ====================
 /**
- * 根据 riskScore 计算风险等级
+ * 根据 riskScore 计算风险等级（与要求文档一致：>70 高，>40 中）
  * @param riskScore 风险分数 0-100
  * @returns 'low' | 'medium' | 'high'
  */
 const getRiskLevel = (riskScore: number): "low" | "medium" | "high" => {
-  if (riskScore < 33.3) return "low";
-  if (riskScore > 66.7) return "high";
+  if (riskScore < RISK_THRESHOLD_LOW) return "low";
+  if (riskScore > RISK_THRESHOLD_HIGH) return "high";
   return "medium";
 };
 
@@ -2262,7 +2285,8 @@ const currentDetections = computed(() => {
           height: visualEvent.boundingBox.height,
         },
         confidence: visualEvent.confidence / 100,
-        label: visualEvent.detectionLabel,
+        // 使用统一图例标签，避免出现「框上文字」与「图例文字」不一致
+        label: getDetectionLegendLabel(normalizedType),
         timeStart: visualEvent.startTime,
         timeEnd: visualEvent.endTime,
         metadata: visualEvent.metadata || {},
@@ -2297,21 +2321,18 @@ const formattedCurrentTime = computed(() => {
 
 // 辅助函数：根据finalScore获取情感类别（用于态度分析）
 const getSentimentByScore = (negativeRatio: number): string => {
-  // 负面占比 < 33.3% 为正面（绿色）
-  if (negativeRatio < 33.3) return "positive";
-  // 负面占比 > 66.7% 为负面（红色）
-  if (negativeRatio > 66.7) return "negative";
+  // 负面占比 < 40% 为正面（绿色）
+  if (negativeRatio < 40) return "positive";
+  // 负面占比 > 70% 为负面（红色）
+  if (negativeRatio > 70) return "negative";
   // 其余为中性（橙色）
   return "neutral";
 };
 
-// 辅助函数：根据finalScore获取风险等级（用于舆论风险）
+// 辅助函数：根据finalScore获取风险等级（用于舆论风险，与要求文档一致：>70 高，>40 中）
 const getRiskLevelByScore = (score: number): string => {
-  // finalScore < 33.3 为低风险（绿色）
-  if (score < 33.3) return "low";
-  // finalScore > 66.7 为高风险（红色）
-  if (score > 66.7) return "high";
-  // 其余为中等风险（橙色）
+  if (score < RISK_THRESHOLD_LOW) return "low";
+  if (score > RISK_THRESHOLD_HIGH) return "high";
   return "medium";
 };
 
@@ -2340,8 +2361,8 @@ const getSentimentBySentimentScore = (
   sentimentScore: number | undefined,
 ): string => {
   if (sentimentScore === undefined) return "neutral";
-  if (sentimentScore < 33.3) return "positive";
-  if (sentimentScore > 66.7) return "negative";
+  if (sentimentScore < 40) return "positive";
+  if (sentimentScore > 70) return "negative";
   return "neutral";
 };
 
@@ -2458,9 +2479,9 @@ const highRiskSegmentCount = computed(() => {
   ).length;
 });
 
-// 风险分段阈值（统一口径）
-const RISK_THRESHOLD_HIGH = 66.7;
-const RISK_THRESHOLD_LOW = 33.3;
+// 风险分段阈值（与要求文档一致：>0.7 高风险，>0.4 中风险）
+const RISK_THRESHOLD_HIGH = 70;
+const RISK_THRESHOLD_LOW = 40;
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
 const multiModalRadarOption = computed(() => {
@@ -2550,11 +2571,11 @@ const multiModalRadarOption = computed(() => {
           let levelText = "正常";
           let levelColor = "#10b981"; // 默认绿色
 
-          // 根据风险值动态设置颜色
-          if (value > 66.7) {
+          // 根据风险值动态设置颜色（与要求文档一致：>70 高，>40 中）
+          if (value > RISK_THRESHOLD_HIGH) {
             levelText = "高";
             levelColor = "#ef4444"; // 红色
-          } else if (value >= 33.3) {
+          } else if (value >= RISK_THRESHOLD_LOW) {
             levelText = "中";
             levelColor = "#f59e0b"; // 橙色
           } else {
@@ -2594,10 +2615,10 @@ const multiModalRadarOption = computed(() => {
         let overallLevel = "低风险";
         let overallColor = "#10b981"; // 默认绿色
 
-        if (avgRisk > 66.7) {
+        if (avgRisk > RISK_THRESHOLD_HIGH) {
           overallLevel = "高风险";
           overallColor = "#ef4444"; // 红色
-        } else if (avgRisk >= 33.3) {
+        } else if (avgRisk >= RISK_THRESHOLD_LOW) {
           overallLevel = "中等风险";
           overallColor = "#f59e0b"; // 橙色
         }
@@ -3203,9 +3224,9 @@ const multiModalTimelineOption = computed(() => {
 
         // 1. 视频风险
         const videoColor =
-          data.videoScore < 33.3
+          data.videoScore < RISK_THRESHOLD_LOW
             ? "#10b981"
-            : data.videoScore > 66.7
+            : data.videoScore > RISK_THRESHOLD_HIGH
               ? "#ef4444"
               : "#f59e0b";
         html += `
@@ -3224,9 +3245,9 @@ const multiModalTimelineOption = computed(() => {
 
         // 2. 音频情绪
         const audioColor =
-          data.audioScore < 33.3
+          data.audioScore < RISK_THRESHOLD_LOW
             ? "#10b981"
-            : data.audioScore > 66.7
+            : data.audioScore > RISK_THRESHOLD_HIGH
               ? "#ef4444"
               : "#f59e0b";
         html += `
@@ -3245,9 +3266,9 @@ const multiModalTimelineOption = computed(() => {
 
         // 3. 文本内容
         const textColor =
-          data.textScore < 33.3
+          data.textScore < RISK_THRESHOLD_LOW
             ? "#10b981"
-            : data.textScore > 66.7
+            : data.textScore > RISK_THRESHOLD_HIGH
               ? "#ef4444"
               : "#f59e0b";
         html += `

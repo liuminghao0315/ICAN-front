@@ -19,7 +19,7 @@ export interface Evidence {
   description: string      // 描述
   confidence: number       // 置信度 0-100
   keyword?: string         // 文本证据的关键词
-  sentimentScore?: number  // 情感分数 0-100（态度分析专用，前端根据区间判断：<33.3正面，>66.7负面）
+  sentimentScore?: number  // 情感分数 0-100（态度分析专用，前端根据区间判断：<40正面，>70负面）
 }
 
 /**
@@ -43,7 +43,7 @@ export interface ModalityFusion {
  */
 export interface VideoRiskPoint {
   reason: string        // 风险原因
-  intensity: number     // 风险强度 0-1（前端根据区间判断：<0.333低风险，>0.667高风险）
+  intensity: number     // 风险强度 0-1（前端根据区间判断：<0.4低风险，>0.7高风险）
 }
 
 /**
@@ -51,14 +51,14 @@ export interface VideoRiskPoint {
  */
 export interface TextRiskPoint {
   reason: string        // 风险原因
-  intensity: number     // 风险强度 0-1（前端根据区间判断：<0.333低风险，>0.667高风险）
+  intensity: number     // 风险强度 0-1（前端根据区间判断：<0.4低风险，>0.7高风险）
 }
 
 /**
  * 综合风险点（基于索引的时间序列数据）
  */
 export interface ComprehensiveRiskPoint {
-  intensity: number     // 风险强度 0-1（三个模态的最大值，前端根据区间判断：<0.333低风险，>0.667高风险）
+  intensity: number     // 风险强度 0-1（三个模态的最大值，前端根据区间判断：<0.4低风险，>0.7高风险）
 }
 
 /**
@@ -96,7 +96,7 @@ export interface TimelineEventBase {
   modality: EventModalityType        // 模态类型：语音/视觉/声学
   startTime: number                  // 开始时间（秒）
   endTime: number                    // 结束时间（秒）
-  riskScore: number                  // 风险分数 0-100（<33.3低风险，>66.7高风险，否则中风险）
+  riskScore: number                  // 风险分数 0-100（<40低风险，>70高风险，否则中风险）
 }
 
 /**
@@ -236,7 +236,7 @@ export interface AttitudeAnalysis {
 export interface OpinionRiskAnalysis {
   riskReason: string            // 风险原因
   evidences: Evidence[]         // 详细证据列表
-  modalityFusion: ModalityFusion  // 多模态融合分析（前端根据finalScore计算风险等级：<33.3低风险，>66.7高风险）
+  modalityFusion: ModalityFusion  // 多模态融合分析（前端根据finalScore计算风险等级：<40低风险，>70高风险）
 }
 
 /**
@@ -518,7 +518,7 @@ export const mockAnalysisResult: AnalysisResult = {
         type: 'video',
         description: '表情分析：检测到微笑表情',
         confidence: 88,
-        sentimentScore: 15  // 正面（<33.3）
+        sentimentScore: 15  // 正面（<40）
       },
       {
         timestamp: 15,
@@ -540,7 +540,7 @@ export const mockAnalysisResult: AnalysisResult = {
         type: 'video',
         description: '表情分析：检测到愤怒、失望表情',
         confidence: 85,
-        sentimentScore: 85  // 负面（>66.7）
+        sentimentScore: 85  // 负面（>70）
       },
       {
         timestamp: 45,
@@ -570,7 +570,7 @@ export const mockAnalysisResult: AnalysisResult = {
         type: 'audio',
         description: '持续的不满情绪表达（但语气相对平静）',
         confidence: 90,
-        sentimentScore: 50  // 中性（33.3-66.7）
+        sentimentScore: 50  // 中性（40-70）
       },
       {
         timestamp: 46,

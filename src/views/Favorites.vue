@@ -227,13 +227,29 @@
     <Teleport to="body">
       <Transition name="tooltip-fade">
         <div
+          ref="sourceTooltipRef"
           v-if="hoveredSourceId"
           class="source-tooltip-global"
-          :style="{ top: tooltipPos.top + 'px', left: tooltipPos.left + 'px' }"
+          :style="{
+            top: tooltipPos.top + 'px',
+            left: tooltipPos.left + 'px',
+            '--tooltip-arrow-left': tooltipArrowLeft + 'px'
+          }"
           @mouseenter="cancelHideTooltip"
           @mouseleave="scheduleHideTooltip"
         >
-          <span class="tooltip-url">{{ hoveredSourceUrl }}</span>
+          <a
+            :href="hoveredSourceUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="tooltip-url"
+            @click.stop
+          >{{ hoveredSourceUrl }}</a>
+          <button
+            class="tooltip-copy-btn"
+            title="复制链接"
+            @click.stop="copyUrl(hoveredSourceUrl)"
+          ><el-icon><CopyDocument /></el-icon></button>
         </div>
       </Transition>
     </Teleport>
@@ -241,11 +257,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Check, Grid, List, Warning, DCaret, Search, Close, Loading, ArrowLeft, ArrowRight, Connection } from '@element-plus/icons-vue'
+import { Check, Grid, List, Warning, DCaret, Search, Close, Loading, ArrowLeft, ArrowRight, Connection, CopyDocument } from '@element-plus/icons-vue'
 import { getFavoriteList, renameVideo, deleteVideo, getResultById } from '@/api'
 import type { AnalysisTaskVO } from '@/types'
 import { useFavoritesStore } from '@/stores/favorites'
@@ -521,16 +537,69 @@ const handleFavoriteChange = () => { loadRecords() }
 const hoveredSourceId = ref<string | null>(null)
 const hoveredSourceUrl = ref('')
 const tooltipPos = ref({ top: 0, left: 0 })
+const tooltipArrowLeft = ref(16)
+const sourceTooltipRef = ref<HTMLElement | null>(null)
 let hideTimer: ReturnType<typeof setTimeout> | null = null
 
 const showTooltip = (e: MouseEvent, id: string, url: string) => {
   if (hideTimer) clearTimeout(hideTimer)
+
   hoveredSourceId.value = id
   hoveredSourceUrl.value = url
-  tooltipPos.value = { top: e.clientY + 12, left: e.clientX }
+
+  const el = e.currentTarget as HTMLElement | null
+  if (!el) {
+    // 兜底：极端情况下 currentTarget 丢失，退回鼠标位置
+    tooltipPos.value = { top: e.clientY + 12, left: e.clientX }
+    tooltipArrowLeft.value = 16
+    return
+  }
+
+  const rect = el.getBoundingClientRect()
+  const MARGIN = 12
+  const currentId = id
+
+  // 先给一个初始位置，避免首帧闪烁
+  tooltipPos.value = {
+    top: rect.top - 8,
+    left: Math.max(MARGIN, Math.min(rect.left, window.innerWidth - MARGIN - 220))
+  }
+  tooltipArrowLeft.value = 16
+
+  void nextTick(() => {
+    // 期间如果 hover 已切换，放弃这次定位
+    if (hoveredSourceId.value !== currentId) return
+
+    const tooltipEl = sourceTooltipRef.value
+    if (!tooltipEl) return
+
+    const width = tooltipEl.offsetWidth
+    let left = rect.left
+    if (left + width > window.innerWidth - MARGIN) {
+      left = window.innerWidth - width - MARGIN
+    }
+    if (left < MARGIN) left = MARGIN
+
+    tooltipPos.value = { top: rect.top - 8, left }
+
+    const triggerCenterX = rect.left + rect.width / 2
+    const ARROW_EDGE_GAP = 14
+    const maxArrow = Math.max(ARROW_EDGE_GAP, width - ARROW_EDGE_GAP)
+    tooltipArrowLeft.value = Math.min(maxArrow, Math.max(ARROW_EDGE_GAP, triggerCenterX - left))
+  })
 }
 const scheduleHideTooltip = () => { hideTimer = setTimeout(() => { hoveredSourceId.value = null }, 200) }
 const cancelHideTooltip = () => { if (hideTimer) clearTimeout(hideTimer) }
+
+const copyUrl = async (url: string | null | undefined) => {
+  if (!url) return
+  try {
+    await navigator.clipboard.writeText(url)
+    ElMessage.success('链接已复制')
+  } catch {
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
 
 const handleOutsideClick = (e: MouseEvent) => {
   if (viewSwitcherRef.value && !viewSwitcherRef.value.contains(e.target as Node)) {
@@ -736,10 +805,86 @@ $shadow-in: none;
 
 // ── Tooltip ──
 .source-tooltip-global {
-  position: fixed; z-index: 9999; max-width: 320px;
-  background: rgba(26,31,46,.92); color: #fff; font-size: 12px;
-  padding: 6px 12px; border-radius: 8px; pointer-events: auto;
-  backdrop-filter: blur(8px); word-break: break-all;
+  position: fixed;
+  transform: translateY(-100%) translateY(-6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 340px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+  white-space: nowrap;
+  will-change: transform, opacity;
+
+  // 小三角
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: var(--tooltip-arrow-left, 16px);
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--bg-card);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: var(--tooltip-arrow-left, 16px);
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--border-color);
+  }
+
+  .tooltip-url {
+    font-size: 11px;
+    color: var(--color-primary);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+    max-width: 280px;
+    display: block;
+    line-height: 1.4;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .tooltip-copy-btn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: background .15s, color .15s;
+    padding: 0;
+
+    .el-icon {
+      font-size: 12px;
+    }
+
+    &:hover {
+      background: rgba(64, 158, 255, 0.1);
+      color: var(--color-primary);
+    }
+  }
 }
 
 // ── 弹窗（与 RecordsCenter 对齐） ──

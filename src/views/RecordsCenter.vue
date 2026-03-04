@@ -294,9 +294,14 @@
     <Teleport to="body">
       <Transition name="tooltip-fade">
         <div
+          ref="sourceTooltipRef"
           v-if="hoveredSourceId"
           class="source-tooltip-global"
-          :style="{ top: tooltipPos.top + 'px', left: tooltipPos.left + 'px' }"
+          :style="{
+            top: tooltipPos.top + 'px',
+            left: tooltipPos.left + 'px',
+            '--tooltip-arrow-left': tooltipArrowLeft + 'px'
+          }"
           @mouseenter="cancelHideTooltip"
           @mouseleave="scheduleHideTooltip"
         >
@@ -505,30 +510,53 @@ const openMenuId = ref<string | null>(null)
 const hoveredSourceId = ref<string | null>(null)
 const tooltipPos = ref({ top: 0, left: 0 })
 const tooltipUrl = ref('')
+const tooltipArrowLeft = ref(16)
+const sourceTooltipRef = ref<HTMLElement | null>(null)
 let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
 
 const showTooltip = (event: MouseEvent, recordId: string, url: string) => {
   cancelHideTooltip()
-  const el = event.currentTarget as HTMLElement
-  const rect = el.getBoundingClientRect()
-  const TOOLTIP_WIDTH = 340  // 与 max-width 一致
-  const MARGIN = 12           // 距视口边缘最小留白
-
-  // fixed 定位直接用视口坐标，不加 scrollY
-  let left = rect.left
-  // 右边界保护：如果超出视口右侧，向左偏移
-  if (left + TOOLTIP_WIDTH > window.innerWidth - MARGIN) {
-    left = window.innerWidth - TOOLTIP_WIDTH - MARGIN
-  }
-  // 左边界保护
-  if (left < MARGIN) left = MARGIN
-
-  tooltipPos.value = {
-    top: rect.top - 8,   // 气泡底部贴近触发元素顶部，再留 8px 间距
-    left
-  }
   tooltipUrl.value = url
   hoveredSourceId.value = recordId
+
+  const el = event.currentTarget as HTMLElement | null
+  if (!el) {
+    tooltipPos.value = { top: event.clientY + 12, left: event.clientX }
+    tooltipArrowLeft.value = 16
+    return
+  }
+
+  const rect = el.getBoundingClientRect()
+  const MARGIN = 12
+  const currentId = recordId
+
+  // 先给一个初始位置，避免首帧跳动
+  tooltipPos.value = {
+    top: rect.top - 8,
+    left: Math.max(MARGIN, Math.min(rect.left, window.innerWidth - MARGIN - 220))
+  }
+  tooltipArrowLeft.value = 16
+
+  void nextTick(() => {
+    if (hoveredSourceId.value !== currentId) return
+
+    const tooltipEl = sourceTooltipRef.value
+    if (!tooltipEl) return
+
+    const width = tooltipEl.offsetWidth
+    let left = rect.left
+    if (left + width > window.innerWidth - MARGIN) {
+      left = window.innerWidth - width - MARGIN
+    }
+    if (left < MARGIN) left = MARGIN
+
+    tooltipPos.value = { top: rect.top - 8, left }
+
+    const triggerCenterX = rect.left + rect.width / 2
+    const ARROW_EDGE_GAP = 14
+    const maxArrow = Math.max(ARROW_EDGE_GAP, width - ARROW_EDGE_GAP)
+    tooltipArrowLeft.value = Math.min(maxArrow, Math.max(ARROW_EDGE_GAP, triggerCenterX - left))
+  })
 }
 const scheduleHideTooltip = () => {
   tooltipHideTimer = setTimeout(() => { hoveredSourceId.value = null }, 120)
@@ -1178,7 +1206,102 @@ watch(() => wsStore.isConnected, (connected, wasConnected) => {
       background: rgba(64, 158, 255, 0.08); color: var(--color-primary);
     }
     &:disabled { opacity: 0.38; cursor: not-allowed; }
-    &.danger:hover:not(:disabled) { background: rgba(231, 76, 60, 0.08); color: #e74c3c; }
+
+    // 批量删除：浅色模式下保持明确的危险色语义
+    &.danger {
+      color: #e74c3c;
+
+      &:hover:not(:disabled) {
+        background: rgba(231, 76, 60, 0.08);
+        color: #e74c3c;
+      }
+
+      &:active:not(:disabled) {
+        background: rgba(231, 76, 60, 0.14);
+        color: #e74c3c;
+      }
+
+      &:disabled {
+        color: rgba(231, 76, 60, 0.45);
+        opacity: 0.55;
+      }
+
+      // 浅色模式：默认无红底/红框，仅红色文字；hover 时才出现红底与红框
+      html[data-theme='light'] & {
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        color: #b92929 !important;
+        .el-icon,
+        .el-icon svg {
+          color: #b92929 !important;
+          fill: #b92929 !important;
+        }
+        &:hover:not(:disabled) {
+          background: rgba(231, 76, 60, 0.2) !important;
+          border: 1px solid rgba(231, 76, 60, 0.55) !important;
+          color: #9a2222 !important;
+          .el-icon,
+          .el-icon svg {
+            color: #9a2222 !important;
+            fill: #9a2222 !important;
+          }
+        }
+        &:active:not(:disabled) {
+          background: rgba(231, 76, 60, 0.26) !important;
+          border: 1px solid rgba(231, 76, 60, 0.65) !important;
+          color: #8b1e1e !important;
+          .el-icon,
+          .el-icon svg {
+            color: #8b1e1e !important;
+            fill: #8b1e1e !important;
+          }
+        }
+        &:disabled {
+          background: transparent !important;
+          border: 1px solid transparent !important;
+          color: rgba(185, 41, 41, 0.6) !important;
+          .el-icon,
+          .el-icon svg {
+            color: rgba(185, 41, 41, 0.6) !important;
+            fill: rgba(185, 41, 41, 0.6) !important;
+          }
+        }
+      }
+
+      // 深色模式：与浅色一致用红色字/图标，避免被全局样式压成白色；略浅一点以便在深色背景上易辨认
+      html[data-theme='dark'] & {
+        color: #e57373 !important;
+        .el-icon,
+        .el-icon svg {
+          color: #e57373 !important;
+          fill: #e57373 !important;
+        }
+        &:hover:not(:disabled) {
+          color: #ef9a9a !important;
+          .el-icon,
+          .el-icon svg {
+            color: #ef9a9a !important;
+            fill: #ef9a9a !important;
+          }
+        }
+        &:active:not(:disabled) {
+          color: #ffabab !important;
+          .el-icon,
+          .el-icon svg {
+            color: #ffabab !important;
+            fill: #ffabab !important;
+          }
+        }
+        &:disabled {
+          color: rgba(229, 115, 115, 0.55) !important;
+          .el-icon,
+          .el-icon svg {
+            color: rgba(229, 115, 115, 0.55) !important;
+            fill: rgba(229, 115, 115, 0.55) !important;
+          }
+        }
+      }
+    }
 
     // 全选按钮：带复选框图标
     &.select-all {
@@ -1351,12 +1474,14 @@ watch(() => wsStore.isConnected, (connected, wasConnected) => {
 
   // 小三角
   &::after {
-    content: ''; position: absolute; top: 100%; left: 16px;
+    content: ''; position: absolute; top: 100%; left: var(--tooltip-arrow-left, 16px);
+    transform: translateX(-50%);
     border: 5px solid transparent;
     border-top-color: var(--bg-card);
   }
   &::before {
-    content: ''; position: absolute; top: 100%; left: 15px;
+    content: ''; position: absolute; top: 100%; left: var(--tooltip-arrow-left, 16px);
+    transform: translateX(-50%);
     border: 6px solid transparent;
     border-top-color: var(--border-color);
   }
