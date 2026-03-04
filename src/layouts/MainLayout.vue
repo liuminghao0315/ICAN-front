@@ -145,54 +145,52 @@
 
     <!-- 主内容区 -->
     <el-container class="main-container">
-      <!-- 分析中任务广播提示 -->
-      <Transition name="broadcast">
-        <div class="analysis-broadcast" v-if="hasAnalyzingTasks">
-          <div class="broadcast-content">
-            <div class="broadcast-icon">
-              <el-icon>
-                <Loading class="rotating" />
-              </el-icon>
-            </div>
-            <div class="broadcast-text">
-              <span class="broadcast-title">正在分析中</span>
-              <span class="broadcast-desc">您有 {{ analyzingTaskCount }} 个任务正在处理，请稍候...</span>
-            </div>
-            <button class="broadcast-link" @click="router.push('/records')">
-              查看任务
-              <el-icon>
-                <ArrowRight />
-              </el-icon>
-            </button>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- 上传中指示器 -->
-      <Transition name="broadcast">
-        <div class="upload-broadcast" v-if="uploadStore.activeCount > 0">
-          <div class="broadcast-content">
-            <div class="broadcast-icon">
-              <el-icon><Upload class="rotating" /></el-icon>
-            </div>
-            <div class="broadcast-text">
-              <span class="broadcast-title">正在上传......</span>
-              <span class="broadcast-desc">{{ uploadStore.activeCount }} 个文件上传中（{{ uploadStore.overallProgress }}%）</span>
-            </div>
-            <div class="upload-mini-bar">
-              <div class="upload-mini-fill" :style="{ width: uploadStore.overallProgress + '%' }"></div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- 顶部导航 -->
+      <!-- 顶部导航（内含中部通知区） -->
       <el-header class="header">
         <div class="header-left">
           <el-breadcrumb separator="/">
             <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
+        </div>
+
+        <!-- 中部：上传中 / 分析中 通知（主流顶部通知样式，不覆盖左右） -->
+        <div class="header-center">
+          <Transition name="top-notice">
+            <div class="header-notices" v-if="uploadStore.activeCount > 0 || hasAnalyzingTasks">
+              <!-- 上传中 -->
+              <Transition name="top-notice-item">
+                <div
+                  v-if="uploadStore.activeCount > 0"
+                  class="header-notice header-notice-upload"
+                  :class="{ 'is-half': hasAnalyzingTasks }"
+                >
+                  <span class="notice-icon">
+                    <el-icon><Upload class="rotating" /></el-icon>
+                  </span>
+                  <span class="notice-line">{{ uploadStore.activeCount }} 个文件上传中（{{ uploadStore.overallProgress }}%）</span>
+                  <div class="notice-progress" v-if="uploadStore.overallProgress < 100">
+                    <div class="notice-progress-fill" :style="{ width: uploadStore.overallProgress + '%' }"></div>
+                  </div>
+                </div>
+              </Transition>
+              <!-- 分析中 -->
+              <Transition name="top-notice-item">
+                <button
+                  v-if="hasAnalyzingTasks"
+                  class="header-notice header-notice-analyzing"
+                  :class="{ 'is-half': uploadStore.activeCount > 0 }"
+                  @click="router.push('/records')"
+                >
+                  <span class="notice-icon">
+                    <el-icon><Loading class="rotating" /></el-icon>
+                  </span>
+                  <span class="notice-line">您有 {{ analyzingTaskCount }} 个任务分析中，点击查看</span>
+                  <el-icon class="notice-arrow"><ArrowRight /></el-icon>
+                </button>
+              </Transition>
+            </div>
+          </Transition>
         </div>
 
         <div class="header-right">
@@ -1135,181 +1133,206 @@
   }
 }
 
-// 分析中任务广播提示过渡动画
-.broadcast-enter-active {
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+// 顶部通知整体显隐
+.top-notice-enter-active,
+.top-notice-leave-active {
+  transition: opacity 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-
-.broadcast-leave-active {
-  transition: all 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19);
-}
-
-.broadcast-enter-from {
-  transform: translateY(-100%);
+.top-notice-enter-from,
+.top-notice-leave-to {
   opacity: 0;
 }
-
-.broadcast-enter-to {
-  transform: translateY(0);
-  opacity: 1;
+.top-notice-item-enter-active,
+.top-notice-item-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-
-.broadcast-leave-from {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.broadcast-leave-to {
-  transform: translateY(-100%);
+.top-notice-item-enter-from,
+.top-notice-item-leave-to {
   opacity: 0;
+  transform: scale(0.96);
 }
 
-// 分析中任务广播提示
-.analysis-broadcast {
+// 顶部栏中部通知区（上传中 / 分析中）
+.header-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  margin: 0 8px;
+}
+
+.header-notices {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
   width: 100%;
-  background: linear-gradient(135deg, #409EFF 0%, #3072F6 100%);
-  color: white !important;
-  padding: 12px 24px;
-  box-shadow: none;
-  z-index: 1000;
+  max-width: 560px;
+}
 
-  .broadcast-content {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    max-width: 1400px;
-    margin: 0 auto;
+.header-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  font: inherit;
+  cursor: default;
+
+  &.is-half {
+    flex: 1;
+    min-width: 0;
   }
 
-  .broadcast-icon {
+  .notice-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(4px);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
     flex-shrink: 0;
 
     .el-icon {
-      font-size: 18px;
-      color: white !important;
+      font-size: 15px;
     }
-
     .rotating {
       animation: rotate 2s linear infinite;
     }
   }
 
-  .broadcast-text {
+  .notice-line {
     flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-
-    .broadcast-title {
-      font-size: 15px;
-      font-weight: 600;
-      white-space: nowrap;
-      color: rgba(255, 255, 255, 0.98) !important;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-    }
-
-    .broadcast-desc {
-      font-size: 13px;
-      opacity: 1;
-      white-space: nowrap;
-      color: rgba(255, 255, 255, 0.95) !important;
-    }
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .broadcast-link {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 16px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.15);
-    color: white !important;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(4px);
-    white-space: nowrap;
-
-    .el-icon {
-      font-size: 12px;
-      transition: transform 0.3s ease;
+  .notice-progress {
+    flex-shrink: 0;
+    width: 48px;
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+    .notice-progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.4s ease;
     }
+  }
+  .notice-arrow {
+    flex-shrink: 0;
+    font-size: 14px;
+    transition: transform 0.25s ease;
+  }
+}
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.25);
-      border-color: rgba(255, 255, 255, 0.5);
+// 浅色：分析中 = 淡蓝，上传中 = 淡绿，带一点颜色更抢眼
+.header-notice-analyzing {
+  cursor: pointer;
+  background: rgba(33, 150, 243, 0.28);
+  border: 1px solid rgba(33, 150, 243, 0.45);
+  box-shadow: 0 2px 12px rgba(33, 150, 243, 0.15);
+  color: #0d47a1;
+
+  .notice-icon {
+    background: rgba(33, 150, 243, 0.35);
+    color: #1565c0;
+  }
+  .notice-line {
+    color: #0d47a1;
+  }
+  .notice-arrow {
+    color: #1565c0;
+  }
+  &:hover {
+    background: rgba(33, 150, 243, 0.38);
+    border-color: rgba(33, 150, 243, 0.6);
+    transform: scale(1.02);
+    box-shadow: 0 4px 16px rgba(33, 150, 243, 0.22);
+    .notice-arrow {
       transform: translateX(2px);
-
-      .el-icon {
-        transform: translateX(2px);
-      }
     }
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+}
 
-    &:active {
-      transform: translateX(1px) scale(0.98);
+.header-notice-upload {
+  background: rgba(76, 175, 80, 0.32);
+  border: 1px solid rgba(76, 175, 80, 0.5);
+  box-shadow: 0 2px 12px rgba(76, 175, 80, 0.18);
+  color: #1b5e20;
+
+  .notice-icon {
+    background: rgba(76, 175, 80, 0.4);
+    color: #2e7d32;
+  }
+  .notice-line {
+    color: #1b5e20;
+  }
+  .notice-progress {
+    background: rgba(0, 0, 0, 0.12);
+    .notice-progress-fill {
+      background: #2e7d32;
     }
   }
 }
 
-// 上传中指示器（绿色调）
-.upload-broadcast {
-  width: 100%;
-  background: #67C23A;
-  color: white !important;
-  padding: 10px 24px;
-  box-shadow: none;
-  z-index: 1000;
+// 深色模式：分析中 = 深蓝，上传中 = 深绿
+[data-theme='dark'] {
+  .header-notice-analyzing {
+    background: rgba(25, 118, 210, 0.45);
+    border-color: rgba(66, 165, 245, 0.4);
+    box-shadow: 0 2px 12px rgba(25, 118, 210, 0.35);
+    color: #90caf9;
 
-  .broadcast-content {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .broadcast-icon {
-    .el-icon {
-      color: rgba(255, 255, 255, 0.98) !important;
+    .notice-icon {
+      background: rgba(25, 118, 210, 0.6);
+      color: #64b5f6;
+    }
+    .notice-line {
+      color: #bbdefb;
+    }
+    .notice-arrow {
+      color: #64b5f6;
+    }
+    &:hover {
+      background: rgba(25, 118, 210, 0.55);
+      border-color: rgba(66, 165, 245, 0.55);
+      box-shadow: 0 4px 16px rgba(25, 118, 210, 0.4);
     }
   }
 
-  .broadcast-text {
-    .broadcast-title {
-      color: rgba(255, 255, 255, 0.98) !important;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  .header-notice-upload {
+    background: rgba(27, 94, 32, 0.5);
+    border-color: rgba(56, 142, 60, 0.5);
+    box-shadow: 0 2px 12px rgba(27, 94, 32, 0.35);
+    color: #a5d6a7;
+
+    .notice-icon {
+      background: rgba(27, 94, 32, 0.65);
+      color: #81c784;
     }
-
-    .broadcast-desc {
-      color: rgba(255, 255, 255, 0.95) !important;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    .notice-line {
+      color: #c8e6c9;
     }
-  }
-
-  .upload-mini-bar {
-    flex: 1;
-    max-width: 200px;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-left: auto;
-
-    .upload-mini-fill {
-      height: 100%;
-      background: white;
-      border-radius: 2px;
-      transition: width 0.5s ease;
+    .notice-progress {
+      background: rgba(255, 255, 255, 0.15);
+      .notice-progress-fill {
+        background: #81c784;
+      }
     }
   }
 }
@@ -1342,13 +1365,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0 0 24px;
+  padding: 0 24px 0 24px;
   margin: 0 0 0 0;
   border-radius: 0 0 12px 12px;
   border: 1px solid var(--border-color);
   box-shadow: none;
   position: relative;
   z-index: 1000;
+
+  .header-left {
+    flex-shrink: 0;
+  }
+
+  .header-right {
+    flex-shrink: 0;
+  }
 
   :deep(.el-breadcrumb__item) {
     .el-breadcrumb__inner {
