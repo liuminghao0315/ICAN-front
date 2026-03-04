@@ -1,7 +1,7 @@
 <template>
   <div class="home-page">
     <!-- 顶部导航：即梦式固定导航 + 玻璃拟态 -->
-    <nav class="top-nav">
+    <nav class="top-nav" :style="navStyleVars">
       <div class="nav-inner">
         <div class="brand" @click="goTop">
           <img src="/logo.jpg" alt="SynSight" />
@@ -19,16 +19,21 @@
       </div>
     </nav>
 
-    <!-- Hero：即梦式首屏大标题 + 轮播背景 -->
+    <!-- Hero：即梦式首屏大标题 + 轮播背景（TransitionGroup 驱动交叉淡入淡出） -->
     <section class="hero">
-      <div
-        v-for="(bg, idx) in heroBackgrounds"
-        :key="bg"
-        class="hero-bg"
-        :class="{ active: idx === activeBgIndex }"
-      >
-        <img :src="bg" :alt="`背景${idx + 1}`" />
-        <div class="hero-mask" />
+      <div class="hero-bg-wrap">
+        <TransitionGroup name="hero-fade" tag="div" class="hero-bg-list">
+          <div
+            :key="activeBgIndex"
+            class="hero-bg"
+          >
+            <img
+              :src="heroBackgrounds[activeBgIndex]"
+              :alt="`背景${activeBgIndex + 1}`"
+            />
+            <div class="hero-mask" />
+          </div>
+        </TransitionGroup>
       </div>
       <div class="hero-content">
         <h1>高校内容风险研判</h1>
@@ -36,10 +41,10 @@
         <p class="hero-desc">
           本地上传视频，自动完成视频关键帧、语音转写与文本语义分析，输出高校身份线索、态度判断与风险建议，支持复核与证据定位。
         </p>
-        <div class="hero-cta-wrap">
-          <button class="btn-solid btn-hero" @click="goWorkbench">立即分析</button>
-          <button class="btn-ghost btn-hero" @click="scrollTo('multimodal')">了解能力</button>
-        </div>
+      </div>
+      <div class="hero-cta-bar">
+        <button class="btn-solid btn-hero" @click="goWorkbench">立即分析</button>
+        <button class="btn-ghost btn-hero" @click="scrollTo('multimodal')">了解能力</button>
       </div>
       <div class="hero-dots">
         <button
@@ -191,6 +196,26 @@ const userStore = useUserStore()
 const shots = ['/landing/1.png', '/landing/2.png', '/landing/3.png', '/landing/4.png', '/landing/5.png']
 const heroBackgrounds = computed(() => [shots[0], shots[4], shots[3]])
 const activeBgIndex = ref(0)
+const navGlassProgress = ref(0)
+
+const NAV_GLASS_APPEAR_START = 36
+const NAV_GLASS_APPEAR_END = 170
+
+const updateNavGlassProgress = () => {
+  const scrollY = window.scrollY || document.documentElement.scrollTop || 0
+  const raw = clamp((scrollY - NAV_GLASS_APPEAR_START) / (NAV_GLASS_APPEAR_END - NAV_GLASS_APPEAR_START), 0, 1)
+  const smooth = raw * raw * (3 - 2 * raw)
+  navGlassProgress.value = smooth
+}
+
+const navStyleVars = computed(
+  () =>
+    ({
+      '--nav-glass-opacity': navGlassProgress.value.toFixed(3),
+      '--nav-blur': `${(navGlassProgress.value * 22).toFixed(2)}px`,
+      '--nav-saturate': `${(100 + navGlassProgress.value * 45).toFixed(1)}%`
+    }) as CSSProperties
+)
 
 const canvasTabs = [
   {
@@ -321,6 +346,7 @@ const scheduleMediaEffectUpdate = () => {
   mediaRaf = window.requestAnimationFrame(() => {
     mediaRaf = 0
     updateFeatureMediaEffect()
+    updateNavGlassProgress()
   })
 }
 
@@ -397,6 +423,26 @@ const goHelp = () => router.push('/help')
   font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
+/* 自定义滚动条（与玻璃拟态一致） */
+.home-page {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.home-page::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.home-page::-webkit-scrollbar-track {
+  background: transparent;
+}
+.home-page::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+.home-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 /* 强制所有正文与标题在深色底上为浅色，避免被全局样式覆盖 */
 .home-page h1,
 .home-page h2,
@@ -438,20 +484,32 @@ const goHelp = () => router.push('/help')
   position: fixed;
   inset: 0 0 auto;
   z-index: 60;
-  height: 72px;
-  background: rgba(5, 8, 15, 0.72);
-  backdrop-filter: blur(var(--glass-blur, 18px));
-  -webkit-backdrop-filter: blur(var(--glass-blur, 18px));
-  border-bottom: 1px solid var(--glass-border);
+  height: 64px;
+  background: linear-gradient(
+    180deg,
+    rgba(7, 12, 22, calc(var(--nav-glass-opacity, 0) * 0.58)) 0%,
+    rgba(7, 12, 22, calc(var(--nav-glass-opacity, 0) * 0.42)) 100%
+  );
+  backdrop-filter: saturate(var(--nav-saturate, 100%)) blur(var(--nav-blur, 0px));
+  -webkit-backdrop-filter: saturate(var(--nav-saturate, 100%)) blur(var(--nav-blur, 0px));
+  border-bottom: 1px solid rgba(255, 255, 255, calc(var(--nav-glass-opacity, 0) * 0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(var(--nav-glass-opacity, 0) * 0.06)),
+    0 10px 30px rgba(0, 0, 0, calc(var(--nav-glass-opacity, 0) * 0.25));
+  transition:
+    background 0.36s var(--ease),
+    border-color 0.36s var(--ease),
+    box-shadow 0.36s var(--ease),
+    backdrop-filter 0.36s var(--ease),
+    -webkit-backdrop-filter 0.36s var(--ease);
 
   .nav-inner {
     height: 100%;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 28px;
+    width: 100%;
+    padding: 0 clamp(12px, 1.8vw, 26px);
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    column-gap: 24px;
+    column-gap: 20px;
     align-items: center;
   }
 }
@@ -476,10 +534,10 @@ const goHelp = () => router.push('/help')
   }
 
   span {
-    font-size: 22px;
-    font-weight: 700;
-    color: #ffffff;
-    text-shadow: 0 0 20px rgba(52, 244, 255, 0.5);
+    font-size: 20px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 0 10px rgba(52, 244, 255, 0.2);
   }
 }
 
@@ -487,22 +545,23 @@ const goHelp = () => router.push('/help')
   justify-self: center;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 
   button {
     border: none;
     background: transparent;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(232, 241, 255, 0.68);
     font-size: 14px;
-    font-weight: 500;
-    padding: 10px 16px;
-    border-radius: 999px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    padding: 8px 14px;
+    border-radius: 10px;
     transition: all 0.3s var(--ease);
     cursor: pointer;
 
     &:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.08);
+      color: rgba(242, 247, 255, 0.92);
+      background: rgba(255, 255, 255, 0.07);
       transform: translateY(-1px);
     }
   }
@@ -521,7 +580,7 @@ const goHelp = () => router.push('/help')
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: all 0.3s var(--ease);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   &:focus-visible {
     outline: 2px solid var(--accent-to);
@@ -533,7 +592,7 @@ const goHelp = () => router.push('/help')
   border: none;
   color: #051a28;
   background: linear-gradient(90deg, #34f4ff, #1ec3ff);
-  background-color: #17a2b8; /* 渐变不可用时仍为浅底深字 */
+  background-color: #17a2b8;
 
   &:hover {
     transform: scale(1.02);
@@ -546,13 +605,13 @@ const goHelp = () => router.push('/help')
 }
 
 .btn-ghost {
-  border: 1px solid rgba(52, 244, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
-  background: rgba(5, 26, 46, 0.5);
+  background: rgba(255, 255, 255, 0.06);
 
   &:hover {
-    border-color: rgba(52, 244, 255, 0.6);
-    background: rgba(8, 31, 56, 0.6);
+    border-color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
     transform: translateY(-2px);
   }
@@ -560,8 +619,21 @@ const goHelp = () => router.push('/help')
 
 .top-nav .btn-solid,
 .top-nav .btn-ghost {
-  height: 40px;
-  padding: 0 20px;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.top-nav .btn-solid {
+  background: linear-gradient(90deg, #2adcf2, #21bfe3);
+  box-shadow: 0 6px 16px rgba(25, 191, 227, 0.26);
+}
+
+.top-nav .btn-solid:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(25, 191, 227, 0.32);
 }
 
 /* ========== Hero ========== */
@@ -571,86 +643,131 @@ const goHelp = () => router.push('/help')
   min-height: 680px;
   overflow: hidden;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+}
+
+/* 轮播层：绝对定位铺满，用 TransitionGroup 做交叉淡入淡出 */
+.hero-bg-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.hero-bg-list {
+  position: absolute;
+  inset: 0;
 }
 
 .hero-bg {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  transform: scale(1.05);
-  transition: opacity 1s var(--ease), transform 1.2s var(--ease);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  &.active {
-    opacity: 1;
-    transform: scale(1.08);
-  }
 }
 
+.hero-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Vue TransitionGroup：进入/离开均为 opacity 过渡，使用明确缓动避免 var(--ease) 未定义 */
+.hero-fade-enter-from,
+.hero-fade-leave-to {
+  opacity: 0;
+}
+
+.hero-fade-enter-active,
+.hero-fade-leave-active {
+  transition: opacity 1.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.hero-fade-leave-active {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 即梦式：更轻的遮罩，让背景图透出、更有层次 */
 .hero-mask {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(5, 8, 15, 0.5) 0%, rgba(5, 8, 15, 0.92) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(5, 8, 15, 0.25) 0%,
+    rgba(5, 8, 15, 0.45) 40%,
+    rgba(5, 8, 15, 0.78) 100%
+  );
 }
 
 .hero-content {
   position: relative;
   z-index: 2;
-  max-width: 780px;
+  width: 100%;
+  max-width: 820px;
   margin: 0 auto;
-  padding: 124px 32px 56px;
+  padding: 0 32px;
+  padding-top: 128px;
   text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .hero-content h1 {
-  margin: 0 0 10px;
-  font-size: clamp(38px, 4.6vw, 60px);
+  margin: 0 0 16px;
+  font-size: clamp(42px, 5.2vw, 72px);
   font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   color: #ffffff;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  text-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.35),
+    0 0 60px rgba(52, 244, 255, 0.08);
 }
 
 .hero-accent {
-  margin: 0 0 18px;
-  font-size: clamp(20px, 2vw, 28px);
+  margin: 0 0 24px;
+  font-size: clamp(20px, 2.2vw, 28px);
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #b8f0ff; /* 渐变不可用时的回退 */
+  color: #b8f0ff;
   background: linear-gradient(90deg, #dffbff, #7de7ff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  text-shadow: none;
 }
 
 .hero-desc {
-  margin: 0 auto 34px;
-  font-size: 16px;
-  line-height: 1.75;
-  color: rgba(255, 255, 255, 0.9);
-  max-width: 660px;
+  margin: 0 auto 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 560px;
 }
 
-.hero-cta-wrap {
+/* 即梦式底部 CTA 条：固定在首屏底部，仅按钮无外框 */
+.hero-cta-bar {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  padding: 28px 32px 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  margin-bottom: 0;
+  flex-wrap: wrap;
+  margin-top: auto;
 }
 
 .btn-hero {
   min-width: 160px;
   height: 52px;
   font-size: 16px;
+  border-radius: 14px;
 }
 
 .hero-dots {
@@ -764,6 +881,7 @@ const goHelp = () => router.push('/help')
     max-width: none;
     width: auto;
     margin: 0;
+    margin-left: 32px;
   }
 }
 
@@ -1163,10 +1281,6 @@ const goHelp = () => router.push('/help')
     margin-right: auto;
   }
 
-  .hero-cta-wrap {
-    justify-content: center;
-  }
-
   .nav-links {
     display: none;
   }
@@ -1228,7 +1342,19 @@ const goHelp = () => router.push('/help')
   }
 
   .hero-content {
-    padding-top: 88px;
+    padding-top: 96px;
+    justify-content: flex-start;
+    padding-bottom: 24px;
+  }
+
+  .hero-cta-bar {
+    padding: 20px 20px 40px;
+  }
+
+  .btn-hero {
+    min-width: 140px;
+    height: 48px;
+    font-size: 15px;
   }
 
   .hero-content h1 {
