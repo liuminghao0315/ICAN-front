@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 import type {
   Result,
   PageResult,
@@ -19,7 +20,106 @@ import type {
   SourceType
 } from '@/types'
 
-// ==================== 基础配置 ====================
+// ==================== 双 Token 最佳实践常量 ====================
+
+/** 在 accessToken 过期前多少毫秒主动刷新（5 分钟） */
+const PROACTIVE_REFRESH_BEFORE_MS = 5 * 60 * 1000
+
+/** 主动刷新定时器 ID，用于清除旧定时 */
+let proactiveRefreshTimerId: ReturnType<typeof setTimeout> | null = null
+
+/** 从 JWT 中解析过期时间戳（毫秒），失败返回 null */
+function decodeJwtExpMs(token: string): number | null {
+  try {
+    const parts = token.trim().split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1]!))
+    const exp = payload.exp
+    if (typeof exp !== 'number') return null
+    return exp * 1000
+  } catch {
+    return null
+  }
+}
+
+/** 静默刷新：仅用 refreshToken 换新双 token，更新 store 与 localStorage；失败则退登并跳转，返回 null */
+async function doSilentRefresh(): Promise<{ accessToken: string; refreshToken: string } | null> {
+  const userStore = useUserStore()
+  const refreshToken = userStore.refreshToken || getStoredRefreshToken()
+  if (!refreshToken) {
+    cancelProactiveRefresh()
+    userStore.logout()
+    if (window.location.pathname !== '/login') window.location.href = '/login'
+    return null
+  }
+  try {
+    const res = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
+      `${api.defaults.baseURL || 'http://localhost:8080'}/auth/refresh`,
+      null,
+      { params: { refreshToken }, headers: { 'Content-Type': 'application/json' } }
+    )
+    if (res.data.code === 200 && res.data.data) {
+      const { accessToken, refreshToken: newRefreshToken } = res.data.data
+      userStore.setTokens(accessToken, newRefreshToken)
+      const stored = localStorage.getItem('user-store')
+      if (stored) {
+        try {
+          const data = JSON.parse(stored)
+          data.token = accessToken
+          data.refreshToken = newRefreshToken
+          localStorage.setItem('user-store', JSON.stringify(data))
+        } catch { /* ignore */ }
+      } else {
+        localStorage.setItem('user-store', JSON.stringify({
+          token: accessToken,
+          refreshToken: newRefreshToken,
+          userInfo: null
+        }))
+      }
+      return { accessToken, refreshToken: newRefreshToken }
+    }
+  } catch {
+    /* network or 4xx/5xx */
+  }
+  cancelProactiveRefresh()
+  userStore.logout()
+  if (window.location.pathname !== '/login') window.location.href = '/login'
+  return null
+}
+
+/**
+ * 在 accessToken 过期前 PROACTIVE_REFRESH_BEFORE_MS 毫秒自动刷新一次，并递归调度下一次。
+ * 登录成功或刷新成功后调用，避免用户操作瞬间才触发 401。
+ */
+export function scheduleProactiveRefresh(accessToken: string): void {
+  if (proactiveRefreshTimerId) {
+    clearTimeout(proactiveRefreshTimerId)
+    proactiveRefreshTimerId = null
+  }
+  const expMs = decodeJwtExpMs(accessToken)
+  if (expMs == null) return
+  const now = Date.now()
+  const msUntilRefresh = expMs - now - PROACTIVE_REFRESH_BEFORE_MS
+  const run = () => {
+    proactiveRefreshTimerId = null
+    doSilentRefresh().then(tokens => {
+      if (tokens) scheduleProactiveRefresh(tokens.accessToken)
+    })
+  }
+  if (msUntilRefresh <= 0) {
+    run()
+    return
+  }
+  proactiveRefreshTimerId = setTimeout(run, msUntilRefresh)
+}
+
+/** 取消主动刷新调度（例如退出登录时调用） */
+export function cancelProactiveRefresh(): void {
+  if (proactiveRefreshTimerId) {
+    clearTimeout(proactiveRefreshTimerId)
+    proactiveRefreshTimerId = null
+  }
+}
 
 // 响应数据接口
 export interface ApiResponse<T = any> {
@@ -86,10 +186,11 @@ function processQueue(error: any, token: string | null = null) {
   failedQueue = []
 }
 
-// 请求拦截器 - 自动添加Token
+// 请求拦截器 - 自动添加Token（优先用 store，与刷新后内存一致，避免 persist 延迟）
 api.interceptors.request.use(
   (config) => {
-    const token = getStoredToken()
+    const userStore = useUserStore()
+    const token = userStore.token || getStoredToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -118,118 +219,44 @@ api.interceptors.response.use(
       const message = error.response.data?.message || '请求失败'
       const silent = originalRequest?._silent === true
       
-      // 401: 未授权，尝试刷新token
+      // 401: 未授权，尝试静默刷新后重试（双 token 最佳实践）
       if (status === 401 && originalRequest && !originalRequest._retry) {
-        // 如果正在刷新，将请求加入队列
         if (isRefreshing) {
-          return new Promise((resolve, reject) => {
+          return new Promise<string | null>((resolve, reject) => {
             failedQueue.push({ resolve, reject })
           })
             .then(token => {
-              originalRequest.headers.Authorization = `Bearer ${token}`
-              return api(originalRequest)
+              if (token) {
+                originalRequest.headers.Authorization = `Bearer ${token}`
+                return api(originalRequest)
+              }
+              return Promise.reject(new Error('Token刷新失败'))
             })
-            .catch(err => {
-              return Promise.reject(err)
-            })
+            .catch(err => Promise.reject(err))
         }
 
         originalRequest._retry = true
         isRefreshing = true
-
-        const refreshToken = getStoredRefreshToken()
-        if (!refreshToken) {
-          // 没有refreshToken，直接跳转登录
+        let tokens: { accessToken: string; refreshToken: string } | null = null
+        try {
+          tokens = await doSilentRefresh()
+        } finally {
           isRefreshing = false
-          processQueue(new Error('未登录'))
-          localStorage.removeItem('user-store')
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
-          }
-          return Promise.reject({
-            ...error,
-            message: '未登录，请重新登录',
-            status: 401
-          })
         }
 
-        try {
-          // 调用刷新token接口（使用axios直接调用，避免循环依赖）
-          const refreshResponse = await axios.post<ApiResponse<{
-            accessToken: string
-            refreshToken: string
-          }>>(
-            `${api.defaults.baseURL || 'http://localhost:8080'}/auth/refresh`,
-            null,
-            {
-              params: { refreshToken },
-              headers: {
-                'Content-Type': 'application/json'
-              }
-            }
-          )
-
-          if (refreshResponse.data.code === 200 && refreshResponse.data.data) {
-            const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.data
-            
-            // 更新store中的token（通过更新localStorage，pinia persist会自动同步）
-            // 注意：直接更新localStorage，pinia persist会在下次访问store时自动同步
-            const stored = localStorage.getItem('user-store')
-            if (stored) {
-              try {
-                const data = JSON.parse(stored)
-                data.token = accessToken
-                data.refreshToken = newRefreshToken
-                localStorage.setItem('user-store', JSON.stringify(data))
-              } catch {
-                // 解析失败，忽略
-              }
-            } else {
-              // 如果localStorage中没有，创建一个新的
-              localStorage.setItem('user-store', JSON.stringify({
-                token: accessToken,
-                refreshToken: newRefreshToken,
-                userInfo: null
-              }))
-            }
-
-            // 更新请求头
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`
-            
-            // 处理等待队列
-            isRefreshing = false
-            processQueue(null, accessToken)
-
-            // 重试原始请求
-            return api(originalRequest)
-          } else {
-            // 刷新失败
-            isRefreshing = false
-            processQueue(new Error('Token刷新失败'))
-            localStorage.removeItem('user-store')
-            if (window.location.pathname !== '/login') {
-              window.location.href = '/login'
-            }
-            return Promise.reject({
-              ...error,
-              message: '登录已过期，请重新登录',
-              status: 401
-            })
-          }
-        } catch (refreshError: any) {
-          // 刷新token请求失败
-          isRefreshing = false
-          processQueue(refreshError)
-          localStorage.removeItem('user-store')
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
-          }
+        if (!tokens) {
+          processQueue(new Error('未登录或登录已过期'))
           return Promise.reject({
             ...error,
             message: '登录已过期，请重新登录',
             status: 401
           })
         }
+
+        originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`
+        processQueue(null, tokens.accessToken)
+        scheduleProactiveRefresh(tokens.accessToken)
+        return api(originalRequest)
       }
       // 403: 禁止访问
       else if (status === 403) {

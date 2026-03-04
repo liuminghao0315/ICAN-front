@@ -51,8 +51,8 @@ export const useUserStore = defineStore('user', () => {
     token.value = null
     refreshToken.value = null
     userInfo.value = null
-    // 清除旧的 localStorage key（兼容性处理）
     localStorage.removeItem('token')
+    localStorage.removeItem('user-store')
   }
 
   return {

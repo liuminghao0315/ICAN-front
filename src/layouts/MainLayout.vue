@@ -302,7 +302,7 @@
   import { useFolderStore } from '@/stores/folder'
   import { useFavoritesStore } from '@/stores/favorites'
   import { useAnalysisActionsStore } from '@/stores/analysisActions'
-  import { getTaskList, getMe } from '@/api'
+  import { getTaskList, getMe, cancelProactiveRefresh, scheduleProactiveRefresh } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
   import FolderTree from '@/components/FolderTree.vue'
   import NotificationBell from '@/components/NotificationBell.vue'
@@ -586,6 +586,7 @@
 
     // 拉取用户信息（含角色），确保 role 字段始终存在
     if (userStore.isLoggedIn) {
+      if (userStore.token) scheduleProactiveRefresh(userStore.token)
       getMe().then(res => {
         if (res.code === 200 && res.data) {
           userStore.setUserInfo({
@@ -633,7 +634,7 @@
 
   const handleLogout = () => {
     showLogoutConfirm.value = false
-    // 退出时断开 WebSocket
+    cancelProactiveRefresh()
     wsStore.disconnect()
     userStore.logout()
     router.push('/login')

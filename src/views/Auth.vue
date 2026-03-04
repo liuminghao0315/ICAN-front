@@ -128,7 +128,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { login, register, sendRegisterCode, getMe, sendResetPwdCode, resetPwd } from '@/api'
+import { login, register, sendRegisterCode, getMe, sendResetPwdCode, resetPwd, scheduleProactiveRefresh } from '@/api'
 import type { LoginParams, RegisterParams, SendRegisterCodeParams, SendResetPwdCodeParams, ResetPwdParams } from '@/api'
 import Toast from '@/components/Toast.vue'
 import { useToast } from '@/composables/useToast'
@@ -385,6 +385,7 @@ const handleLogin = async () => {
       const tokenData = response.data
       if (typeof tokenData === 'object' && tokenData && 'accessToken' in tokenData && 'refreshToken' in tokenData) {
         userStore.setTokens(tokenData.accessToken, tokenData.refreshToken)
+        scheduleProactiveRefresh(tokenData.accessToken)
       } else if (typeof tokenData === 'string') {
         userStore.setToken(tokenData)
       }

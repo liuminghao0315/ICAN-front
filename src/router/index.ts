@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
 import Dashboard from '@/views/Dashboard.vue'
+import { useUserStore } from '@/stores/user'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -127,6 +128,20 @@ function getStoredToken(): string | null {
   return null
 }
 
+/** 判断 JWT 是否已过期（过期或解析失败视为过期，避免闪屏再跳转） */
+function isTokenExpired(token: string): boolean {
+  try {
+    const parts = token.trim().split('.')
+    if (parts.length !== 3) return true
+    const payload = JSON.parse(atob(parts[1]!))
+    const exp = payload.exp
+    if (typeof exp !== 'number') return true
+    return exp * 1000 < Date.now()
+  } catch {
+    return true
+  }
+}
+
 function getStoredRole(): string | null {
   try {
     const stored = localStorage.getItem('user-store')
@@ -138,19 +153,28 @@ function getStoredRole(): string | null {
   return null
 }
 
-// 路由守卫
+// 路由守卫：未登录或 token 过期一律先清状态再跳登录，避免进入受保护页再 401 闪屏
 router.beforeEach((to, _from, next) => {
   const token = getStoredToken()
-  
-  if (to.meta.requiresAuth !== false && !token) {
-    next('/login')
-  } else if ((to.path === '/login' || to.path === '/register') && token) {
-    next('/dashboard')
-  } else if (to.meta.requiresAdmin && getStoredRole() !== 'Administrator') {
-    next('/dashboard')
-  } else {
-    next()
+  const requiresAuth = to.meta.requiresAuth !== false
+
+  if (requiresAuth) {
+    if (!token || isTokenExpired(token)) {
+      useUserStore().logout()
+      next('/login')
+      return
+    }
   }
+
+  if ((to.path === '/login' || to.path === '/register') && token && !isTokenExpired(token)) {
+    next('/dashboard')
+    return
+  }
+  if (to.meta.requiresAdmin && getStoredRole() !== 'Administrator') {
+    next('/dashboard')
+    return
+  }
+  next()
 })
 
 export default router
