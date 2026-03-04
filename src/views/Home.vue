@@ -4,13 +4,13 @@
     <nav class="top-nav" :style="navStyleVars">
       <div class="nav-inner">
         <div class="brand" @click="goTop">
-          <img src="/logo.jpg" alt="SynSight" />
+          <img :src="brandLogoImage" alt="SynSight" />
           <span>SynSight</span>
         </div>
         <div class="nav-links">
           <button @click="scrollTo('multimodal')">多模态分析</button>
           <button @click="scrollTo('canvas')">智能画布</button>
-          <button @click="scrollTo('cases')">任务预览</button>
+          <button @click="scrollTo('cases')">系统预览</button>
           <button @click="scrollTo('functions')">功能入口</button>
         </div>
         <div class="nav-actions">
@@ -129,7 +129,7 @@
     <section id="cases" class="section section-cases">
       <div class="container narrow">
         <div class="section-head center">
-          <h2>任务预览 · 页面示意</h2>
+          <h2>系统预览 · 页面示意</h2>
           <p>这里展示系统核心页面示意（任务列表、结果查看、证据画布），帮助你快速了解实际使用流程。</p>
           <button class="btn-outline" @click="goRecords">进入任务中心</button>
         </div>
@@ -173,7 +173,7 @@
     <!-- 底部 CTA（即梦式「开启即梦」） -->
     <footer class="bottom-cta">
       <div class="cta-inner">
-        <img src="/logo.jpg" alt="SynSight" class="cta-logo" />
+        <img :src="brandLogoImage" alt="SynSight" class="cta-logo" />
         <h3>SynSight · 高校内容风险分析平台</h3>
         <p class="cta-sub">基于多模态深度学习的本地视频上传分析系统，专为高校内容创作者行为与舆情研判设计。</p>
         <div class="cta-buttons">
@@ -193,8 +193,32 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const userStore = useUserStore()
 
-const shots = ['/landing/1.png', '/landing/2.png', '/landing/3.png', '/landing/4.png', '/landing/5.png']
-const heroBackgrounds = computed(() => [shots[0], shots[4], shots[3]])
+const brandLogoImage = '/logo.jpg'
+
+// 首页图片资源（按区块拆分，便于后续直接替换）
+const homeImages = {
+  heroBackgrounds: ['/landing/1.png', '/landing/5.png', '/landing/4.png'],
+  multimodalFeatures: {
+    identity: '/landing/2.png',
+    attitude: '/landing/3.png',
+    evidence: '/landing/1.png'
+  },
+  canvas: {
+    overview: '/landing/1.png',
+    timeline: '/landing/5.png'
+  },
+  caseCards: [
+    '/landing/1.png',
+    '/landing/2.png',
+    '/landing/3.png',
+    '/landing/4.png',
+    '/landing/5.png',
+    '/landing/2.png',
+    '/landing/3.png'
+  ]
+} as const
+
+const heroBackgrounds = computed(() => homeImages.heroBackgrounds)
 const activeBgIndex = ref(0)
 const navGlassProgress = ref(0)
 
@@ -221,14 +245,14 @@ const canvasTabs = [
   {
     key: 'overview',
     label: '多维线索总览',
-    image: shots[0],
+    image: homeImages.canvas.overview,
     alt: '多维线索总览视图',
     note: '支持查看风险词命中、情绪变化、关键帧证据与融合评分，减少人工逐段排查成本。'
   },
   {
     key: 'timeline',
     label: '证据时间定位',
-    image: shots[4],
+    image: homeImages.canvas.timeline,
     alt: '证据时间定位视图',
     note: '按时间轴快速跳转至风险片段，联动语音转写与关键帧证据，便于复核与取证。'
   }
@@ -244,19 +268,19 @@ const multimodalFeatures = [
     index: '01',
     title: '高校身份线索识别',
     desc: '识别视频中“在校学生”相关声明及高校名称、校徽、校园场景等线索，并给出置信度。',
-    image: shots[1]
+    image: homeImages.multimodalFeatures.identity
   },
   {
     index: '02',
     title: '态度与风险分级评估',
     desc: '结合语音转写与文本语义判断对学校态度，输出低/中/高风险等级与风险分数。',
-    image: shots[2]
+    image: homeImages.multimodalFeatures.attitude
   },
   {
     index: '03',
     title: '证据定位与处置建议',
     desc: '按时间点回放高风险片段，查看证据说明、关键词与融合结果，辅助人工复核与处置。',
-    image: shots[0]
+    image: homeImages.multimodalFeatures.evidence
   }
 ]
 
@@ -350,9 +374,7 @@ const scheduleMediaEffectUpdate = () => {
   })
 }
 
-const caseCards = computed(() =>
-  [...shots, shots[1], shots[2]].map((img, i) => ({ img, id: i }))
-)
+const caseCards = computed(() => homeImages.caseCards.map((img, i) => ({ img, id: i })))
 
 const isAdmin = computed(() => userStore.isAdmin)
 

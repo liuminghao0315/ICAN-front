@@ -69,11 +69,20 @@
 
         <div v-else class="form forgot-form">
           <h2 class="form__title title">找回密码</h2>
-          <p v-if="forgotStep === 1" class="form__subtitle"><span class="subtitle-icon">👤</span>请输入用户名，我们将发送验证码</p>
+          <p v-if="forgotStep === 1" class="form__subtitle">
+            <span class="subtitle-icon">👤</span>请输入用户名或邮箱，验证码将被发送到绑定邮箱
+          </p>
           <p v-else-if="forgotStep === 2" class="form__subtitle"><span class="subtitle-icon">🔐</span>请输入验证码并设置新密码</p>
 
           <template v-if="forgotStep === 1">
-            <input v-model="forgotUsername" class="form__input" type="text" autocomplete="username" placeholder="请输入用户名" required />
+            <input
+              v-model="forgotUsername"
+              class="form__input"
+              type="text"
+              autocomplete="username"
+              placeholder="请输入用户名或邮箱"
+              required
+            />
             <div v-if="forgotError" class="error-message">{{ forgotError }}</div>
             <button type="button" class="form__button button submit" :disabled="sendingResetCode" @click="handleSendResetCode">{{ sendingResetCode ? '发送中...' : '发送验证码' }}</button>
             <button type="button" class="form__link" @click="closeForgotPassword">返回登录</button>
@@ -295,13 +304,13 @@ const handleSendRegisterCode = async () => {
 
 const handleSendResetCode = async () => {
   if (!forgotUsername.value.trim()) {
-    forgotError.value = '请输入用户名'
+    forgotError.value = '请输入用户名或邮箱'
     return
   }
   sendingResetCode.value = true
   forgotError.value = ''
   try {
-    const params: SendResetPwdCodeParams = { username: forgotUsername.value.trim() }
+    const params: SendResetPwdCodeParams = { identifier: forgotUsername.value.trim() }
     const response = await sendResetPwdCode(params)
     if (response.code === 200) forgotStep.value = 2
     else forgotError.value = response.message || '发送验证码失败'

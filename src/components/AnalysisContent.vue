@@ -301,11 +301,7 @@
                   class="pro-icon"
                   :class="
                     getSentimentIconClass(
-                      getSentimentByScore(
-                        (attitudeStatistics.negative /
-                          attitudeStatistics.total) *
-                          100,
-                      ),
+                      getSentimentByScore(attitudeNegativeRatio),
                     )
                   "
                 >
@@ -324,21 +320,13 @@
                     class="pro-value"
                     :class="
                       getSentimentTextClass(
-                        getSentimentByScore(
-                          (attitudeStatistics.negative /
-                            attitudeStatistics.total) *
-                            100,
-                        ),
+                        getSentimentByScore(attitudeNegativeRatio),
                       )
                     "
                   >
                     {{
                       getSentimentLabel(
-                        getSentimentByScore(
-                          (attitudeStatistics.negative /
-                            attitudeStatistics.total) *
-                            100,
-                        ),
+                        getSentimentByScore(attitudeNegativeRatio),
                       )
                     }}
                   </div>
@@ -346,15 +334,7 @@
                     {{
                       mockContentAnalysis?.negativeMentionCount || 0
                     }}处负面，占比
-                    {{
-                      mockContentAnalysis
-                        ? Math.round(
-                            (mockContentAnalysis.negativeMentionCount /
-                              mockContentAnalysis.schoolMentionCount) *
-                              100,
-                          )
-                        : 0
-                    }}%
+                    {{ Math.round(attitudeNegativeRatio) }}%
                   </div>
                 </div>
               </div>
@@ -1693,6 +1673,12 @@ const attitudeStatistics = computed(() => {
   return { positive, neutral, negative, total };
 });
 
+// 对学校态度「负面占比」安全计算：total 为 0 时返回 0，避免 NaN%
+const attitudeNegativeRatio = computed(() => {
+  const s = attitudeStatistics.value;
+  return s.total > 0 ? (s.negative / s.total) * 100 : 0;
+});
+
 const mockContentAnalysis = computed(() => {
   if (!currentResult.value) return null;
   return {
@@ -1778,23 +1764,14 @@ const cardsData = computed<CardData[]>(() => {
       id: "attitude",
       label: "对学校态度",
       get value() {
-        const negativeRatio =
-          (attitudeStatistics.value.negative / attitudeStatistics.value.total) *
-          100;
-        const sentiment = getSentimentByScore(negativeRatio);
+        const sentiment = getSentimentByScore(attitudeNegativeRatio.value);
         return getSentimentLabel(sentiment);
       },
-      confidence: Math.round(
-        (attitudeStatistics.value.negative / attitudeStatistics.value.total) *
-          100,
-      ),
+      confidence: Math.round(attitudeNegativeRatio.value),
       confidenceLabel: "负面占比",
       icon: TrendCharts,
       get iconClass() {
-        const negativeRatio =
-          (attitudeStatistics.value.negative / attitudeStatistics.value.total) *
-          100;
-        const sentiment = getSentimentByScore(negativeRatio);
+        const sentiment = getSentimentByScore(attitudeNegativeRatio.value);
         return getSentimentIconClass(sentiment);
       },
     },
@@ -2429,11 +2406,8 @@ const getPanelValueClass = (): string => {
     case "topic":
       return "text-topic";
     case "attitude": {
-      // 基于负面占比动态计算
-      const negativeRatio =
-        (attitudeStatistics.value.negative / attitudeStatistics.value.total) *
-        100;
-      const sentiment = getSentimentByScore(negativeRatio);
+      // 基于负面占比动态计算（使用安全占比，避免 total=0 时 NaN）
+      const sentiment = getSentimentByScore(attitudeNegativeRatio.value);
       return getSentimentTextClass(sentiment);
     }
     case "opinionRisk": {
@@ -2556,6 +2530,8 @@ const multiModalRadarOption = computed(() => {
         const dimColor = dark ? "#b6c2df" : "#333";
         const itemBg = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.02)";
         const barBg = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
+        const summaryBorderColor = dark ? "rgba(200, 209, 232, 0.3)" : "#e8e8e8";
+        const summaryLabelColor = dark ? "#b6c2df" : "#666";
 
         let html = `
           <div style="min-width: 260px;">
@@ -2625,8 +2601,8 @@ const multiModalRadarOption = computed(() => {
 
         html += `
             </div>
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8e8e8; text-align: center;">
-              <span style="font-size: 11px; color: #666;">综合风险：</span>
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid ${summaryBorderColor}; text-align: center;">
+              <span style="font-size: 11px; color: ${summaryLabelColor};">综合风险：</span>
               <span style="font-size: 16px; font-weight: 700; color: ${overallColor}; margin-left: 4px;">
                 ${Math.round(avgRisk)}
               </span>

@@ -318,11 +318,17 @@ export const register = async (params: RegisterParams): Promise<ApiResponse<Regi
 
 // 发送重置密码验证码
 export interface SendResetPwdCodeParams {
-  username: string
+  /** 用户名或邮箱，用于找回密码 */
+  identifier: string
 }
 
 export const sendResetPwdCode = async (params: SendResetPwdCodeParams): Promise<ApiResponse<string>> => {
-  const response = await api.get<ApiResponse<string>>('/account/sendMailToResetPwd', { params })
+  const response = await api.get<ApiResponse<string>>('/account/sendMailToResetPwd', {
+    params: {
+      // 后端目前参数名为 username，这里复用该参数名，值为“用户名或邮箱”
+      username: params.identifier
+    }
+  })
   return response.data
 }
 

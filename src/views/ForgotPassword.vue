@@ -2,10 +2,10 @@
   <div class="forgot-password-container">
     <div class="forgot-password-box">
       <h2 v-if="step !== 3" class="title">找回密码</h2>
-      <p v-if="step === 1" class="description">请输入您的用户名，我们将向您的注册邮箱发送验证码</p>
+      <p v-if="step === 1" class="description">请输入您的用户名或邮箱，我们将向您的注册邮箱发送验证码</p>
       <p v-if="step === 2" class="description">请输入验证码，我们将重置您的密码</p>
 
-      <!-- 第一步：输入用户名 -->
+      <!-- 第一步：输入用户名或邮箱 -->
       <div v-if="step === 1" class="step-content">
         <input
           v-model="username"
@@ -13,7 +13,7 @@
           type="text"
           name="reset-username"
           autocomplete="username"
-          placeholder="请输入用户名"
+          placeholder="请输入用户名或邮箱"
           required
         />
         <div v-if="error" class="error-message">{{ error }}</div>
@@ -103,7 +103,7 @@ const handleBackToStep1 = () => {
 // 发送验证码
 const handleSendCode = async () => {
   if (!username.value.trim()) {
-    error.value = '请输入用户名'
+    error.value = '请输入用户名或邮箱'
     return
   }
 
@@ -112,7 +112,7 @@ const handleSendCode = async () => {
 
   try {
     const params: SendResetPwdCodeParams = {
-      username: username.value.trim(),
+      identifier: username.value.trim(),
     }
     const response = await sendResetPwdCode(params)
 

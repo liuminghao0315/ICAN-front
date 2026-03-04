@@ -266,11 +266,12 @@ const attitudeStats = computed(() => {
     else neutral++
   })
   const total = evidences.length
+  const safe = (n: number) => (total > 0 ? (n / total) * 100 : 0)
   return {
     positive, neutral, negative,
-    positivePercent: ((positive / total) * 100).toFixed(1),
-    neutralPercent: ((neutral / total) * 100).toFixed(1),
-    negativePercent: ((negative / total) * 100).toFixed(1)
+    positivePercent: safe(positive).toFixed(1),
+    neutralPercent: safe(neutral).toFixed(1),
+    negativePercent: safe(negative).toFixed(1)
   }
 })
 
