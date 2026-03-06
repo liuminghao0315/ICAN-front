@@ -184,242 +184,251 @@
 
             <div class="global-stats-section stats-pro-container">
               <!-- 高校舆情分析核心指标 -->
-              <div
-                class="stat-pro-item"
-                :class="{ active: currentCardId === 'identity' }"
-                @click="openEvidenceDrawer('identity')"
-              >
-                <div class="card-tooltip">
-                  {{
-                    currentCardId === "identity"
-                      ? "点击关闭详细证据"
-                      : "点击查看详细证据"
-                  }}
-                </div>
-                <div class="pro-icon icon-bg-identity">
-                  <el-icon><User /></el-icon>
-                </div>
-                <div class="pro-content">
-                  <div class="pro-label">
-                    身份判定
-                    <span class="evidence-badge"
-                      >({{
-                        analysisResult.identity.evidences?.length || 0
-                      }})</span
-                    >
-                  </div>
-                  <div class="pro-value text-identity">
-                    {{ mockIdentityAnalysis?.identityLabel || "-" }}
-                  </div>
-                  <div class="pro-subtitle">
-                    置信度
-                    {{ mockIdentityAnalysis?.modalityFusion?.finalScore || 0 }}%
-                  </div>
-                </div>
-              </div>
-
-              <div
-                class="stat-pro-item"
-                :class="{ active: currentCardId === 'university' }"
-                @click="openEvidenceDrawer('university')"
-              >
-                <div class="card-tooltip">
-                  {{
-                    currentCardId === "university"
-                      ? "点击关闭详细证据"
-                      : "点击查看详细证据"
-                  }}
-                </div>
-                <div class="pro-icon icon-bg-uni">
-                  <el-icon><School /></el-icon>
-                </div>
-                <div class="pro-content">
-                  <div class="pro-label">
-                    涉及高校
-                    <span class="evidence-badge"
-                      >({{
-                        analysisResult.university.evidences?.length || 0
-                      }})</span
-                    >
-                  </div>
-                  <div class="pro-value text-uni">
-                    {{ mockUniversityBaseline?.universityName || "-" }}
-                  </div>
-                  <div class="pro-subtitle">
-                    匹配度
-                    {{
-                      mockUniversityBaseline?.modalityFusion?.finalScore || 0
-                    }}%
-                  </div>
-                </div>
-              </div>
-
-              <div
-                class="stat-pro-item"
-                :class="{ active: currentCardId === 'topic' }"
-                @click="openEvidenceDrawer('topic')"
-              >
-                <div class="card-tooltip">
-                  {{
-                    currentCardId === "topic"
-                      ? "点击关闭详细证据"
-                      : "点击查看详细证据"
-                  }}
-                </div>
-                <div class="pro-icon icon-bg-topic">
-                  <el-icon><ChatDotRound /></el-icon>
-                </div>
-                <div class="pro-content">
-                  <div class="pro-label">
-                    内容主题
-                    <span class="evidence-badge"
-                      >({{ analysisResult.topic.evidences?.length || 0 }})</span
-                    >
-                  </div>
-                  <div class="pro-value text-topic">
-                    {{ mockContentAnalysis?.topicCategory || "-" }}
-                  </div>
-                  <div class="pro-subtitle">
-                    {{ mockContentAnalysis?.topicSubCategory || "" }}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                class="stat-pro-item"
-                :class="{ active: currentCardId === 'attitude' }"
-                @click="openEvidenceDrawer('attitude')"
-              >
-                <div class="card-tooltip">
-                  {{
-                    currentCardId === "attitude"
-                      ? "点击关闭详细证据"
-                      : "点击查看详细证据"
-                  }}
-                </div>
+              <!-- 左列 -->
+              <div class="stats-column">
                 <div
-                  class="pro-icon"
-                  :class="
-                    getSentimentIconClass(
-                      getSentimentByScore(attitudeNegativeRatio),
-                    )
-                  "
+                  class="stat-pro-item"
+                  :class="{ active: currentCardId === 'identity' }"
+                  @click="openEvidenceDrawer('identity')"
                 >
-                  <el-icon><TrendCharts /></el-icon>
+                  <div class="card-tooltip">
+                    {{
+                      currentCardId === "identity"
+                        ? "点击关闭详细证据"
+                        : "点击查看详细证据"
+                    }}
+                  </div>
+                  <div class="pro-icon icon-bg-identity">
+                    <el-icon><User /></el-icon>
+                  </div>
+                  <div class="pro-content">
+                    <div class="pro-label">
+                      身份判定
+                      <span class="evidence-badge"
+                        >({{
+                          analysisResult.identity.evidences?.length || 0
+                        }})</span
+                      >
+                    </div>
+                    <div class="pro-value text-identity">
+                      {{ mockIdentityAnalysis?.identityLabel || "-" }}
+                    </div>
+                    <div class="pro-subtitle">
+                      置信度
+                      {{ mockIdentityAnalysis?.modalityFusion?.finalScore || 0 }}%
+                    </div>
+                  </div>
                 </div>
-                <div class="pro-content">
-                  <div class="pro-label">
-                    对学校态度
-                    <span class="evidence-badge"
-                      >({{
-                        analysisResult.attitude.evidences?.length || 0
-                      }})</span
-                    >
+
+                <div
+                  class="stat-pro-item"
+                  :class="{ active: currentCardId === 'university' }"
+                  @click="openEvidenceDrawer('university')"
+                >
+                  <div class="card-tooltip">
+                    {{
+                      currentCardId === "university"
+                        ? "点击关闭详细证据"
+                        : "点击查看详细证据"
+                    }}
+                  </div>
+                  <div class="pro-icon icon-bg-uni">
+                    <el-icon><School /></el-icon>
+                  </div>
+                  <div class="pro-content">
+                    <div class="pro-label">
+                      涉及高校
+                      <span class="evidence-badge"
+                        >({{
+                          analysisResult.university.evidences?.length || 0
+                        }})</span
+                      >
+                    </div>
+                    <div class="pro-value text-uni">
+                      {{ mockUniversityBaseline?.universityName || "-" }}
+                    </div>
+                    <div class="pro-subtitle">
+                      匹配度
+                      {{
+                        mockUniversityBaseline?.modalityFusion?.finalScore || 0
+                      }}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 中列 -->
+              <div class="stats-column">
+                <div
+                  class="stat-pro-item"
+                  :class="{ active: currentCardId === 'topic' }"
+                  @click="openEvidenceDrawer('topic')"
+                >
+                  <div class="card-tooltip">
+                    {{
+                      currentCardId === "topic"
+                        ? "点击关闭详细证据"
+                        : "点击查看详细证据"
+                    }}
+                  </div>
+                  <div class="pro-icon icon-bg-topic">
+                    <el-icon><ChatDotRound /></el-icon>
+                  </div>
+                  <div class="pro-content">
+                    <div class="pro-label">
+                      内容主题
+                      <span class="evidence-badge"
+                        >({{ analysisResult.topic.evidences?.length || 0 }})</span
+                      >
+                    </div>
+                    <div class="pro-value text-topic">
+                      {{ mockContentAnalysis?.topicCategory || "-" }}
+                    </div>
+                    <div class="pro-subtitle">
+                      {{ mockContentAnalysis?.topicSubCategory || "" }}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="stat-pro-item"
+                  :class="{ active: currentCardId === 'attitude' }"
+                  @click="openEvidenceDrawer('attitude')"
+                >
+                  <div class="card-tooltip">
+                    {{
+                      currentCardId === "attitude"
+                        ? "点击关闭详细证据"
+                        : "点击查看详细证据"
+                    }}
                   </div>
                   <div
-                    class="pro-value"
+                    class="pro-icon"
                     :class="
-                      getSentimentTextClass(
+                      getSentimentIconClass(
                         getSentimentByScore(attitudeNegativeRatio),
                       )
                     "
                   >
-                    {{
-                      getSentimentLabel(
-                        getSentimentByScore(attitudeNegativeRatio),
-                      )
-                    }}
+                    <el-icon><TrendCharts /></el-icon>
                   </div>
-                  <div class="pro-subtitle">
-                    {{
-                      mockContentAnalysis?.negativeMentionCount || 0
-                    }}处负面，占比
-                    {{ Math.round(attitudeNegativeRatio) }}%
+                  <div class="pro-content">
+                    <div class="pro-label">
+                      对学校态度
+                      <span class="evidence-badge"
+                        >({{
+                          analysisResult.attitude.evidences?.length || 0
+                        }})</span
+                      >
+                    </div>
+                    <div
+                      class="pro-value"
+                      :class="
+                        getSentimentTextClass(
+                          getSentimentByScore(attitudeNegativeRatio),
+                        )
+                      "
+                    >
+                      {{
+                        getSentimentLabel(
+                          getSentimentByScore(attitudeNegativeRatio),
+                        )
+                      }}
+                    </div>
+                    <div class="pro-subtitle">
+                      {{
+                        mockContentAnalysis?.negativeMentionCount || 0
+                      }}处负面，占比
+                      {{ Math.round(attitudeNegativeRatio) }}%
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div
-                class="stat-pro-item"
-                :class="{ active: currentCardId === 'opinionRisk' }"
-                @click="openEvidenceDrawer('opinionRisk')"
-              >
-                <div class="card-tooltip">
-                  {{
-                    currentCardId === "opinionRisk"
-                      ? "点击关闭详细证据"
-                      : "点击查看详细证据"
-                  }}
-                </div>
+              <!-- 右列 -->
+              <div class="stats-column">
                 <div
-                  class="pro-icon"
-                  :class="
-                    getOpinionRiskIconClass(
-                      getRiskLevelByScore(
-                        analysisResult.opinionRisk.modalityFusion.finalScore,
-                      ),
-                    )
-                  "
+                  class="stat-pro-item"
+                  :class="{ active: currentCardId === 'opinionRisk' }"
+                  @click="openEvidenceDrawer('opinionRisk')"
                 >
-                  <el-icon><WarningFilled /></el-icon>
-                </div>
-                <div class="pro-content">
-                  <div class="pro-label">
-                    潜在舆论风险
-                    <span class="evidence-badge"
-                      >({{
-                        analysisResult.opinionRisk.evidences?.length || 0
-                      }})</span
-                    >
-                    <span class="ai-predict-badge">AI预测</span>
+                  <div class="card-tooltip">
+                    {{
+                      currentCardId === "opinionRisk"
+                        ? "点击关闭详细证据"
+                        : "点击查看详细证据"
+                    }}
                   </div>
                   <div
-                    class="pro-value"
+                    class="pro-icon"
                     :class="
-                      getOpinionRiskTextClass(
+                      getOpinionRiskIconClass(
                         getRiskLevelByScore(
                           analysisResult.opinionRisk.modalityFusion.finalScore,
                         ),
                       )
                     "
                   >
-                    {{ mockOpinionRisk?.riskLabel || "-" }}
+                    <el-icon><WarningFilled /></el-icon>
                   </div>
-                  <div class="pro-subtitle">
-                    {{ mockOpinionRisk?.riskReason || "" }}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                class="stat-pro-item"
-                :class="{ active: currentCardId === 'action' }"
-                @click="openEvidenceDrawer('action')"
-              >
-                <div class="card-tooltip">
-                  {{
-                    currentCardId === "action"
-                      ? "点击关闭详细证据"
-                      : "点击查看详细证据"
-                  }}
-                </div>
-                <div class="pro-icon icon-bg-action">
-                  <el-icon><DocumentChecked /></el-icon>
-                </div>
-                <div class="pro-content">
-                  <div class="pro-label">
-                    处置建议
-                    <span class="evidence-badge"
-                      >({{
-                        analysisResult.action.evidences?.length || 0
-                      }})</span
+                  <div class="pro-content">
+                    <div class="pro-label">
+                      潜在舆论风险
+                      <span class="evidence-badge"
+                        >({{
+                          analysisResult.opinionRisk.evidences?.length || 0
+                        }})</span
+                      >
+                      <span class="ai-predict-badge">AI预测</span>
+                    </div>
+                    <div
+                      class="pro-value"
+                      :class="
+                        getOpinionRiskTextClass(
+                          getRiskLevelByScore(
+                            analysisResult.opinionRisk.modalityFusion.finalScore,
+                          ),
+                        )
+                      "
                     >
+                      {{ mockOpinionRisk?.riskLabel || "-" }}
+                    </div>
+                    <div class="pro-subtitle">
+                      {{ mockOpinionRisk?.riskReason || "" }}
+                    </div>
                   </div>
-                  <div class="pro-value text-action">
-                    {{ mockOpinionRisk?.actionSuggestion || "-" }}
+                </div>
+
+                <div
+                  class="stat-pro-item"
+                  :class="{ active: currentCardId === 'action' }"
+                  @click="openEvidenceDrawer('action')"
+                >
+                  <div class="card-tooltip">
+                    {{
+                      currentCardId === "action"
+                        ? "点击关闭详细证据"
+                        : "点击查看详细证据"
+                    }}
                   </div>
-                  <div class="pro-subtitle">
-                    {{ mockOpinionRisk?.actionDetail || "" }}
+                  <div class="pro-icon icon-bg-action">
+                    <el-icon><DocumentChecked /></el-icon>
+                  </div>
+                  <div class="pro-content">
+                    <div class="pro-label">
+                      处置建议
+                      <span class="evidence-badge"
+                        >({{
+                          analysisResult.action.evidences?.length || 0
+                        }})</span
+                      >
+                    </div>
+                    <div class="pro-value text-action">
+                      {{ mockOpinionRisk?.actionSuggestion || "-" }}
+                    </div>
+                    <div class="pro-subtitle">
+                      {{ mockOpinionRisk?.actionDetail || "" }}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -6579,9 +6588,7 @@ $purple: #409eff;
     }
 
     .global-stats-section {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr); // 改为3列
-      gap: 16px 12px; // 增加列间距
+      // 移除grid布局，让内部的stats-pro-container使用flex布局
       padding: 0;
 
       .stat-item-archive {
@@ -10402,17 +10409,22 @@ $purple: #409eff;
 }
 
 /* --- V5 最终版：专业仪表盘样式 --- */
-/* 容器：4列x2行网格布局 */
+/* 容器：flex布局，左中右三列 */
 .stats-pro-container {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr); // 改为3列
-  grid-template-rows: repeat(2, 1fr); // 2行
+  display: flex;
+  gap: 20px;
   background: transparent;
   padding: 0 10px;
-  gap: 16px 12px; // 行间距16px, 列间距12px（增加列间距）
   border: none;
   margin-right: -12px;
   box-shadow: none;
+}
+
+/* 每一列：垂直排列两个卡片 */
+.stats-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* 单个数据项 */
