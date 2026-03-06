@@ -1530,6 +1530,7 @@ import {
 import VChart from "vue-echarts";
 import { ElMessage } from "element-plus";
 import type { RiskLevel, SentimentLabel } from "@/types";
+import config from "@/config";
 
 // 导入证据抽屉组件和数据
 import EvidenceDrawer from "@/components/EvidenceDrawer.vue";
@@ -3827,7 +3828,7 @@ const initializeComponent = () => {
   });
 
   // 5. 【开发模式】验证事件流数据
-  if (import.meta.env.DEV && timelineEvents.value.length > 0) {
+  if (config.mockMode && timelineEvents.value.length > 0) {
     import("@/utils/verifyTimelineEvents").then(({ printValidationReport }) => {
       printValidationReport();
     });

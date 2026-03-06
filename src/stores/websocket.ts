@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useUserStore } from './user'
+import config from '@/config'
 import type { WSMessage, TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData } from '@/types'
 
 /**
@@ -10,15 +11,15 @@ import type { WSMessage, TaskProgressData, TaskCompletedData, TaskFailedData, Vi
 export const useWebSocketStore = defineStore('websocket', () => {
   // WebSocket 实例
   let ws: WebSocket | null = null
-  
+
   // 连接状态
   const isConnected = ref(false)
   const reconnectCount = ref(0)
-  
+
   // 配置
-  const maxReconnect = 5
-  const reconnectInterval = 3000
-  const heartbeatInterval = 30000
+  const maxReconnect = config.websocket.maxReconnect
+  const reconnectInterval = config.websocket.reconnectInterval
+  const heartbeatInterval = config.websocket.heartbeatInterval
   
   // 定时器
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null
@@ -103,8 +104,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
       return
     }
 
-    const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8080'
-    const wsUrl = `${wsBaseUrl}/ws/task-progress/${userId}`
+    const wsUrl = `${config.wsBaseUrl}/ws/task-progress/${userId}`
 
     try {
       ws = new WebSocket(wsUrl)

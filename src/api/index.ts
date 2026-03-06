@@ -2,6 +2,7 @@ import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import config from '@/config'
 import type {
   Result,
   PageResult,
@@ -23,7 +24,7 @@ import type {
 // ==================== 双 Token 最佳实践常量 ====================
 
 /** 在 accessToken 过期前多少毫秒主动刷新（5 分钟） */
-const PROACTIVE_REFRESH_BEFORE_MS = 5 * 60 * 1000
+const PROACTIVE_REFRESH_BEFORE_MS = config.proactiveRefreshBeforeMs
 
 /** 主动刷新定时器 ID，用于清除旧定时 */
 let proactiveRefreshTimerId: ReturnType<typeof setTimeout> | null = null
@@ -54,7 +55,7 @@ async function doSilentRefresh(): Promise<{ accessToken: string; refreshToken: s
   }
   try {
     const res = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
-      `${api.defaults.baseURL || 'http://localhost:8080'}/auth/refresh`,
+      `${api.defaults.baseURL || config.apiBaseUrl}/auth/refresh`,
       null,
       { params: { refreshToken }, headers: { 'Content-Type': 'application/json' } }
     )
@@ -130,8 +131,8 @@ export interface ApiResponse<T = any> {
 
 // 创建axios实例
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
-  timeout: 30000,
+  baseURL: config.apiBaseUrl,
+  timeout: config.timeout,
   headers: {
     'Content-Type': 'application/json'
   }

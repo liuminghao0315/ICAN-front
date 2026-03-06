@@ -753,6 +753,7 @@ import {
   addWordsToWordPack,
   deleteWordFromPack
 } from '@/api'
+import config from '@/config'
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let newPackOverlayMouseDown = false
@@ -835,7 +836,7 @@ const wordPacks = ref<WordPack[]>([])
 const dataLoading = ref(true)
 
 // AI API Key
-const AI_API_KEY = 'sk-f0fb08942c5c49e6bbf63981fc966229'
+const AI_API_KEY = config.deepseek.apiKey
 
 // AI 提示词输入
 const aiPromptInput = ref('')
@@ -1296,14 +1297,14 @@ const runAIAnalysis = async () => {
 请分析当代大学生在受到监管压力下，会如何通过隐喻、黑话、谐音等方式来表达"${seedWord}"这个概念。输出 JSON。`
 
   try {
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
+    const response = await fetch(config.deepseek.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${AI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: config.deepseek.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

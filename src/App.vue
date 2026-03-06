@@ -94,11 +94,11 @@ body {
 
 @keyframes messageSlideIn {
   0% {
-    transform: translateY(-20px);
+    transform: translateX(-50%) translateY(-20px);
     opacity: 0;
   }
   100% {
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
     opacity: 1;
   }
 }
