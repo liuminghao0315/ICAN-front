@@ -603,6 +603,25 @@ export const getResultByVideoId = async (videoId: string, feedback?: string): Pr
   return response.data
 }
 
+export interface AnalysisShareInfo {
+  token: string
+  resultId: string
+  sharePath: string
+  expireAt: string
+}
+
+// 创建分析结果分享链接
+export const createAnalysisShare = async (resultId: string): Promise<ApiResponse<AnalysisShareInfo>> => {
+  const response = await api.post<ApiResponse<AnalysisShareInfo>>('/api/analysis/share', { resultId })
+  return response.data
+}
+
+// 通过分享token获取公开分析结果
+export const getSharedAnalysisResult = async (token: string): Promise<ApiResponse<any>> => {
+  const response = await api.get<ApiResponse<any>>(`/public/analysis/share/${token}`)
+  return response.data
+}
+
 // 获取分析结果列表
 export const getResultList = async (
   page: number = 1,

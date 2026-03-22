@@ -15,6 +15,9 @@ export const useAnalysisActionsStore = defineStore('analysisActions', () => {
   // 当前分析页对应的 taskId，供 MainLayout 收藏按钮使用
   const currentTaskId = ref<string | null>(null)
 
+  // 当前分析页对应的 resultId，供 MainLayout 分享按钮使用
+  const currentResultId = ref<string | null>(null)
+
   const triggerExport = () => {
     exportTrigger.value++
   }
@@ -27,5 +30,18 @@ export const useAnalysisActionsStore = defineStore('analysisActions', () => {
     currentTaskId.value = id
   }
 
-  return { exportTrigger, hasAnalysisData, currentTaskId, triggerExport, setHasAnalysisData, setCurrentTaskId }
+  const setCurrentResultId = (id: string | null) => {
+    currentResultId.value = id
+  }
+
+  return {
+    exportTrigger,
+    hasAnalysisData,
+    currentTaskId,
+    currentResultId,
+    triggerExport,
+    setHasAnalysisData,
+    setCurrentTaskId,
+    setCurrentResultId
+  }
 })

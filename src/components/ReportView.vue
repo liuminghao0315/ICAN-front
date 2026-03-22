@@ -247,7 +247,7 @@ import type { AnalysisResult } from '@/data/mockAnalysisResult'
 
 const emit = defineEmits<{ 'export-pdf': [] }>()
 
-const props = defineProps<{ data: AnalysisResult }>()
+const props = defineProps<{ data: AnalysisResult; hideExport?: boolean }>()
 
 const handleExport = () => {
   emit('export-pdf')
@@ -506,7 +506,7 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
   max-width: 794px;
   min-height: 297mm;
   margin: 0 auto;
-  transform: translateY(-50px);
+  transform: translateY(-28px);
   background: #ffffff !important; // 始终白色纸张
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   padding: 28mm 24mm;
@@ -1031,4 +1031,6 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
   color: #C00000 !important;
 }
 </style>
+
+
 

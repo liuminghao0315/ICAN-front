@@ -150,7 +150,6 @@
       ref="analysisContentRef"
       :analysis-result="analysisData"
       :view-mode="viewMode"
-      :hide-export="isReviewMode"
       @update:view-mode="viewMode = $event"
       @export-pdf="handleExportPdf"
     />
@@ -182,27 +181,27 @@
       @feedback-refreshed="onReviewFeedbackRefreshed"
       @lock="handleLock"
     />
-  </div>
 
-  <Teleport to="body">
-    <div v-if="videoDeletedOverlay" class="video-deleted-overlay">
-      <div class="video-deleted-modal">
-        <div class="modal-icon">⚠️</div>
-        <h3>视频已被删除</h3>
-        <p>该视频已被用户删除，即将返回反馈管理页</p>
-        <div class="countdown">{{ deletedCountdown }}</div>
-        <button class="back-btn" @click="goToFeedbackNow">立即返回</button>
+    <Teleport to="body">
+      <div v-if="videoDeletedOverlay" class="video-deleted-overlay">
+        <div class="video-deleted-modal">
+          <div class="modal-icon">⚠️</div>
+          <h3>视频已被删除</h3>
+          <p>该视频已被用户删除，即将返回反馈管理页</p>
+          <div class="countdown">{{ deletedCountdown }}</div>
+          <button class="back-btn" @click="goToFeedbackNow">立即返回</button>
+        </div>
       </div>
-    </div>
-  </Teleport>
+    </Teleport>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onUnmounted } from 'vue'
+import { ref, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { ElMessage } from 'element-plus'
-import { VideoPlay, DataAnalysis, Close, Document, Download, ChatDotRound } from '@element-plus/icons-vue'
+import { VideoPlay, DataAnalysis, Close, Document, ChatDotRound } from '@element-plus/icons-vue'
 import { getVideoList, getResultById, getResultByVideoId, getResultByTaskId, getMyFeedbackByVideo, clearFeedbackUnread, getFeedbackById, lockFeedback, type VideoInfo, type FeedbackVO } from '@/api'
 import type { FeedbackUpdatedData, FeedbackNewData, FeedbackLockedData } from '@/types'
 import AnalysisContent from '@/components/AnalysisContent.vue'
@@ -290,25 +289,6 @@ const viewMode = ref<'interactive' | 'report'>('interactive')  // 视图模式
 const showFeedbackDialog = ref(false)
 const currentFeedback = ref<FeedbackVO | null>(null)
 const analysisContentRef = ref<InstanceType<typeof AnalysisContent> | null>(null)
-let lastAnalysisDebugKey = ''
-
-const safeJsonStringify = (value: unknown) => {
-  try {
-    return JSON.stringify(
-      value,
-      (_key, currentValue) => {
-        if (typeof currentValue === 'bigint') return currentValue.toString()
-        if (currentValue instanceof Date) return currentValue.toISOString()
-        return currentValue
-      },
-      2
-    )
-  } catch (error) {
-    return JSON.stringify({
-      stringifyError: error instanceof Error ? error.message : 'unknown error'
-    })
-  }
-}
 
 // ==================== 数据加载方法 ====================
 const fetchVideos = async () => {
@@ -340,59 +320,6 @@ const selectVideo = (video: VideoInfo) => {
   loadAnalysisByVideo()
 }
 
-// ==================== 调试日志（用于排查后端返回数据） ====================
-const logAnalysisDebug = (source: string, videoId: string, data: any) => {
-  try {
-    const timelineData = data?.timelineData || {}
-    const summary = {
-      source,
-      videoId,
-      resultId: data?.id,
-      taskId: data?.taskId,
-      isUniversityRelated: data?.isUniversityRelated,
-      timeGranularity: timelineData?.timeGranularity,
-      videoRisksLength: Array.isArray(timelineData?.videoRisks)
-        ? timelineData.videoRisks.length
-        : 'not-array',
-      audioEmotionsLength: Array.isArray(timelineData?.audioEmotions)
-        ? timelineData.audioEmotions.length
-        : 'not-array',
-      textRisksLength: Array.isArray(timelineData?.textRisks)
-        ? timelineData.textRisks.length
-        : 'not-array',
-      comprehensiveRisksLength: Array.isArray(timelineData?.comprehensiveRisks)
-        ? timelineData.comprehensiveRisks.length
-        : 'not-array'
-    }
-
-    const debugKey = [
-      summary.source,
-      summary.videoId,
-      summary.resultId,
-      summary.taskId,
-      summary.timeGranularity,
-      summary.videoRisksLength,
-      summary.audioEmotionsLength,
-      summary.textRisksLength,
-      summary.comprehensiveRisksLength
-    ].join('|')
-
-    if (debugKey === lastAnalysisDebugKey) return
-    lastAnalysisDebugKey = debugKey
-
-    const debugPayload = {
-      source,
-      videoId,
-      summary,
-      rawData: data
-    }
-
-    console.log(`[分析数据排查] 后端分析原始数据(JSON可复制):\n${safeJsonStringify(debugPayload)}`)
-  } catch (e) {
-    // 调试日志不影响业务流程
-  }
-}
-
 const loadAnalysisByVideo = async () => {
   if (!selectedVideoId.value) {
     analysisData.value = null
@@ -407,7 +334,6 @@ const loadAnalysisByVideo = async () => {
     const response = await getResultByVideoId(selectedVideoId.value)
     
     if (response.code === 200 && response.data) {
-      logAnalysisDebug('getResultByVideoId', selectedVideoId.value, response.data)
       analysisData.value = response.data
       emptyMessage.value = ''
       loadFeedbackForVideo(selectedVideoId.value)
@@ -491,11 +417,11 @@ const loadAnalysisById = async (resultId: string) => {
     const response = await getResultById(resultId)
     
     if (response.code === 200 && response.data) {
-      logAnalysisDebug('getResultById', response.data.videoInfo?.videoId || response.data.videoId || '', response.data)
-      analysisData.value = response.data
-      selectedVideoId.value = response.data.videoId
+      const resultData = response.data as any
+      analysisData.value = resultData
+      selectedVideoId.value = resultData.videoId
       emptyMessage.value = ''
-      if (response.data.videoInfo?.videoId) loadFeedbackForVideo(response.data.videoInfo.videoId)
+      if (resultData.videoInfo?.videoId) loadFeedbackForVideo(resultData.videoInfo.videoId)
     } else {
       analysisData.value = null
       emptyMessage.value = '分析结果不存在'
@@ -516,11 +442,11 @@ const loadAnalysisByTaskId = async (taskId: string) => {
     const response = await getResultByTaskId(taskId)
     
     if (response.code === 200 && response.data) {
-      logAnalysisDebug('getResultByTaskId', response.data.videoInfo?.videoId || response.data.videoId || '', response.data)
-      analysisData.value = response.data
-      selectedVideoId.value = response.data.videoId
+      const resultData = response.data as any
+      analysisData.value = resultData
+      selectedVideoId.value = resultData.videoId
       emptyMessage.value = ''
-      if (response.data.videoInfo?.videoId) loadFeedbackForVideo(response.data.videoInfo.videoId)
+      if (resultData.videoInfo?.videoId) loadFeedbackForVideo(resultData.videoInfo.videoId)
     } else {
       analysisData.value = null
       emptyMessage.value = '该任务尚未生成分析结果'
@@ -561,15 +487,38 @@ const getStatusText = (status: string) => {
 
 // 导出PDF
 const { exportReportByUrl } = useExportReport()
-const handleExportPdf = () => {
-  if (!analysisData.value?.reportPdfUrl) {
-    ElMessage.warning('PDF 报告尚未生成，请稍后重试')
-    return
-  }
+const waitReportRender = () => new Promise(resolve => setTimeout(resolve, 400))
+
+const handleExportPdf = async () => {
   const fileName = analysisData.value?.videoInfo?.fileName
     ? analysisData.value.videoInfo.fileName.replace(/\.[^.]+$/, '.pdf')
     : undefined
-  exportReportByUrl(analysisData.value.reportPdfUrl, fileName)
+
+  if (analysisData.value?.reportPdfUrl) {
+    await exportReportByUrl(analysisData.value.reportPdfUrl, fileName)
+    return
+  }
+
+  const exporter = analysisContentRef.value?.exportToPdf
+  if (!exporter) {
+    ElMessage.warning('当前报告暂不可导出，请稍后重试')
+    return
+  }
+
+  const previousViewMode = viewMode.value
+  if (viewMode.value !== 'report') {
+    viewMode.value = 'report'
+    await nextTick()
+    await waitReportRender()
+  }
+
+  try {
+    await exporter()
+  } finally {
+    if (previousViewMode !== viewMode.value) {
+      viewMode.value = previousViewMode
+    }
+  }
 }
 
 // 监听侧边栏导出按钮触发
@@ -582,13 +531,15 @@ watch(() => analysisActionsStore.exportTrigger, (newVal, oldVal) => {
 
 // 同步分析数据状态到 store，供 MainLayout 侧边栏按钮判断
 watch(analysisData, (val) => {
-  analysisActionsStore.setHasAnalysisData(!!val && !isReviewMode.value)
+  analysisActionsStore.setHasAnalysisData(!!val)
   analysisActionsStore.setCurrentTaskId(val?.taskId ?? null)
+  analysisActionsStore.setCurrentResultId(val?.id ?? null)
 })
 
 onUnmounted(() => {
   analysisActionsStore.setHasAnalysisData(false)
   analysisActionsStore.setCurrentTaskId(null)
+  analysisActionsStore.setCurrentResultId(null)
   if (deletedTimer) clearInterval(deletedTimer)
 })
 
@@ -837,6 +788,18 @@ $purple: #409EFF;
         color: #b7791f;
         background: rgba(#e6a23c, 0.12);
         border-color: rgba(#e6a23c, 0.3);
+      }
+    }
+
+    .json-copy-btn {
+      color: #5b6b92;
+      border: 1px solid rgba(#409EFF, 0.24);
+      background: rgba(#409EFF, 0.06);
+
+      &:hover {
+        color: $purple;
+        border-color: rgba(#409EFF, 0.42);
+        background: rgba(#409EFF, 0.12);
       }
     }
 
@@ -1280,6 +1243,14 @@ $purple: #409EFF;
   padding-left: 0 !important;
 }
 </style>
+
+
+
+
+
+
+
+
 
 
 

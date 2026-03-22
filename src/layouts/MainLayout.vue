@@ -85,8 +85,8 @@
         <aside v-else key="analysis-toolbar" class="mini-sidebar">
           <!-- 顶部：返回记录中心 -->
           <div class="mini-sidebar-top">
-            <el-tooltip content="返回记录中心" placement="right" :show-after="300">
-              <button class="analysis-tool-btn back-btn" @click="router.push('/records')">
+            <el-tooltip :content="analysisBackTooltip" placement="right" :show-after="300">
+              <button class="analysis-tool-btn back-btn" @click="handleAnalysisBack">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M19 12H5"/>
                   <path d="M12 19l-7-7 7-7"/>
@@ -96,7 +96,7 @@
           </div>
 
           <!-- 底部：操作工具组 -->
-          <div class="mini-sidebar-bottom">
+          <div v-if="!isPublicSharePage" class="mini-sidebar-bottom">
             <el-tooltip content="导出报告" placement="right" :show-after="300">
               <button 
                 class="analysis-tool-btn" 
@@ -112,16 +112,19 @@
               </button>
             </el-tooltip>
 
-            <el-tooltip content="复制链接" placement="right" :show-after="300">
+            <el-tooltip content="分享" placement="right" :show-after="300">
               <button 
                 class="analysis-tool-btn"
-                :class="{ 'is-disabled': !analysisActionsStore.hasAnalysisData }"
-                :disabled="!analysisActionsStore.hasAnalysisData"
-                @click="analysisActionsStore.hasAnalysisData && handleCopyLink()"
+                :class="{ 'is-disabled': !canShareAnalysis }"
+                :disabled="!canShareAnalysis"
+                @click="canShareAnalysis && handleShareAnalysis()"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  <circle cx="18" cy="5" r="3"/>
+                  <circle cx="6" cy="12" r="3"/>
+                  <circle cx="18" cy="19" r="3"/>
+                  <path d="M8.6 13.5l6.8 4"/>
+                  <path d="M15.4 6.5l-6.8 4"/>
                 </svg>
               </button>
             </el-tooltip>
@@ -149,7 +152,7 @@
       <el-header class="header">
         <div class="header-left">
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: homeBreadcrumbPath }">{{ homeBreadcrumbLabel }}</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
@@ -194,8 +197,6 @@
         </div>
 
         <div class="header-right">
-          <NotificationBell />
-
           <!-- 主题切换按钮 -->
           <button class="theme-toggle-btn" @click="toggleTheme" :title="isDarkMode ? '切换到浅色模式' : '切换到深色模式'">
             <svg v-if="isDarkMode" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -214,7 +215,9 @@
             </svg>
           </button>
 
-          <div class="user-dropdown" ref="userDropdownRef">
+          <NotificationBell v-if="userStore.isLoggedIn" />
+
+          <div v-if="userStore.isLoggedIn" class="user-dropdown" ref="userDropdownRef">
             <div class="user-info" ref="userInfoRef" @click="toggleDropdown">
               <div class="user-avatar" :class="{ 'has-photo': !!userStore.userInfo?.avatarUrl }">
                 <img v-if="userStore.userInfo?.avatarUrl"
@@ -300,7 +303,7 @@
   import { useFolderStore } from '@/stores/folder'
   import { useFavoritesStore } from '@/stores/favorites'
   import { useAnalysisActionsStore } from '@/stores/analysisActions'
-  import { getTaskList, getMe, cancelProactiveRefresh, scheduleProactiveRefresh } from '@/api'
+  import { getTaskList, getMe, cancelProactiveRefresh, scheduleProactiveRefresh, createAnalysisShare } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
   import FolderTree from '@/components/FolderTree.vue'
   import NotificationBell from '@/components/NotificationBell.vue'
@@ -420,8 +423,22 @@
     return false
   }
 
-  // 检测是否处于分析详情页（Analysis 路由）
-  const isAnalysisDetail = computed(() => route.name === 'Analysis')
+  // 检测是否处于分析详情页（真实分析页 + 分享分析页）
+  const isAnalysisDetail = computed(() => route.name === 'Analysis' || route.name === 'AnalysisShare')
+  const isPublicSharePage = computed(() => route.name === 'AnalysisShare')
+  const homeBreadcrumbLabel = computed(() => '首页')
+  const homeBreadcrumbPath = computed(() => userStore.isLoggedIn ? '/dashboard' : '/')
+  const analysisBackTarget = computed(() => {
+    if (isPublicSharePage.value) {
+      return userStore.isLoggedIn ? '/dashboard' : '/'
+    }
+    return '/records'
+  })
+  const analysisBackTooltip = computed(() => isPublicSharePage.value ? '返回首页' : '返回记录中心')
+  const canShareAnalysis = computed(() => analysisActionsStore.hasAnalysisData && !!analysisActionsStore.currentResultId)
+  const handleAnalysisBack = () => {
+    router.push(analysisBackTarget.value)
+  }
 
   // 分析页收藏按钮：从 store 获取当前分析数据的 taskId
   const analysisTaskId = computed(() => analysisActionsStore.currentTaskId)
@@ -438,12 +455,27 @@
     ElMessage.success(wasFavorited ? '已取消收藏' : '收藏成功')
   }
 
-  const handleCopyLink = async () => {
+  const handleShareAnalysis = async () => {
+    if (!analysisActionsStore.currentResultId) {
+      ElMessage.warning('当前分析结果还不能分享')
+      return
+    }
+
     try {
-      await navigator.clipboard.writeText(window.location.href)
-      ElMessage.success('链接已复制')
+      const res = await createAnalysisShare(analysisActionsStore.currentResultId)
+      if (res.code !== 200 || !res.data?.sharePath) {
+        throw new Error(res.message || '分享链接生成失败')
+      }
+
+      const shareUrl = new URL(res.data.sharePath, window.location.origin).toString()
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        ElMessage.success('分享链接已复制，发给别人即可查看该分析页')
+      } catch {
+        window.prompt('请手动复制分享链接', shareUrl)
+      }
     } catch (_error) {
-      ElMessage.error('复制失败，请手动复制地址栏链接')
+      ElMessage.error('分享链接生成失败，请稍后重试')
     }
   }
 

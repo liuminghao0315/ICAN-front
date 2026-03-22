@@ -72,6 +72,12 @@ const router = createRouter({
           meta: { title: '分析结果' }
         },
         {
+          path: '/share/analysis/:token',
+          name: 'AnalysisShare',
+          component: () => import('@/views/AnalysisShare.vue'),
+          meta: { title: '分析结果', requiresAuth: false }
+        },
+        {
           path: '/favorites',
           name: 'Favorites',
           component: () => import('@/views/Favorites.vue'),

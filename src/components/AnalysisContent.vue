@@ -1588,6 +1588,7 @@ import {
 const props = defineProps<{
   analysisResult: typeof mockAnalysisResult; // 分析结果数据
   viewMode: "interactive" | "report"; // 视图模式
+  hideExport?: boolean;
 }>();
 
 // Emits 定义
@@ -1663,21 +1664,26 @@ const mockUniversityBaseline = computed(
 );
 
 // 计算attitude的统计数据（前端根据sentimentScore统计）
-const attitudeStatistics = computed(() => {
+const attitudeStatistics = computed<{
+  positive: number;
+  neutral: number;
+  negative: number;
+  total: number;
+}>(() => {
   if (!currentResult.value)
     return { positive: 0, neutral: 0, negative: 0, total: 0 };
-  const evidences = currentResult.value.attitude.evidences;
+  const evidences = currentResult.value.attitude.evidences as Evidence[];
   const positive = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore < 40,
+    (e: Evidence) => e.sentimentScore !== undefined && e.sentimentScore < 40,
   ).length;
   const neutral = evidences.filter(
-    (e) =>
+    (e: Evidence) =>
       e.sentimentScore !== undefined &&
       e.sentimentScore >= 40 &&
       e.sentimentScore <= 70,
   ).length;
   const negative = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore > 70,
+    (e: Evidence) => e.sentimentScore !== undefined && e.sentimentScore > 70,
   ).length;
   const total = evidences.length;
   return { positive, neutral, negative, total };
@@ -1816,15 +1822,25 @@ const cardsData = computed<CardData[]>(() => {
   ];
 });
 
+const defaultCardData: CardData = {
+  id: "",
+  label: "未选择卡片",
+  value: "-",
+  confidence: 0,
+  confidenceLabel: "置信度",
+  icon: User,
+  iconClass: "icon-bg-normal",
+};
+
 // ==================== 证据详情面板相关状态 ====================
 const currentCardId = ref<string>("");
 const currentCardData = computed<CardData>(() => {
   const card = cardsData.value.find((c) => c.id === currentCardId.value);
-  return card || cardsData.value[0];
+  return card || cardsData.value[0] || defaultCardData;
 });
 
 // 当前卡片的证据和融合数据（从对应的分析对象中获取）
-const currentEvidences = computed(() => {
+const currentEvidences = computed<Evidence[]>(() => {
   const result = currentResult.value;
   if (!result) return [];
 
@@ -1884,33 +1900,33 @@ const getFusionFormula = (fusion: ModalityFusion | null): string => {
 
 // 分类证据
 const videoEvidences = computed(() =>
-  currentEvidences.value.filter((e) => e.type === "video"),
+  currentEvidences.value.filter((e: Evidence) => e.type === "video"),
 );
 
 const audioEvidences = computed(() =>
-  currentEvidences.value.filter((e) => e.type === "audio"),
+  currentEvidences.value.filter((e: Evidence) => e.type === "audio"),
 );
 
 const textEvidences = computed(() =>
-  currentEvidences.value.filter((e) => e.type === "text"),
+  currentEvidences.value.filter((e: Evidence) => e.type === "text"),
 );
 
 // 计算各模态的统计数据（用于统计类型卡片）
 const getModalityStatistics = (modalityType: "video" | "audio" | "text") => {
   const evidences = currentEvidences.value.filter(
-    (e) => e.type === modalityType,
+    (e: Evidence) => e.type === modalityType,
   );
   const positive = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore < 40,
+    (e: Evidence) => e.sentimentScore !== undefined && e.sentimentScore < 40,
   ).length;
   const neutral = evidences.filter(
-    (e) =>
+    (e: Evidence) =>
       e.sentimentScore !== undefined &&
       e.sentimentScore >= 40 &&
       e.sentimentScore <= 70,
   ).length;
   const negative = evidences.filter(
-    (e) => e.sentimentScore !== undefined && e.sentimentScore > 70,
+    (e: Evidence) => e.sentimentScore !== undefined && e.sentimentScore > 70,
   ).length;
   const total = evidences.length;
 
@@ -2468,7 +2484,7 @@ const RISK_THRESHOLD_HIGH = 70;
 const RISK_THRESHOLD_LOW = 40;
 
 // ==================== Gemini优化：多模态融合雷达图数据 ====================
-const multiModalRadarOption = computed(() => {
+const multiModalRadarOption = computed<any>(() => {
   // 高校舆情分析维度说明映射
   const dimensionDesc: Record<string, string> = {
     身份置信度: "判定发布者为本校学生/校友的置信程度",
@@ -2726,17 +2742,26 @@ const multiModalRadarOption = computed(() => {
 // ==================== 报告视图专用雷达图配置 ====================
 // 1. 最高风险雷达图 - 找出综合风险最高的时间段
 const peakRiskData = computed(() => {
-  const radarData = mockRadarDataByTime.value;
-  if (!radarData || radarData.length === 0) return { data: [0, 0, 0, 0, 0, 0] };
+  const radarData = mockRadarDataByTime.value as Array<{
+    data: number[];
+    timeStart?: number;
+    timeEnd?: number;
+  }>;
+
+  if (!radarData || radarData.length === 0) {
+    return { data: [0, 0, 0, 0, 0, 0], avgRisk: 0, timeStart: 0, timeEnd: 0 };
+  }
 
   let maxRisk = 0;
+  let peakIndex = 0;
   let peakData = radarData[0] || { data: [0, 0, 0, 0, 0, 0] };
 
-  radarData.forEach((timeData) => {
+  radarData.forEach((timeData, index) => {
     const avgRisk =
       timeData.data.reduce((a, b) => a + b, 0) / timeData.data.length;
     if (avgRisk > maxRisk) {
       maxRisk = avgRisk;
+      peakIndex = index;
       peakData = timeData;
     }
   });
@@ -2744,6 +2769,8 @@ const peakRiskData = computed(() => {
   return {
     data: peakData?.data || [0, 0, 0, 0, 0, 0],
     avgRisk: Math.round(maxRisk),
+    timeStart: peakData?.timeStart ?? peakIndex * timeGranularity.value,
+    timeEnd: peakData?.timeEnd ?? (peakIndex + 1) * timeGranularity.value,
   };
 });
 
@@ -3045,7 +3072,7 @@ const multiModalTimelineOption = computed(() => {
   }
 
   // 兼容后端各模态长度不一致：按各自长度独立钳制索引，避免越界后被置 0
-  const getSeriesPointByTime = <T extends { intensity?: number }>(
+  const getSeriesPointByTime = <T extends { intensity?: number; reason?: string }>(
     series: T[],
     time: number,
   ): T | null => {
@@ -4607,26 +4634,24 @@ const exportToPdf = async () => {
       throw new Error("PDF导出依赖加载失败");
     }
 
-    // 获取报告容器和所有需要避免分页截断的区块
     const reportContainer = document.querySelector(
-      ".report-container",
-    ) as HTMLElement;
+      ".report-view .report-paper",
+    ) as HTMLElement | null;
     if (!reportContainer) {
       throw new Error("无法获取报告内容");
     }
 
-    // 获取所有标记为避免分页的元素
+    const reportContainerRect = reportContainer.getBoundingClientRect();
     const avoidBreakElements = reportContainer.querySelectorAll(
-      ".report-section, .dimension-card, .risk-peak-analysis, .portrait-item",
+      ".cover, .section, .two-col, .col, .chart-box, .dim-card, .note-box, .sign-area, .report-foot, .info-table tr, .ev-table tr",
     );
     const breakPoints = new Set<number>();
 
-    // 计算每个区块的边界位置
-    const containerTop = reportContainer.offsetTop;
     avoidBreakElements.forEach((el) => {
       const htmlEl = el as HTMLElement;
-      const top = htmlEl.offsetTop - containerTop;
-      const bottom = top + htmlEl.offsetHeight;
+      const rect = htmlEl.getBoundingClientRect();
+      const top = rect.top - reportContainerRect.top;
+      const bottom = rect.bottom - reportContainerRect.top;
       breakPoints.add(top);
       breakPoints.add(bottom);
     });
