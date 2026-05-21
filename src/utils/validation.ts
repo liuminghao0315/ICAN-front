@@ -1,3 +1,8 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 /**
  * 验证用户名格式
  * 允许：英文字母、数字、汉字、常见特殊字符（下划线、连字符、点）

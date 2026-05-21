@@ -14,7 +14,7 @@
             <div class="logo-icon">
               <img src="/logo.jpg" alt="SynSight" class="logo-img" />
             </div>
-            <span v-show="!isCollapse" class="logo-text">SynSight</span>
+            <span class="logo-text" :class="{ 'label-hidden': isCollapse }">SynSight</span>
           </div>
 
           <!-- ① 主业务区 -->
@@ -303,7 +303,7 @@
   import { useFolderStore } from '@/stores/folder'
   import { useFavoritesStore } from '@/stores/favorites'
   import { useAnalysisActionsStore } from '@/stores/analysisActions'
-  import { getTaskList, getMe, cancelProactiveRefresh, scheduleProactiveRefresh, createAnalysisShare } from '@/api'
+  import { getAnalyzingCount, getMe, cancelProactiveRefresh, scheduleProactiveRefresh, createAnalysisShare } from '@/api'
   import { useWebSocket } from '@/composables/useWebSocket'
   import FolderTree from '@/components/FolderTree.vue'
   import NotificationBell from '@/components/NotificationBell.vue'
@@ -534,7 +534,8 @@
     }
   }
 
-  // 检查分析中的任务
+  // 检查分析中的任务（B1：改用轻量计数接口，单条 SELECT COUNT(*)，
+  // 替代旧的"两次 list HTTP + 每次 100 条 JOIN 视频"的重查询）
   const checkAnalyzingTasks = async () => {
     if (!userStore.isLoggedIn) {
       wsStore.setAnalyzingCount(0)
@@ -542,15 +543,9 @@
     }
 
     try {
-      // 同时查询 PROCESSING 和 PENDING 状态的任务
-      const [processingResponse, pendingResponse] = await Promise.all([
-        getTaskList(1, 100, 'PROCESSING'),
-        getTaskList(1, 100, 'PENDING')
-      ])
-
-      const processingCount = processingResponse.code === 200 ? (processingResponse.data.total || 0) : 0
-      const pendingCount = pendingResponse.code === 200 ? (pendingResponse.data.total || 0) : 0
-      wsStore.setAnalyzingCount(processingCount + pendingCount)
+      const resp = await getAnalyzingCount()
+      const count = resp.code === 200 ? (resp.data?.count || 0) : 0
+      wsStore.setAnalyzingCount(count)
     } catch (error) {
       // 静默失败，不影响用户体验
     }
@@ -559,20 +554,21 @@
   // 使用 WebSocket 监听任务状态变化
   const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
 
-  // 监听任务进度更新
-  subscribeProgress(() => {
-    checkAnalyzingTasks()
-  })
+  // B1：进度推送不再触发计数重查（进度变化不影响 PENDING+PROCESSING 数量）
+  // subscribeProgress(() => { checkAnalyzingTasks() })  // ← 已移除
 
-  // 监听任务完成
+  // 监听任务完成（状态从 PROCESSING 变 COMPLETED，计数 -1，需要刷新）
   subscribeCompleted(() => {
     checkAnalyzingTasks()
   })
 
-  // 监听任务失败
+  // 监听任务失败（状态从 PROCESSING 变 FAILED，计数 -1，需要刷新）
   subscribeFailed(() => {
     checkAnalyzingTasks()
   })
+
+  // 抑制未使用变量警告（保留 subscribeProgress 解构以便后续若需要可恢复订阅）
+  void subscribeProgress
 
   // 监听取消/删除等主动操作，立即刷新横幅计数
   wsStore.onTaskChanged(() => {
@@ -638,8 +634,9 @@
     if (userStore.isLoggedIn) {
       folderStore.loadTree()
     }
-    // 定期检查任务状态（每30秒）
-    taskCheckInterval = setInterval(checkAnalyzingTasks, 30000)
+    // B1：30s 轮询改 5 分钟兜底（WS 已覆盖完成/失败/取消三种状态变更，
+    // 兜底仅用于极端情况下 WS 漏推，不需要再每 30 秒查一次）
+    taskCheckInterval = setInterval(checkAnalyzingTasks, 5 * 60 * 1000)
     // 监听点击外部关闭下拉菜单
     document.addEventListener('click', handleClickOutside)
   })
@@ -660,6 +657,24 @@
   // 从分析页退出时，若仍是收起状态，无需额外处理
   watch(isAnalysisDetail, (_val) => {
     // 保留 watch 以备后续扩展
+  })
+
+  // 侧边栏收起/展开时，JS 控制 nav-item 的 padding-left 实现图标居中
+  const updateNavItemPadding = (collapsed: boolean) => {
+    const items = document.querySelectorAll('.sidebar-normal .nav-item')
+    items.forEach((el) => {
+      ;(el as HTMLElement).style.paddingLeft = collapsed ? '11px' : '14px'
+    })
+  }
+
+  watch(isCollapse, (val) => {
+    updateNavItemPadding(val)
+  })
+
+  onMounted(() => {
+    if (isCollapse.value) {
+      updateNavItemPadding(true)
+    }
   })
 
   const handleLogout = () => {
@@ -694,7 +709,7 @@
 
 .sidebar {
   background-color: var(--bg-card);
-  transition: width 0.3s;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -710,6 +725,7 @@
     gap: 12px;
     cursor: pointer;
     padding: 0 16px;
+    transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     .logo-icon {
       width: 42px;
@@ -737,19 +753,23 @@
       color: var(--text-primary);
       white-space: nowrap;
       letter-spacing: 1px;
+      overflow: hidden;
+      opacity: 1;
+      max-width: 120px;
+      transition: opacity 0.2s ease 0.1s, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &.label-hidden {
+        opacity: 0;
+        max-width: 0;
+        transition: opacity 0.15s ease, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
     }
   }
 
   // 收起状态下logo的样式
   &.is-collapsed .logo {
     padding: 0;
-    justify-content: center;
-
-    .logo-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 8px; // 保持正方形圆角
-    }
+    gap: 0;
   }
 
   // ===== 三段式导航样式 =====
@@ -777,15 +797,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     opacity: 1;
-    // 展开时延迟 0.2s 淡入（等宽度动画接近完成），收起时立即消失
-    transition: opacity 0.15s ease 0.2s;
+    max-width: 150px;
+    transition: opacity 0.2s ease 0.1s, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     &.label-hidden {
       opacity: 0;
+      max-width: 0;
       pointer-events: none;
-      width: 0;
-      overflow: hidden;
-      transition: opacity 0.1s ease; // 收起时无延迟，立即消失
+      transition: opacity 0.15s ease, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
   }
 
@@ -809,7 +828,13 @@
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     box-shadow: none;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;
 
     &:hover {
@@ -830,10 +855,8 @@
     }
   }
 
-  // 收起状态下主业务区居中
+  // 收起状态下主业务区
   &.is-collapsed .nav-item {
-    justify-content: center;
-    padding: 0;
     gap: 0;
   }
 
@@ -985,7 +1008,7 @@
     border-radius: 8px;
     cursor: pointer;
     color: var(--text-tertiary);
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s;
     user-select: none;
 
     .nav-icon :deep(svg) { stroke: var(--text-tertiary); }
@@ -1012,9 +1035,7 @@
   }
 
   &.is-collapsed .system-item {
-    justify-content: center;
-    padding: 8px;
-    gap: 0;
+    padding: 8px 12px;
   }
 
   .collapse-btn {

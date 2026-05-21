@@ -315,8 +315,6 @@ const handleDrawerThumbnailError = (videoId: string) => {
 const selectVideo = (video: VideoInfo) => {
   selectedVideoId.value = video.id
   showVideoDrawer.value = false
-  // 更新 URL 参数
-  router.replace({ query: { videoId: video.id } })
   loadAnalysisByVideo()
 }
 
@@ -336,6 +334,11 @@ const loadAnalysisByVideo = async () => {
     if (response.code === 200 && response.data) {
       analysisData.value = response.data
       emptyMessage.value = ''
+      // 用返回的 resultId 更新路由，保持 URL 与内容一致
+      const resultId = (response.data as any).id
+      if (resultId) {
+        router.replace({ path: `/analysis/${resultId}`, query: {} })
+      }
       loadFeedbackForVideo(selectedVideoId.value)
     } else {
       analysisData.value = null

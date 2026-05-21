@@ -1,8 +1,13 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useUserStore } from './user'
 import config from '@/config'
-import type { WSMessage, TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData } from '@/types'
+import type { WSMessage, TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData, NotificationNewData } from '@/types'
 
 /**
  * WebSocket 全局状态管理
@@ -36,6 +41,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const feedbackUpdatedHandlers = ref<Array<(data: FeedbackUpdatedData) => void>>([])
   const feedbackLockedHandlers = ref<Array<(data: FeedbackLockedData) => void>>([])
   const feedbackSyncHandlers = ref<Array<(data: FeedbackSyncData) => void>>([])
+  const notificationNewHandlers = ref<Array<(data: NotificationNewData) => void>>([])
 
   // ── 全局任务计数（乐观更新，无需等待 HTTP 轮询）──
   // MainLayout 直接绑定此值，取消/删除时立即减量，后端推送时覆盖校正
@@ -131,8 +137,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
       ws.onerror = (error) => {
         isConnected.value = false
         console.error('WebSocket连接错误:', error)
-        // 尝试重连
-        attemptReconnect()
+        // C11：onerror 之后浏览器必触发 onclose，由 onclose 统一处理重连，避免双重 attemptReconnect
       }
     } catch {
       attemptReconnect()
@@ -232,6 +237,15 @@ export const useWebSocketStore = defineStore('websocket', () => {
             const feedbackSyncData = message.data as FeedbackSyncData
             feedbackSyncHandlers.value.forEach(handler => {
               try { handler(feedbackSyncData) } catch { /* 忽略 */ }
+            })
+          }
+          break
+
+        case 'notification_new':
+          {
+            const notificationNewData = (message.data || {}) as NotificationNewData
+            notificationNewHandlers.value.forEach(handler => {
+              try { handler(notificationNewData) } catch { /* 忽略 */ }
             })
           }
           break
@@ -379,6 +393,15 @@ export const useWebSocketStore = defineStore('websocket', () => {
     }
   }
 
+  // 订阅"新的系统通知"事件（铃铛实时刷新未读用，配合 30 分钟兜底轮询）
+  function onNotificationNew(handler: (data: NotificationNewData) => void) {
+    notificationNewHandlers.value.push(handler)
+    return () => {
+      const index = notificationNewHandlers.value.indexOf(handler)
+      if (index > -1) notificationNewHandlers.value.splice(index, 1)
+    }
+  }
+
   // 主动通知任务列表已变更（取消/删除后调用，触发顶部横幅立即刷新）
   function notifyTaskChanged() {
     taskChangedHandlers.value.forEach(handler => {
@@ -420,6 +443,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
     onFeedbackUpdated,
     onFeedbackLocked,
     onFeedbackSync,
+    onNotificationNew,
     notifyTaskChanged,
     onTaskChanged,
     setAnalyzingCount,

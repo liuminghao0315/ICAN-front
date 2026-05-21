@@ -1,3 +1,8 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 export type Evidence = any
 export type ModalityFusion = any
 export type SceneInfo = any

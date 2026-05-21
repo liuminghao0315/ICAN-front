@@ -751,9 +751,10 @@ import {
   updateWordPack as apiUpdateWordPack,
   deleteWordPack as apiDeleteWordPack,
   addWordsToWordPack,
-  deleteWordFromPack
+  deleteWordFromPack,
+  expandWordByAI,
+  type AIWordItem
 } from '@/api'
-import config from '@/config'
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let newPackOverlayMouseDown = false
@@ -834,9 +835,6 @@ interface AIRecommendItem {
 // ── 数据（从后端加载） ──
 const wordPacks = ref<WordPack[]>([])
 const dataLoading = ref(true)
-
-// AI API Key
-const AI_API_KEY = config.deepseek.apiKey
 
 // AI 提示词输入
 const aiPromptInput = ref('')
@@ -1269,67 +1267,21 @@ const runAIAnalysis = async () => {
   aiDrawerLoading.value = true
   aiRecommendList.value = []
 
-  const systemPrompt = `你是一名专注于中国高校舆情监控的语言学专家，擅长识别大学生在网络监管压力下使用的隐语、黑话和变体表达。
-你的任务是：给定一个"种子词"，从以下维度分析当代大学生如何规避监管来表达该概念：
-1. 形态变异：拼音缩写、谐音字、数字替代
-2. 亚文化嵌入：二次元/游戏梗、网络流行语
-3. 情绪隐喻：丧文化表达、委婉说法、场景化描述
-
-请输出 JSON 格式，结构如下：
-{
-  "words": [
-    {
-      "text": "变体词汇",
-      "risk": "high|medium|low",
-      "suggestedCategories": ["关联分类1", "关联分类2"]
-    }
-  ]
-}
-
-风险等级判断标准：
-- high：直接指向自伤/暴力/极端行为
-- medium：情绪危机信号或群体性事件苗头
-- low：负面情绪表达但无直接危险
-
-每次输出 6-10 个词汇，覆盖不同维度。`
-
-  const userPrompt = `种子词：${seedWord}
-请分析当代大学生在受到监管压力下，会如何通过隐喻、黑话、谐音等方式来表达"${seedWord}"这个概念。输出 JSON。`
-
   try {
-    const response = await fetch(config.deepseek.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: config.deepseek.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 2000,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`API 请求失败: ${response.status}`)
+    const res = await expandWordByAI(seedWord)
+    if (res.code !== 200 || !res.data) {
+      throw new Error(res.message || 'AI 分析失败')
     }
 
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content
-    if (!content) throw new Error('AI 返回内容为空')
-
-    const parsed = JSON.parse(content)
-    const words: AIRecommendItem[] = (parsed.words || []).map((item: any, idx: number) => ({
-      id: `ai-${Date.now()}-${idx}`,
-      text: item.text || '',
-      risk: (['high', 'medium', 'low'].includes(item.risk) ? item.risk : 'medium') as RiskLevel,
-      checked: true,
-      suggestedCategories: Array.isArray(item.suggestedCategories) ? item.suggestedCategories : [],
-    })).filter((item: AIRecommendItem) => item.text)
+    const words: AIRecommendItem[] = (res.data as AIWordItem[])
+      .map((item: AIWordItem, idx: number) => ({
+        id: `ai-${Date.now()}-${idx}`,
+        text: item.text || '',
+        risk: (['high', 'medium', 'low'].includes(item.risk) ? item.risk : 'medium') as RiskLevel,
+        checked: true,
+        suggestedCategories: Array.isArray(item.suggestedCategories) ? item.suggestedCategories : [],
+      }))
+      .filter((item: AIRecommendItem) => item.text)
 
     if (words.length === 0) throw new Error('AI 未返回有效词汇')
     aiRecommendList.value = words

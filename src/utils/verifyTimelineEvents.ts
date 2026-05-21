@@ -1,3 +1,8 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 /**
  * 【全模态智能事件流】数据验证工具
  * 
@@ -6,6 +11,8 @@
 
 import { mockAnalysisResult } from '@/data/mockAnalysisResult'
 import type { TimelineEvent } from '@/data/mockAnalysisResult'
+
+
 
 interface ValidationResult {
   isValid: boolean
@@ -25,7 +32,7 @@ interface ValidationResult {
 }
 
 export function verifyTimelineEvents(): ValidationResult {
-  const events = mockAnalysisResult.timelineEvents
+  const events = mockAnalysisResult.timelineEvents as TimelineEvent[]
   const errors: string[] = []
   const warnings: string[] = []
   
@@ -85,7 +92,7 @@ export function verifyTimelineEvents(): ValidationResult {
   const coverageSeconds = coverageSet.size
   const coveragePercent = (coverageSeconds / videoDuration * 100).toFixed(1)
   
-  if (coveragePercent < '80') {
+  if (Number(coveragePercent) < 80) {
     warnings.push(`时间覆盖率仅为 ${coveragePercent}%，建议至少达到 80%`)
   }
   
@@ -114,9 +121,13 @@ export function verifyTimelineEvents(): ValidationResult {
   }
 }
 
-// 控制台打印验证结果
+// 控制台打印验证结果，仅允许在开发环境执行
 export function printValidationReport() {
   const result = verifyTimelineEvents()
+  
+  if (!import.meta.env.DEV) {
+    return result
+  }
   
   console.log('='.repeat(60))
   console.log('【全模态智能事件流】数据验证报告')

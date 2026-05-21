@@ -85,7 +85,7 @@
           <!-- 状态胶囊（非完成态） -->
           <span v-else class="status-pill" :class="getStatusClass(record.status)">
             {{ getStatusText(record.status) }}
-            <template v-if="['DOWNLOADING','PROCESSING'].includes(record.status) && record.progress"> {{ record.progress }}%</template>
+            <template v-if="['DOWNLOADING','PROCESSING'].includes(record.status) && record.progress != null"> {{ record.progress }}%</template>
           </span>
           <!-- 业务标签：低权重 -->
           <template v-if="record.status === 'COMPLETED'">

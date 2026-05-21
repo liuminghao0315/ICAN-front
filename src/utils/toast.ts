@@ -1,3 +1,8 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 /**
  * 全局Toast提示工具
  * 使用Element Plus的ElMessage

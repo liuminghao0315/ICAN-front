@@ -1,3 +1,8 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -21,4 +26,22 @@ export default defineConfig({
   optimizeDeps: {
     include: ['echarts', 'vue-echarts', 'element-resize-detector']
   },
+  // B17：生产构建：去 console + 拆 vendor chunk，降低首屏体积
+  esbuild: {
+    drop: ['console', 'debugger']
+  },
+  build: {
+    target: 'es2020',
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          'vendor-element': ['element-plus', '@element-plus/icons-vue'],
+          'vendor-echarts': ['echarts', 'vue-echarts'],
+          'vendor-utils': ['axios']
+        }
+      }
+    }
+  }
 })

@@ -1,3 +1,8 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
@@ -541,6 +546,12 @@ export const getTaskList = async (
   return response.data
 }
 
+// B1：轻量计数接口——返回 PENDING + PROCESSING 任务数（替代旧的两次 list 调用）
+export const getAnalyzingCount = async (): Promise<ApiResponse<{ count: number }>> => {
+  const response = await api.get<ApiResponse<{ count: number }>>('/api/analysis/task/analyzing-count')
+  return response.data
+}
+
 // 获取任务列表（支持更多参数）
 export const getAnalysisTaskList = async (params: TaskListParams): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
   const queryParams: Record<string, any> = {
@@ -864,6 +875,20 @@ export const addWordsToWordPack = async (packId: string, words: { text: string; 
  */
 export const deleteWordFromPack = async (wordId: string): Promise<ApiResponse<void>> => {
   const response = await api.delete<ApiResponse<void>>(`/api/word-pack/word/${wordId}`)
+  return response.data
+}
+
+/**
+ * AI 扩充种子词（后端代调 DeepSeek）
+ */
+export interface AIWordItem {
+  text: string
+  risk: 'high' | 'medium' | 'low'
+  suggestedCategories: string[]
+}
+
+export const expandWordByAI = async (seedWord: string): Promise<ApiResponse<AIWordItem[]>> => {
+  const response = await api.post<ApiResponse<AIWordItem[]>>('/api/word-pack/expand-by-ai', { seedWord })
   return response.data
 }
 

@@ -68,7 +68,7 @@ import {
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const { subscribeFeedbackNew, subscribeFeedbackUpdated, subscribeVideoDeleted } = useWebSocket({ autoConnect: false })
+const { subscribeFeedbackNew, subscribeFeedbackUpdated, subscribeVideoDeleted, subscribeNotificationNew } = useWebSocket({ autoConnect: false })
 const bellRef = ref<HTMLElement | null>(null)
 const showPanel = ref(false)
 const loading = ref(false)
@@ -110,12 +110,8 @@ const fetchUnreadCount = async () => {
 
 const shouldAutoRead = (item: NotificationVO) => {
   if (item.targetPath === '/admin/feedback' && route.path === '/admin/feedback') return true
-  if (item.targetPath === '/analysis' && route.path === '/analysis') {
-    const currentVideoId = route.query.videoId as string | undefined
-    const currentFeedbackId = route.query.feedbackId as string | undefined
-    if (item.videoId && currentVideoId && item.videoId === currentVideoId) return true
-    if (item.feedbackId && currentFeedbackId && item.feedbackId === currentFeedbackId) return true
-  }
+  // 用户处于 /analysis（含 /analysis/{resultId}）任何子路径时，所有指向分析详情的反馈通知都视为已读
+  if (item.targetPath === '/analysis' && route.path.startsWith('/analysis')) return true
   return false
 }
 
@@ -125,17 +121,13 @@ const markCurrentContextAsRead = async () => {
       await markNotificationsReadByContext({ targetPath: '/admin/feedback', relatedType: 'FEEDBACK' })
       return
     }
-    if (route.path === '/analysis') {
-      const videoId = route.query.videoId as string | undefined
-      const feedbackId = route.query.feedbackId as string | undefined
-      if (videoId || feedbackId) {
-        await markNotificationsReadByContext({
-          targetPath: '/analysis',
-          relatedType: 'FEEDBACK',
-          videoId,
-          feedbackId
-        })
-      }
+    // /analysis 既有 query 形式（/analysis?videoId=X）又有 path 形式（/analysis/{resultId}），
+    // 后者取不到 videoId/feedbackId。统一处理：只要落在 /analysis 任意子路径，就清空所有 targetPath='/analysis' 的未读。
+    if (route.path.startsWith('/analysis')) {
+      await markNotificationsReadByContext({
+        targetPath: '/analysis',
+        relatedType: 'FEEDBACK'
+      })
     }
   } catch { /* silent */ }
 }
@@ -219,6 +211,14 @@ const refreshNotificationState = async () => {
 subscribeFeedbackNew(() => { void refreshNotificationState() })
 subscribeFeedbackUpdated(() => { void refreshNotificationState() })
 subscribeVideoDeleted(() => { void refreshNotificationState() })
+// notification_new 由后端 NotificationServiceImpl 写库后立即推送，是铃铛实时刷新的主路径。
+// 后端已通过 TransactionSynchronization.afterCommit 保证事务可见后再发；前端再加一次延迟兜底，
+// 防止个别非事务上下文 fallback 推送时 WS 到达早于行可见的极端情况。
+subscribeNotificationNew(async () => {
+  await refreshNotificationState()
+  // 延迟二次复核：处理 fallback 推送的极端时序（个别调用方未在事务中调 sendNotification）
+  setTimeout(() => { void refreshNotificationState() }, 300)
+})
 
 const formatTime = (dateStr: string) => {
   const date = new Date(dateStr)
@@ -253,7 +253,9 @@ watch(
 
 onMounted(() => {
   fetchUnreadCount()
-  pollTimer = setInterval(fetchUnreadCount, 30000)
+  // 30 分钟兜底轮询：覆盖 WebSocket 断连或事件丢失场景。
+  // WS 通知（notification_new / feedback_new / feedback_updated / video_deleted）是主路径。
+  pollTimer = setInterval(fetchUnreadCount, 30 * 60 * 1000)
   document.addEventListener('click', handleClickOutside)
 })
 

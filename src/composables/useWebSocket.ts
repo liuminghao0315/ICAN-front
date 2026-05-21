@@ -1,7 +1,12 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 import { onUnmounted, watch } from 'vue'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useUserStore } from '@/stores/user'
-import type { TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData } from '@/types'
+import type { TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData, NotificationNewData } from '@/types'
 
 export interface UseWebSocketOptions {
   autoConnect?: boolean
@@ -76,6 +81,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     return unsubscribe
   }
 
+  // 订阅"新的系统通知"事件（铃铛实时刷新未读用）
+  function subscribeNotificationNew(handler: (data: NotificationNewData) => void) {
+    const unsubscribe = wsStore.onNotificationNew(handler)
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
+  }
+
   // 订阅任务/视频数据变更通知（删除、新建分析任务等本地操作后触发，用于跨页面同步统计数据）
   function subscribeTaskChanged(handler: () => void) {
     const unsubscribe = wsStore.onTaskChanged(handler)
@@ -121,6 +133,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     subscribeFeedbackUpdated,
     subscribeFeedbackLocked,
     subscribeFeedbackSync,
+    subscribeNotificationNew,
     subscribeTaskChanged,
     notifyTaskChanged
   }

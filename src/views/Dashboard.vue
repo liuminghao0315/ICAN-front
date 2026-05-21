@@ -81,7 +81,9 @@
               <el-icon><Refresh /></el-icon>
             </button>
           </div>
-          <v-chart :option="riskChartOption" class="chart" />
+          <div class="chart-wrapper">
+            <v-chart ref="riskChartRef" :option="riskChartOption" class="chart" />
+          </div>
         </div>
         
         <!-- 快捷操作 -->
@@ -254,7 +256,9 @@
           <div class="card-header">
             <span class="card-title">上传趋势</span>
           </div>
-          <v-chart :option="trendChartOption" class="chart" />
+          <div class="chart-wrapper chart-wrapper--full">
+            <v-chart ref="trendChartRef" :option="trendChartOption" class="chart" />
+          </div>
         </div>
         
         <!-- 视频状态分布 -->
@@ -262,7 +266,9 @@
           <div class="card-header">
             <span class="card-title">视频状态分布</span>
           </div>
-          <v-chart :option="statusChartOption" class="chart" />
+          <div class="chart-wrapper">
+            <v-chart ref="statusChartRef" :option="statusChartOption" class="chart" />
+          </div>
         </div>
       </div>
     </div>
@@ -270,7 +276,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -656,7 +662,7 @@ const riskChartOption = computed(() => {
       {
         type: 'pie',
         radius: ['30%', '50%'],
-        center: ['50%', '40%'],
+        center: ['50%', '45%'],
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 8,
@@ -666,7 +672,14 @@ const riskChartOption = computed(() => {
         label: {
           show: true,
           formatter: '{b}\n{d}%',
-          color: colors.textPrimary
+          color: colors.textPrimary,
+          fontSize: 12,
+          position: 'outside'
+        },
+        labelLine: {
+          show: true,
+          length: 15,
+          length2: 8
         },
         emphasis: {
           label: {
@@ -775,7 +788,7 @@ const trendChartOption = computed(() => {
     },
     grid: {
       left: '3%',
-      right: '4%',
+      right: '6%',
       bottom: '3%',
       top: '10%',
       containLabel: true
@@ -881,9 +894,33 @@ subscribeTaskChanged(() => {
   fetchData()
 })
 
+// 图表响应式
+const riskChartRef = ref()
+const trendChartRef = ref()
+const statusChartRef = ref()
+let resizeObserver: ResizeObserver | null = null
+let rafId: number | null = null
+
+const resizeAllCharts = () => {
+  // rAF 节流：每帧最多 resize 一次，平滑跟随布局变化且不产生残影
+  if (rafId) return
+  rafId = requestAnimationFrame(() => {
+    riskChartRef.value?.resize()
+    trendChartRef.value?.resize()
+    statusChartRef.value?.resize()
+    rafId = null
+  })
+}
+
 // 监听主题变化
 onMounted(() => {
   fetchData()
+
+  resizeObserver = new ResizeObserver(() => {
+    resizeAllCharts()
+  })
+  const grid = document.querySelector('.main-content-grid')
+  if (grid) resizeObserver.observe(grid)
 
   // 监听 data-theme 属性变化
   const observer = new MutationObserver((mutations) => {
@@ -899,6 +936,11 @@ onMounted(() => {
     attributeFilter: ['data-theme']
   })
 })
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  if (rafId) cancelAnimationFrame(rafId)
+})
 </script>
 
 <style scoped lang="scss">
@@ -906,6 +948,8 @@ onMounted(() => {
   min-height: 100%;
   width: 100%;
   min-width: 0;
+  container-type: inline-size;
+  container-name: dashboard;
 
   // 修复最近上传/最近任务加载时的遮罩闪烁与边框
   :deep(.video-list .el-loading-mask),
@@ -926,9 +970,10 @@ onMounted(() => {
   margin-bottom: 24px;
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 40px;
   box-shadow: none;
-  overflow: visible;
+  overflow: hidden;
 
   .banner-left {
     display: flex;
@@ -1151,16 +1196,8 @@ onMounted(() => {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 24px;
 
-  @media (max-width: 1600px) {
+  @container dashboard (max-width: 1350px) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
-  }
-
-  @media (max-width: 1450px) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
-  }
-
-  @media (max-width: 1200px) {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1174,25 +1211,78 @@ onMounted(() => {
   overflow: hidden;
 }
 
-@media (max-width: 1450px) {
-  .right-section {
-    grid-column: 1 / -1;
-    display: grid;
+@container dashboard (max-width: 1200px) {
+  .main-content-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
+  }
 
-    .neu-card {
-      margin-bottom: 0;
-    }
+  .left-section,
+  .center-section,
+  .right-section {
+    display: contents;
+  }
+
+  // 隐藏快捷操作
+  .quick-actions {
+    display: none !important;
+  }
+
+  // 左上：风险等级分布
+  .left-section > .neu-card:first-child {
+    order: 1;
+  }
+  // 右上：上传趋势
+  .right-section > .neu-card:first-child {
+    order: 2;
+  }
+  // 左中：分析统计
+  .analysis-stats {
+    order: 3;
+  }
+  // 右中：视频状态分布
+  .right-section > .neu-card:last-child {
+    order: 4;
+  }
+  // 左下：最近上传
+  .center-section > .neu-card:first-child {
+    order: 5;
+  }
+  // 右下：最近任务
+  .center-section > .neu-card:last-child {
+    order: 6;
   }
 }
 
-@media (max-width: 1200px) {
+@container dashboard (max-width: 800px) {
+  .main-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: 24px;
+  }
+
+  .left-section,
+  .center-section,
   .right-section {
     display: block;
+  }
 
-    .neu-card {
-      margin-bottom: 24px;
+  .quick-actions {
+    display: block !important;
+  }
+
+  .left-section > .neu-card:first-child,
+  .right-section > .neu-card:first-child,
+  .analysis-stats,
+  .right-section > .neu-card:last-child,
+  .center-section > .neu-card:first-child,
+  .center-section > .neu-card:last-child {
+    order: unset;
+  }
+
+  .right-section .neu-card {
+    margin-bottom: 24px;
+
+    &:last-child {
+      margin-bottom: 0;
     }
   }
 }
@@ -1205,7 +1295,7 @@ onMounted(() => {
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   margin-bottom: 24px;
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 
   &:hover {
     box-shadow: var(--shadow-md);
@@ -1237,11 +1327,25 @@ onMounted(() => {
     }
   }
 
+  .chart-wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+
+    .chart {
+      max-width: 400px;
+    }
+
+    &--full .chart {
+      max-width: none;
+    }
+  }
+
   .chart {
     height: 270px;
     width: 100%;
-    padding: 16px;
-    overflow: visible;
   }
 }
 
@@ -1751,42 +1855,43 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 1600px) {
+@container dashboard (max-width: 1350px) {
   .welcome-banner {
-    flex-wrap: wrap;
-    align-items: flex-start;
     gap: 24px;
     padding: 24px;
 
-    .banner-left {
-      flex: 1 1 320px;
-      min-width: 0;
-    }
-
     .banner-stats {
-      flex: 1 1 100%;
-      order: 3;
-      justify-content: flex-start;
-      flex-wrap: wrap;
       gap: 18px;
 
       .stat-item {
         padding: 12px 14px;
       }
     }
+  }
+}
 
+@container dashboard (max-width: 1200px) {
+  .welcome-banner {
     .banner-charts {
-      margin-left: auto;
+      display: none;
     }
   }
 }
 
-@media (max-width: 1200px) {
+@container dashboard (max-width: 700px) {
   .welcome-banner {
-    .banner-charts {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px;
+
+    .banner-stats {
       width: 100%;
-      margin-left: 0;
       justify-content: flex-start;
+    }
+
+    .banner-charts {
+      display: none;
     }
   }
 }

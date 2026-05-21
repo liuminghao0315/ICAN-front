@@ -58,13 +58,13 @@
       </section>
 
       <!-- 一、视频概览 -->
-      <section class="section">
+      <section v-if="hasVideoOverview" class="section">
         <h2 class="section-heading">一、视频概览</h2>
         <div v-if="data.videoInfo.description" class="sub-block">
           <h3 class="sub-heading">AI 内容摘要</h3>
           <p class="body-text indent-text">{{ data.videoInfo.description }}</p>
         </div>
-        <div v-if="data.videoInfo.mainCharacter" class="sub-block">
+        <div v-if="hasMainCharacter" class="sub-block">
           <h3 class="sub-heading">人物特征</h3>
           <div class="char-list">
             <p v-if="data.videoInfo.mainCharacter.gender" class="char-item">
@@ -144,7 +144,7 @@
               <span class="dim-score" :class="dim.scoreClass">{{ dim.scoreLabel }}</span>
             </div>
             <div class="dim-body">
-              <div v-for="(row, ri) in dim.rows" :key="ri" class="dim-row">
+              <div v-for="(row, ri) in dim.rows.filter(r => r.value)" :key="ri" class="dim-row">
                 <span class="dim-row-key">{{ row.label }}</span>
                 <span>{{ row.value }}</span>
               </div>
@@ -153,14 +153,14 @@
                 <span>音频 {{ dim.audio }}</span>
                 <span>文本 {{ dim.text }}</span>
               </div>
-              <div class="dim-evidence">证据 {{ dim.evidenceCount }} 条</div>
+              <div v-if="dim.evidenceCount > 0" class="dim-evidence">证据 {{ dim.evidenceCount }} 条</div>
             </div>
           </div>
         </div>
       </section>
 
       <!-- 五、详细证据清单 -->
-      <section class="section page-break">
+      <section v-if="data.timelineEvents && data.timelineEvents.length > 0" class="section page-break">
         <h2 class="section-heading">五、详细证据清单</h2>
         <table class="ev-table">
           <thead>
@@ -190,7 +190,7 @@
       </section>
 
       <!-- 六、场景识别轨迹 -->
-      <section class="section page-break">
+      <section v-if="data.sceneRecognition && data.sceneRecognition.length > 0" class="section page-break">
         <h2 class="section-heading">六、场景识别轨迹</h2>
         <table class="info-table">
           <thead><tr><th>序号</th><th>场景名称</th><th>时间段</th><th>置信度</th></tr></thead>
@@ -278,12 +278,13 @@ const attitudeStats = computed(() => {
 const riskPeakAnalysis = computed(() => {
   const risks = props.data.timelineData.comprehensiveRisks
   const granularity = props.data.timelineData.timeGranularity
+  const videoDuration = props.data.videoInfo.duration || 0
   let peakIndex = 0, peakIntensity = 0
   risks.forEach((risk, idx) => {
     if (risk.intensity > peakIntensity) { peakIntensity = risk.intensity; peakIndex = idx }
   })
   const peakStartSec = peakIndex * granularity
-  const peakEndSec = (peakIndex + 1) * granularity
+  const peakEndSec = videoDuration > 0 ? Math.min((peakIndex + 1) * granularity, videoDuration) : (peakIndex + 1) * granularity
 
   const eventsInPeak = props.data.timelineEvents.filter(e => e.startTime >= peakStartSec && e.startTime < peakEndSec)
   const candidates = eventsInPeak.length > 0 ? eventsInPeak : [...props.data.timelineEvents]
@@ -359,6 +360,15 @@ const dimensionList = computed(() => {
       text: d.action.modalityFusion.textScore, evidenceCount: d.action.evidences.length
     }
   ]
+})
+
+const hasMainCharacter = computed(() => {
+  const mc = props.data.videoInfo.mainCharacter
+  return mc && (mc.gender || mc.ageRange || mc.voiceProfile || mc.clothing)
+})
+
+const hasVideoOverview = computed(() => {
+  return props.data.videoInfo.description || hasMainCharacter.value || (props.data.videoInfo.detectedKeywords && props.data.videoInfo.detectedKeywords.length > 0)
 })
 
 const currentDateTime = computed(() => {

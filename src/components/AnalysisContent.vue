@@ -2133,7 +2133,7 @@ const normalizeDetectionType = (
 
 // 统一检测标签文案：确保「CV框文字」与「图例文字」完全一致
 const getDetectionLegendLabel = (type: string): string => {
-  return DETECTION_LABELS[type] || DETECTION_LABELS.object;
+  return DETECTION_LABELS[type] ?? DETECTION_LABELS.object ?? "物体检测";
 };
 
 // 检测框标签文本颜色（保证不同底色下可读性）
@@ -2305,8 +2305,8 @@ const currentScene = computed(() => {
   const currentTime = currentPlayTime.value;
   const scenes = mockScenes.value;
   if (!scenes || scenes.length === 0) return null;
-  return scenes.find(
-    (scene) => currentTime >= scene.timeStart && currentTime <= scene.timeEnd,
+    return scenes.find(
+    (scene: any) => currentTime >= scene.timeStart && currentTime <= scene.timeEnd,
   );
 });
 
@@ -2470,7 +2470,7 @@ const mockComprehensiveRisks = computed(() => mockComprehensiveRisksData.value);
 
 // 统计数据（用于模板）- 根据 intensity 阈值统计高强度情绪
 const angryEmotionCount = computed(() => {
-  return mockAudioEmotions.value.filter((e) => e.intensity > 0.8).length;
+  return mockAudioEmotions.value.filter((e: any) => (e.intensity ?? 0) > 0.8).length;
 });
 
 const highRiskSegmentCount = computed(() => {
@@ -2519,8 +2519,8 @@ const multiModalRadarOption = computed<any>(() => {
         rect: any,
         size: { contentSize: number[]; viewSize: number[] },
       ) {
-        const [mouseX, mouseY] = point;
-        const [contentWidth, contentHeight] = size.contentSize;
+                const [mouseX = 0, mouseY = 0] = point;
+        const [contentWidth = 0, contentHeight = 0] = size.contentSize;
 
         // 强制左上方（永远！）
         return [mouseX - contentWidth - 15, mouseY - contentHeight - 15];
@@ -3070,6 +3070,9 @@ const multiModalTimelineOption = computed(() => {
   for (let t = 0; t <= duration; t += 5) {
     timePoints.push(t);
   }
+  if (timePoints.length === 0 || timePoints[timePoints.length - 1] < duration) {
+    timePoints.push(duration);
+  }
 
   // 兼容后端各模态长度不一致：按各自长度独立钳制索引，避免越界后被置 0
   const getSeriesPointByTime = <T extends { intensity?: number; reason?: string }>(
@@ -3086,24 +3089,22 @@ const multiModalTimelineOption = computed(() => {
   const multiModalData = timePoints.map((t) => {
     // 视频风险（各模态独立按长度钳制索引）
     const videoRisk = getSeriesPointByTime(mockVideoRisks.value, t);
-    const videoScore = videoRisk ? videoRisk.intensity * 100 : 0;
+    const videoScore = (videoRisk?.intensity ?? 0) * 100;
 
     // 音频情绪风险（各模态独立按长度钳制索引）
     const audioEmotion = getSeriesPointByTime(mockAudioEmotions.value, t);
-    const audioScore = audioEmotion ? audioEmotion.intensity * 100 : 0;
+    const audioScore = (audioEmotion?.intensity ?? 0) * 100;
 
     // 文本风险（各模态独立按长度钳制索引）
     const textRisk = getSeriesPointByTime(mockTextRisks.value, t);
-    const textScore = textRisk ? textRisk.intensity * 100 : 0;
+    const textScore = (textRisk?.intensity ?? 0) * 100;
 
     // 综合风险（各模态独立按长度钳制索引）
     const comprehensiveRisk = getSeriesPointByTime(
       mockComprehensiveRisks.value,
       t,
     );
-    const comprehensiveScore = comprehensiveRisk
-      ? comprehensiveRisk.intensity * 100
-      : 0;
+        const comprehensiveScore = (comprehensiveRisk?.intensity ?? 0) * 100;
 
     return {
       time: t,
@@ -3140,8 +3141,8 @@ const multiModalTimelineOption = computed(() => {
         rect: any,
         size: { contentSize: number[]; viewSize: number[] },
       ) {
-        const [mouseX, mouseY] = point;
-        const [contentWidth, contentHeight] = size.contentSize;
+                const [mouseX = 0, mouseY = 0] = point;
+        const [contentWidth = 0, contentHeight = 0] = size.contentSize;
         const viewWidth = window.innerWidth;
 
         // 强制在鼠标上方
@@ -4702,8 +4703,8 @@ const exportToPdf = async () => {
       // 找到小于targetY但最接近的breakPoint
       let bestPoint = targetY;
       for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
-        const bp = sortedBreakPoints[i];
-        if (bp > currentY && bp <= targetY) {
+                const bp = sortedBreakPoints[i];
+        if (bp !== undefined && bp > currentY && bp <= targetY) {
           // 检查这个分页点会不会太小（至少要有一半页面内容）
           if (bp - currentY >= maxHeight * 0.4) {
             bestPoint = bp;
@@ -4867,7 +4868,9 @@ const scrollToActiveEvents = () => {
 
     if (activeElements.length === 1) {
       // 单项激活：将该项垂直中心与容器中心对齐
-      const activeRect = activeElements[0].getBoundingClientRect();
+      const activeElement = activeElements[0];
+      if (!activeElement) return;
+      const activeRect = activeElement.getBoundingClientRect();
       const activeCenter =
         activeRect.top -
         containerRect.top +
@@ -4876,9 +4879,11 @@ const scrollToActiveEvents = () => {
       targetScrollTop = activeCenter - containerCenter;
     } else {
       // 多项激活：计算包围盒中心
-      const firstRect = activeElements[0].getBoundingClientRect();
-      const lastRect =
-        activeElements[activeElements.length - 1].getBoundingClientRect();
+            const firstElement = activeElements[0];
+      const lastElement = activeElements[activeElements.length - 1];
+      if (!firstElement || !lastElement) return;
+      const firstRect = firstElement.getBoundingClientRect();
+      const lastRect = lastElement.getBoundingClientRect();
 
       const boundingBoxTop =
         firstRect.top - containerRect.top + container.scrollTop;
@@ -5035,14 +5040,17 @@ const updateTextEvidenceTooltipPosition = () => {
       // 如果是新的一行（top值不同），处理上一行的元素
       if (
         rowItems.length > 0 &&
+        rowItems[0] &&
         Math.abs(rect.top - rowItems[0].getBoundingClientRect().top) > 5
       ) {
         // 处理上一行：第一个元素左对齐，最后一个元素右对齐
-        if (rowItems.length > 0) {
-          rowItems[0].classList.add("tooltip-left");
+                const firstRowItem = rowItems[0];
+        if (firstRowItem) {
+          firstRowItem.classList.add("tooltip-left");
         }
-        if (rowItems.length > 1) {
-          rowItems[rowItems.length - 1].classList.add("tooltip-right");
+        const lastRowItem = rowItems[rowItems.length - 1];
+        if (rowItems.length > 1 && lastRowItem) {
+          lastRowItem.classList.add("tooltip-right");
         }
         // 清空当前行
         rowItems = [];
@@ -5053,11 +5061,13 @@ const updateTextEvidenceTooltipPosition = () => {
 
       // 如果是最后一个元素，处理当前行
       if (index === items.length - 1) {
-        if (rowItems.length > 0) {
-          rowItems[0].classList.add("tooltip-left");
+                const firstRowItem = rowItems[0];
+        if (firstRowItem) {
+          firstRowItem.classList.add("tooltip-left");
         }
-        if (rowItems.length > 1) {
-          rowItems[rowItems.length - 1].classList.add("tooltip-right");
+        const lastRowItem = rowItems[rowItems.length - 1];
+        if (rowItems.length > 1 && lastRowItem) {
+          lastRowItem.classList.add("tooltip-right");
         }
       }
     });
@@ -5163,6 +5173,16 @@ onMounted(() => {
   updateContainerPadding();
 });
 
+// prop 变更时重新初始化（用户在抽屉中切换视频，父组件更新 analysisResult）
+watch(
+  () => props.analysisResult?.videoInfo?.videoUrl,
+  (newUrl, oldUrl) => {
+    if (newUrl && newUrl !== oldUrl) {
+      initializeComponent();
+    }
+  },
+);
+
 // 组件卸载时清理监听器
 onUnmounted(() => {
   window.removeEventListener("resize", handleChartResize);
@@ -5202,6 +5222,7 @@ defineExpose({
 </script>
 
 <style scoped lang="scss">
+@use 'sass:color';
 // 新拟态配色变量（接入全局主题变量）
 $bg: var(--bg-page);
 $neu-1: var(--bg-card);
@@ -11276,7 +11297,7 @@ $purple: #409eff;
       color: white;
       
       &:hover {
-        background: darken($purple, 5%);
+        background: color.adjust($purple, $lightness: -5%);
       }
     }
   }

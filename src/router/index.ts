@@ -1,6 +1,9 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 import { createRouter, createWebHistory } from 'vue-router'
-import MainLayout from '@/layouts/MainLayout.vue'
-import Dashboard from '@/views/Dashboard.vue'
 import { useUserStore } from '@/stores/user'
 
 const router = createRouter({
@@ -37,13 +40,13 @@ const router = createRouter({
     // 主布局下的页面（需要登录）
     {
       path: '/',
-      component: MainLayout,
+      component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },
       children: [
         {
           path: '/dashboard',
           name: 'Dashboard',
-          component: Dashboard,
+          component: () => import('@/views/Dashboard.vue'),
           meta: { title: '工作台' }
         },
         {

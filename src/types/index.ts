@@ -1,3 +1,8 @@
+/*
+ * SynSight - 高校内容风险分析平台
+ * Copyright (c) 2026 Liu Minghao. All rights reserved.
+ */
+
 /**
  * 高校内容创作者行为分析平台 - 前端TypeScript类型定义
  */
@@ -444,7 +449,7 @@ export interface TotalStats {
 /**
  * WebSocket消息类型
  */
-export type WSMessageType = 'connected' | 'task_progress' | 'task_completed' | 'task_failed' | 'video_deleted' | 'feedback_new' | 'feedback_updated' | 'feedback_locked' | 'feedback_sync' | 'pong'
+export type WSMessageType = 'connected' | 'task_progress' | 'task_completed' | 'task_failed' | 'video_deleted' | 'feedback_new' | 'feedback_updated' | 'feedback_locked' | 'feedback_sync' | 'notification_new' | 'pong'
 
 /**
  * WebSocket基础消息
@@ -544,6 +549,16 @@ export interface FeedbackLockedData {
  */
 export interface FeedbackSyncData {
   feedbackId: string
+}
+
+/**
+ * 系统通知新事件（后端 NotificationServiceImpl 写库后立即推送，
+ * 前端铃铛收到后立即刷新未读数；与 30 分钟兜底轮询配合）
+ */
+export interface NotificationNewData {
+  notificationId?: string
+  type?: string
+  targetPath?: string
 }
 
 /**

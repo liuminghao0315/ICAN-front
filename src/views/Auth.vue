@@ -293,7 +293,7 @@ const handleSendRegisterCode = async () => {
       }, 1000)
     } else registerError.value = response.message || '发送验证码失败'
   } catch (error: any) {
-    if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) registerError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) registerError.value = '无法连接到服务器，请稍后重试'
     else if (error.response) registerError.value = error.response.data?.message || error.response.data?.error || '服务器错误'
     else if (error.request) registerError.value = '请求超时，请检查网络连接或稍后重试'
     else registerError.value = error.message || '网络错误，请稍后重试'
@@ -367,7 +367,7 @@ const handleRegister = async () => {
       switchToLogin()
     } else registerError.value = response.message || '注册失败'
   } catch (error: any) {
-    if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) registerError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) registerError.value = '无法连接到服务器，请稍后重试'
     else if (error.response) registerError.value = error.response.data?.message || '注册失败'
     else if (error.request) registerError.value = '请求超时，请检查网络连接或稍后重试'
     else registerError.value = error.message || '网络错误，请稍后重试'
@@ -396,7 +396,7 @@ const handleLogin = async () => {
       router.push('/dashboard')
     } else loginError.value = response.message || '登录失败'
   } catch (error: any) {
-    if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) loginError.value = '无法连接到服务器，请确保后端服务已启动（http://localhost:8080）'
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) loginError.value = '无法连接到服务器，请稍后重试'
     else if (error.response) loginError.value = error.response.data?.message || '登录失败，请检查用户名和密码'
     else if (error.request) loginError.value = '请求超时，请检查网络连接或稍后重试'
     else loginError.value = error.message || '网络错误，请稍后重试'

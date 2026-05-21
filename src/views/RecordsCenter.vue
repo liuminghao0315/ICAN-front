@@ -1107,12 +1107,13 @@ watch(
 
 onUnmounted(() => { document.removeEventListener('click', handleClickOutside); if (searchTimer) clearTimeout(searchTimer); unsubTaskChanged(); if (stalePollTimer) clearInterval(stalePollTimer) })
 
-// 兜底轮询：如果列表中有活跃任务，每 15 秒静默刷新一次，防止 WebSocket 消息丢失导致卡片卡住
+// B2：兜底轮询周期 15s → 5min。WS 已订阅 task_completed/failed/changed，正常路径完全靠 WS；
+// 5 分钟兜底仅覆盖 WS 断连或事件丢失的极端情况，与 MainLayout 任务计数策略对齐
 let stalePollTimer: ReturnType<typeof setInterval> | null = null
 const hasActiveTasks = computed(() => records.value.some(r => r.status === 'PENDING' || r.status === 'PROCESSING'))
 watch(hasActiveTasks, (active) => {
   if (active && !stalePollTimer) {
-    stalePollTimer = setInterval(() => { if (hasActiveTasks.value) loadRecordsSilent() }, 15000)
+    stalePollTimer = setInterval(() => { if (hasActiveTasks.value) loadRecordsSilent() }, 5 * 60 * 1000)
   } else if (!active && stalePollTimer) {
     clearInterval(stalePollTimer)
     stalePollTimer = null

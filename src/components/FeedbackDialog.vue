@@ -669,6 +669,7 @@ const handleStatusChange = async (status: 'RESOLVED' | 'REJECTED') => {
 </script>
 
 <style lang="scss">
+@use 'sass:color';
 $purple: #409EFF;
 $neu-bg: var(--bg-hover);
 $black: var(--text-primary);
@@ -928,7 +929,7 @@ $orange: #e6a23c;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
     &.btn-resolve {
-      color: darken($green, 10%);
+      color: color.adjust($green, $lightness: -10%);
       background: rgba($green, 0.08);
       border-color: rgba($green, 0.25);
 
@@ -947,7 +948,7 @@ $orange: #e6a23c;
     }
 
     &.btn-reject {
-      color: darken($red, 5%);
+      color: color.adjust($red, $lightness: -5%);
       background: rgba($red, 0.08);
       border-color: rgba($red, 0.25);
 
