@@ -54,6 +54,7 @@
           Object.entries(themeVars).forEach(([key, value]) => {
             document.documentElement.style.setProperty(key, value)
           })
+          document.body.style.backgroundColor = themeVars['--bg-page']
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'light')
           document.documentElement.style.colorScheme = 'light'

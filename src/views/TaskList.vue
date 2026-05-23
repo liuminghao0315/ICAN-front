@@ -315,7 +315,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -628,6 +628,21 @@ const toggleSort = (field: string) => {
 
 onMounted(() => {
   fetchTasks()
+
+  // 轮询兜底：每 5 秒刷新一次任务列表（仅当有活跃任务时）
+  const pollingInterval = setInterval(() => {
+    const hasActiveTasks = taskList.value.some(t =>
+      t.status === 'PENDING' || t.status === 'PROCESSING'
+    )
+    if (hasActiveTasks) {
+      fetchTasks()
+    }
+  }, 5000)
+
+  // 组件卸载时清理定时器
+  onUnmounted(() => {
+    clearInterval(pollingInterval)
+  })
 })
 </script>
 

@@ -286,7 +286,16 @@
 
       <!-- 内容区 -->
       <el-main class="main-content">
-        <router-view />
+        <Suspense>
+          <template #default>
+            <router-view />
+          </template>
+          <template #fallback>
+            <div class="page-loading">
+              <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+            </div>
+          </template>
+        </Suspense>
       </el-main>
     </el-container>
   </el-container>
@@ -308,6 +317,7 @@
   import FolderTree from '@/components/FolderTree.vue'
   import NotificationBell from '@/components/NotificationBell.vue'
   import { ElMessage } from 'element-plus'
+  import { Loading } from '@element-plus/icons-vue'
 
   const router = useRouter()
   const route = useRoute()
@@ -364,6 +374,11 @@
         label: '反馈管理',
         icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="12" y1="6" x2="12" y2="12"/></svg>`
       })
+      items.push({
+        path: '/admin/settings',
+        label: '系统设置',
+        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`
+      })
     }
     return items
   })
@@ -393,6 +408,7 @@
     if (path.startsWith('/favorites')) return '/favorites'
     if (path.startsWith('/risk-dictionary')) return '/risk-dictionary'
     if (path.startsWith('/admin/feedback')) return '/admin/feedback'
+    if (path.startsWith('/admin/settings')) return '/admin/settings'
     return '/dashboard'
   })
 
@@ -1953,5 +1969,14 @@
     opacity: 0;
     transform: scale(0.93) translateY(8px);
   }
+}
+
+// 页面加载动画（懒加载组件时显示）
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: #409EFF;
 }
 </style>

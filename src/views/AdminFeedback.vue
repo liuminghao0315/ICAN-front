@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="feedback-list" v-loading="loading">
+    <div class="feedback-list">
       <div v-if="feedbacks.length === 0 && !loading" class="empty-state">
         <p>暂无反馈记录</p>
       </div>
@@ -129,16 +129,16 @@
 <!-- SCRIPT_SECTION -->
 
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick, watch, defineAsyncComponent } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores'
 import { getAdminFeedbackList, lockFeedback, replyFeedback, closeFeedback, clearFeedbackUnread, type FeedbackVO, type FeedbackMessage } from '@/api'
 import { ElMessage } from 'element-plus'
 import { useWebSocket } from '@/composables/useWebSocket'
 import type { FeedbackNewData, FeedbackLockedData, FeedbackSyncData } from '@/types'
+import NeuSelect from '@/components/NeuSelect.vue'
 
 const router = useRouter()
-const NeuSelect = defineAsyncComponent(() => import('../components/NeuSelect.vue').then((m: any) => m.default ?? m))
 const userStore = useUserStore()
 const currentUserId = computed(() => userStore.userInfo?.id ?? '')
 const { subscribeFeedbackNew, subscribeVideoDeleted, subscribeFeedbackLocked, subscribeFeedbackSync } = useWebSocket({ autoConnect: false })
@@ -351,6 +351,7 @@ $purple: #409EFF;
 
 .admin-feedback-page {
   min-height: 100vh;
+  background: var(--bg-page);
 
   .page-header {
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;

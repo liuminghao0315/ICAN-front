@@ -138,16 +138,12 @@
                 <a class="inline-link" href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md" target="_blank">查看支持平台列表 →</a>
               </div>
 
-              <!-- ③ 平台受限（403 / 地区限制） -->
+              <!-- ③ 平台受限（Cookie未配置/过期） -->
               <div class="field-warn-block" v-else-if="urlState.validateError && urlState.errorType === 'PLATFORM_RESTRICTED'">
                 <el-icon><Warning /></el-icon>
                 <div class="warn-content">
                   <span>{{ urlState.validateError }}</span>
-                  <p class="warn-tip">尝试配置该平台的 Cookies 可能解决此问题</p>
-                  <button class="cookie-trigger-btn" @click="cookiePanel.visible = !cookiePanel.visible">
-                    <el-icon><Key /></el-icon>
-                    {{ cookiePanel.visible ? '收起 Cookies 配置' : '配置 Cookies' }}
-                  </button>
+                  <router-link v-if="userStore.isAdmin" to="/admin/cookies" class="inline-link">前往 Cookie 管理页面配置 →</router-link>
                 </div>
               </div>
 
@@ -321,6 +317,7 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, type UploadFile } from 'element-plus'
 import { createUrlImportTask, validateImportUrl, savePlatformCookies, getWordPackBriefList } from '@/api'
 import { useUploadStore } from '@/stores/upload'
+import { useUserStore } from '@/stores/user'
 import { formatFileSize } from '@/types'
 import type { WordPackVO } from '@/types'
 import { useRouter } from 'vue-router'
@@ -358,6 +355,7 @@ const onOverlayMouseUp = () => {
 const activeTab = ref<'local' | 'url'>('local')
 const uploadRef = ref()
 const uploadStore = useUploadStore()
+const userStore = useUserStore()
 
 // 本地上传状态
 const localState = reactive({

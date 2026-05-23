@@ -109,6 +109,12 @@ const router = createRouter({
           name: 'AdminFeedback',
           component: () => import('@/views/AdminFeedback.vue'),
           meta: { title: '反馈管理', requiresAdmin: true }
+        },
+        {
+          path: '/admin/settings',
+          name: 'AdminSettings',
+          component: () => import('@/views/AdminSettings.vue'),
+          meta: { title: '系统设置', requiresAdmin: true }
         }
       ]
     },

@@ -1093,3 +1093,68 @@ export const markNotificationsReadByContext = async (payload: {
   const response = await api.put<ApiResponse<void>>('/api/notification/read-context', payload)
   return response.data
 }
+
+// ==================== Cookie 管理接口（管理员） ====================
+
+export interface PlatformCookieVO {
+  id: string
+  platform: string
+  cookieValue: string
+  label: string | null
+  status: string
+  useCount: number
+  lastUsedAt: string | null
+  createdBy: string | null
+  gmtCreated: string
+  gmtModified: string
+}
+
+/** 获取所有平台Cookie（按平台分组） */
+export const getAdminCookies = async (): Promise<ApiResponse<Record<string, PlatformCookieVO[]>>> => {
+  const response = await api.get<ApiResponse<Record<string, PlatformCookieVO[]>>>('/api/admin/cookies')
+  return response.data
+}
+
+/** 新增Cookie */
+export const addAdminCookie = async (platform: string, cookieValue: string, label?: string): Promise<ApiResponse<PlatformCookieVO>> => {
+  const response = await api.post<ApiResponse<PlatformCookieVO>>('/api/admin/cookies', { platform, cookieValue, label })
+  return response.data
+}
+
+/** 更新Cookie */
+export const updateAdminCookie = async (id: string, cookieValue: string, label?: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/admin/cookies/${id}`, { cookieValue, label })
+  return response.data
+}
+
+/** 切换Cookie状态 */
+export const updateAdminCookieStatus = async (id: string, status: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/admin/cookies/${id}/status`, { status })
+  return response.data
+}
+
+/** 删除Cookie */
+export const deleteAdminCookie = async (id: string): Promise<ApiResponse<void>> => {
+  const response = await api.delete<ApiResponse<void>>(`/api/admin/cookies/${id}`)
+  return response.data
+}
+
+// ==================== 系统设置 ====================
+
+export interface SystemSettingsData {
+  settings: Record<string, string>
+  processingCount: number
+  pendingConcurrency: number | null
+}
+
+/** 获取系统设置 */
+export const getSystemSettings = async (): Promise<ApiResponse<SystemSettingsData>> => {
+  const response = await api.get<ApiResponse<SystemSettingsData>>('/api/admin/settings')
+  return response.data
+}
+
+/** 更新系统设置 */
+export const updateSystemSetting = async (key: string, value: string): Promise<ApiResponse<void>> => {
+  const response = await api.put<ApiResponse<void>>(`/api/admin/settings/${key}`, { value })
+  return response.data
+}
