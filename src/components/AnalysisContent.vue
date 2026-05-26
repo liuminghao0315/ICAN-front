@@ -3070,7 +3070,8 @@ const multiModalTimelineOption = computed(() => {
   for (let t = 0; t <= duration; t += 5) {
     timePoints.push(t);
   }
-  if (timePoints.length === 0 || timePoints[timePoints.length - 1] < duration) {
+  const lastTimePoint = timePoints[timePoints.length - 1];
+  if (lastTimePoint === undefined || lastTimePoint < duration) {
     timePoints.push(duration);
   }
 

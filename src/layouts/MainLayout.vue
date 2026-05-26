@@ -157,16 +157,16 @@
           </el-breadcrumb>
         </div>
 
-        <!-- 中部：上传中 / 分析中 通知（主流顶部通知样式，不覆盖左右） -->
+        <!-- 中部：上传中 / 下载中 / 分析中 通知（主流顶部通知样式，不覆盖左右） -->
         <div class="header-center">
           <Transition name="top-notice">
-            <div class="header-notices" v-if="uploadStore.activeCount > 0 || hasAnalyzingTasks">
+            <div class="header-notices" v-if="uploadStore.activeCount > 0 || hasDownloadingTasks || hasAnalyzingTasks">
               <!-- 上传中 -->
               <Transition name="top-notice-item">
                 <div
                   v-if="uploadStore.activeCount > 0"
                   class="header-notice header-notice-upload"
-                  :class="{ 'is-half': hasAnalyzingTasks }"
+                  :class="{ 'is-half': hasDownloadingTasks || hasAnalyzingTasks }"
                 >
                   <span class="notice-icon">
                     <el-icon><Upload class="rotating" /></el-icon>
@@ -177,12 +177,27 @@
                   </div>
                 </div>
               </Transition>
+              <!-- 下载中 -->
+              <Transition name="top-notice-item">
+                <button
+                  v-if="hasDownloadingTasks"
+                  class="header-notice header-notice-downloading"
+                  :class="{ 'is-half': uploadStore.activeCount > 0 || hasAnalyzingTasks }"
+                  @click="router.push({ path: '/records', query: { status: 'DOWNLOADING' } })"
+                >
+                  <span class="notice-icon">
+                    <el-icon><Download class="rotating" /></el-icon>
+                  </span>
+                  <span class="notice-line">您有 {{ downloadingTaskCount }} 个任务下载中，点击查看</span>
+                  <el-icon class="notice-arrow"><ArrowRight /></el-icon>
+                </button>
+              </Transition>
               <!-- 分析中 -->
               <Transition name="top-notice-item">
                 <button
                   v-if="hasAnalyzingTasks"
                   class="header-notice header-notice-analyzing"
-                  :class="{ 'is-half': uploadStore.activeCount > 0 }"
+                  :class="{ 'is-half': uploadStore.activeCount > 0 || hasDownloadingTasks }"
                   @click="router.push('/records')"
                 >
                   <span class="notice-icon">
@@ -313,6 +328,7 @@
   import { useFavoritesStore } from '@/stores/favorites'
   import { useAnalysisActionsStore } from '@/stores/analysisActions'
   import { getAnalyzingCount, getMe, cancelProactiveRefresh, scheduleProactiveRefresh, createAnalysisShare } from '@/api'
+  import { pushBannerTrace } from '@/utils/bannerTrace'
   import { useWebSocket } from '@/composables/useWebSocket'
   import FolderTree from '@/components/FolderTree.vue'
   import NotificationBell from '@/components/NotificationBell.vue'
@@ -498,6 +514,9 @@
   const isDropdownOpen = ref(false)
   const showLogoutConfirm = ref(false)
   const userDropdownRef = ref<HTMLElement | null>(null)
+  const logBannerTraceFe = (message: string, payload?: unknown) => {
+    pushBannerTrace(`[BANNER_TRACE_FE] ${message}`, payload)
+  }
 
   // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
   let logoutOverlayMouseDown = false
@@ -514,6 +533,8 @@
   }
 
   // 直接使用 store 中的计数，支持乐观更新
+  const downloadingTaskCount = computed(() => wsStore.downloadingCount)
+  const hasDownloadingTasks = computed(() => wsStore.downloadingCount > 0)
   const analyzingTaskCount = computed(() => wsStore.analyzingCount)
   const hasAnalyzingTasks = computed(() => wsStore.analyzingCount > 0)
   const userInfoRef = ref<HTMLElement | null>(null)
@@ -550,18 +571,30 @@
     }
   }
 
-  // 检查分析中的任务（B1：改用轻量计数接口，单条 SELECT COUNT(*)，
-  // 替代旧的"两次 list HTTP + 每次 100 条 JOIN 视频"的重查询）
-  const checkAnalyzingTasks = async () => {
+  // 检查顶部任务横幅计数（DOWNLOADING 单独显示；PENDING + PROCESSING 作为分析中）
+  let activeCountRequestSeq = 0
+  const checkActiveTaskCounts = async (reason = 'unknown') => {
+    const requestSeq = ++activeCountRequestSeq
+    const startRevision = wsStore.activeCountRevision
     if (!userStore.isLoggedIn) {
-      wsStore.setAnalyzingCount(0)
+      wsStore.hardResetActiveTaskCounts(0, 0)
       return
     }
 
+    const beforeDownloading = wsStore.downloadingCount
+    const beforeAnalyzing = wsStore.analyzingCount
+    logBannerTraceFe(`HTTP_SYNC_TRIGGER reason=${reason} beforeDownloading=${beforeDownloading} beforeAnalyzing=${beforeAnalyzing}`, { reason, beforeDownloading, beforeAnalyzing })
+
     try {
       const resp = await getAnalyzingCount()
-      const count = resp.code === 200 ? (resp.data?.count || 0) : 0
-      wsStore.setAnalyzingCount(count)
+      // 防止旧请求后返回，把 WebSocket 刚触发的乐观计数覆盖成旧状态。
+      // requestSeq 只能防多次 HTTP 互相覆盖；activeCountRevision 专门防 HTTP 覆盖途中到达的 WS。
+      if (requestSeq !== activeCountRequestSeq || startRevision !== wsStore.activeCountRevision) return
+      const analyzingCount = resp.code === 200 ? (resp.data?.analyzingCount ?? resp.data?.count ?? 0) : 0
+      const downloadingCount = resp.code === 200 ? (resp.data?.downloadingCount ?? 0) : 0
+      wsStore.resetActiveTaskCounts(downloadingCount, analyzingCount)
+      wsStore.maybeReconnectFromHttpSuccess()
+      logBannerTraceFe(`HTTP_SYNC_APPLY reason=${reason} serverDownloading=${downloadingCount} serverAnalyzing=${analyzingCount} beforeDownloading=${beforeDownloading} beforeAnalyzing=${beforeAnalyzing} afterDownloading=${wsStore.downloadingCount} afterAnalyzing=${wsStore.analyzingCount}`, { reason, serverDownloading: downloadingCount, serverAnalyzing: analyzingCount, beforeDownloading, beforeAnalyzing, afterDownloading: wsStore.downloadingCount, afterAnalyzing: wsStore.analyzingCount })
     } catch (error) {
       // 静默失败，不影响用户体验
     }
@@ -570,25 +603,58 @@
   // 使用 WebSocket 监听任务状态变化
   const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket()
 
-  // B1：进度推送不再触发计数重查（进度变化不影响 PENDING+PROCESSING 数量）
-  // subscribeProgress(() => { checkAnalyzingTasks() })  // ← 已移除
+  const analyzingTaskStatuses = new Set(['PENDING', 'PROCESSING'])
+  let activeCountRefreshTimer: ReturnType<typeof setTimeout> | null = null
+  const scheduleActiveTaskCountsRefresh = (delay = 0) => {
+    if (activeCountRefreshTimer) {
+      clearTimeout(activeCountRefreshTimer)
+    }
+    activeCountRefreshTimer = setTimeout(() => {
+      activeCountRefreshTimer = null
+      checkActiveTaskCounts('scheduled')
+    }, delay)
+  }
+
+  const refreshActiveTaskCountsNow = () => {
+    if (activeCountRefreshTimer) {
+      clearTimeout(activeCountRefreshTimer)
+      activeCountRefreshTimer = null
+    }
+    checkActiveTaskCounts('terminal')
+  }
+
+  // URL 导入链路存在 DOWNLOADING -> PENDING -> PROCESSING 状态切换。
+  // 这些“活跃态之间”的迁移已经由 wsStore.applyTaskStatus() 在消息入口同步完成：
+  // - DOWNLOADING -> PENDING/PROCESSING：立即 downloading-1, analyzing+1
+  // - PENDING -> PROCESSING：保持 analyzing 数量不变
+  //
+  // 这里不能再对活跃态 progress 事件立刻发 HTTP 轻量计数请求；
+  // 否则单任务场景会出现：
+  // 1. WS 刚把横幅从“下载中”切到“分析中”
+  // 2. MainLayout 又马上发 HTTP
+  // 3. HTTP 返回后如果把任务级状态记忆清空，后续 PENDING / PROCESSING 就会失去 previousStatus
+  // 4. 单任务没有别的 analyzing 任务兜底，视觉上就像仍停在“下载中”
+  //
+  // 所以：活跃态完全信任 WS；HTTP 只用于终态校准、首屏/重连同步与 5s 兜底。
+  subscribeProgress((data) => {
+    if (data.status === 'COMPLETED' || data.status === 'FAILED' || data.status === 'CANCELLED') {
+      refreshActiveTaskCountsNow()
+    }
+  })
 
   // 监听任务完成（状态从 PROCESSING 变 COMPLETED，计数 -1，需要刷新）
-  subscribeCompleted(() => {
-    checkAnalyzingTasks()
+  subscribeCompleted((data) => {
+    refreshActiveTaskCountsNow()
   })
 
   // 监听任务失败（状态从 PROCESSING 变 FAILED，计数 -1，需要刷新）
-  subscribeFailed(() => {
-    checkAnalyzingTasks()
+  subscribeFailed((data) => {
+    refreshActiveTaskCountsNow()
   })
 
-  // 抑制未使用变量警告（保留 subscribeProgress 解构以便后续若需要可恢复订阅）
-  void subscribeProgress
-
   // 监听取消/删除等主动操作，立即刷新横幅计数
-  wsStore.onTaskChanged(() => {
-    checkAnalyzingTasks()
+  const unsubscribeLayoutTaskChanged = wsStore.onTaskChanged(() => {
+    checkActiveTaskCounts('taskChanged')
   })
 
   // 监听登录状态变化，自动连接/断开 WebSocket
@@ -597,18 +663,67 @@
     (isLoggedIn) => {
       if (isLoggedIn) {
         wsStore.connect()
-        // 登录后检查分析中的任务
-        checkAnalyzingTasks()
+        scheduleNextTaskCountPoll()
+        // 登录后检查顶部任务横幅计数
+        checkActiveTaskCounts('login')
       } else {
+        clearTaskCountPolling()
         // 登出时清除任务状态
-        wsStore.setAnalyzingCount(0)
+        wsStore.hardResetActiveTaskCounts(0, 0)
       }
     },
     { immediate: true }
   )
 
-  // 任务检查定时器
-  let taskCheckInterval: ReturnType<typeof setInterval> | null = null
+  // WebSocket 重连后做一次轻量计数同步：
+  // 正常活跃态切换完全信任 WS，但断线重连期间可能错过部分事件，需要在重连成功后与服务端重新对齐。
+  watch(() => wsStore.isConnected, (connected, wasConnected) => {
+    if (connected && wasConnected === false) {
+      checkActiveTaskCounts('reconnect')
+    }
+    scheduleNextTaskCountPoll()
+  })
+
+  const ACTIVE_TASK_COUNT_POLL_INTERVAL = 5 * 1000
+  const IDLE_TASK_COUNT_POLL_INTERVAL = 60 * 1000
+  const hasActiveTaskCounts = computed(() => wsStore.downloadingCount > 0 || wsStore.analyzingCount > 0)
+
+  // 任务检查定时器：只是兜底校准，实时切换由 WebSocket store 负责。
+  // - 有活跃任务：5s 兜底，避免 WS 漏事件后横幅长期漂移
+  // - 无活跃任务且 WS 在线：降到 60s，避免全站一直 5s 空轮询
+  // - WS 断开：恢复 5s 兜底，同步断线期间可能错过的状态
+  let taskCheckTimer: ReturnType<typeof setTimeout> | null = null
+
+  const clearTaskCountPolling = () => {
+    if (taskCheckTimer) {
+      clearTimeout(taskCheckTimer)
+      taskCheckTimer = null
+    }
+  }
+
+  const getTaskCountPollInterval = () => {
+    if (!wsStore.isConnected || hasActiveTaskCounts.value) {
+      return ACTIVE_TASK_COUNT_POLL_INTERVAL
+    }
+    return IDLE_TASK_COUNT_POLL_INTERVAL
+  }
+
+  const scheduleNextTaskCountPoll = () => {
+    clearTaskCountPolling()
+    if (!userStore.isLoggedIn) {
+      return
+    }
+
+    taskCheckTimer = setTimeout(async () => {
+      taskCheckTimer = null
+      await checkActiveTaskCounts('poll')
+      scheduleNextTaskCountPoll()
+    }, getTaskCountPollInterval())
+  }
+
+  watch(hasActiveTaskCounts, () => {
+    scheduleNextTaskCountPoll()
+  })
 
   // 同时在 onMounted 中也尝试连接（双重保险）
   onMounted(() => {
@@ -644,27 +759,28 @@
     if (userStore.isLoggedIn && !wsStore.isConnected) {
       wsStore.connect()
     }
-    // 检查分析中的任务
-    checkAnalyzingTasks()
+    // 检查顶部任务横幅计数
+    checkActiveTaskCounts('mounted')
     // 加载文件夹树
     if (userStore.isLoggedIn) {
       folderStore.loadTree()
     }
-    // B1：30s 轮询改 5 分钟兜底（WS 已覆盖完成/失败/取消三种状态变更，
-    // 兜底仅用于极端情况下 WS 漏推，不需要再每 30 秒查一次）
-    taskCheckInterval = setInterval(checkAnalyzingTasks, 5 * 60 * 1000)
+    // 轻量计数兜底：根据“是否有活跃任务 / WS 是否在线”自适应调度。
+    scheduleNextTaskCountPoll()
     // 监听点击外部关闭下拉菜单
     document.addEventListener('click', handleClickOutside)
   })
 
   onUnmounted(() => {
-    if (taskCheckInterval) {
-      clearInterval(taskCheckInterval)
-      taskCheckInterval = null
-    }
+    clearTaskCountPolling()
     if (themeObserver) {
       themeObserver.disconnect()
       themeObserver = null
+    }
+    unsubscribeLayoutTaskChanged()
+    if (activeCountRefreshTimer) {
+      clearTimeout(activeCountRefreshTimer)
+      activeCountRefreshTimer = null
     }
     // 移除点击外部关闭下拉菜单的事件监听
     document.removeEventListener('click', handleClickOutside)
@@ -1338,6 +1454,37 @@
   }
 }
 
+.header-notice-downloading {
+  cursor: pointer;
+  background: rgba(24, 144, 255, 0.24);
+  border: 1px solid rgba(24, 144, 255, 0.42);
+  box-shadow: 0 2px 12px rgba(24, 144, 255, 0.14);
+  color: #075985;
+
+  .notice-icon {
+    background: rgba(24, 144, 255, 0.32);
+    color: #0369a1;
+  }
+  .notice-line {
+    color: #075985;
+  }
+  .notice-arrow {
+    color: #0369a1;
+  }
+  &:hover {
+    background: rgba(24, 144, 255, 0.34);
+    border-color: rgba(24, 144, 255, 0.58);
+    transform: scale(1.02);
+    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.22);
+    .notice-arrow {
+      transform: translateX(2px);
+    }
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
 .header-notice-upload {
   background: rgba(76, 175, 80, 0.32);
   border: 1px solid rgba(76, 175, 80, 0.5);
@@ -1402,6 +1549,29 @@
       .notice-progress-fill {
         background: #81c784;
       }
+    }
+  }
+
+  .header-notice-downloading {
+    background: rgba(14, 116, 144, 0.45);
+    border-color: rgba(34, 211, 238, 0.42);
+    box-shadow: 0 2px 12px rgba(14, 116, 144, 0.32);
+    color: #a5f3fc;
+
+    .notice-icon {
+      background: rgba(14, 116, 144, 0.62);
+      color: #67e8f9;
+    }
+    .notice-line {
+      color: #cffafe;
+    }
+    .notice-arrow {
+      color: #67e8f9;
+    }
+    &:hover {
+      background: rgba(14, 116, 144, 0.55);
+      border-color: rgba(34, 211, 238, 0.58);
+      box-shadow: 0 4px 16px rgba(14, 116, 144, 0.4);
     }
   }
 }
@@ -1980,3 +2150,5 @@
   color: #409EFF;
 }
 </style>
+
+

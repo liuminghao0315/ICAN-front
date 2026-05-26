@@ -48,17 +48,17 @@ const PLATFORM_MAP: Array<{
 
 const info = computed<PlatformInfo>(() => {
   if (!props.url) {
-    return { key: 'local', label: '本地文件', icon: PLATFORM_ICONS.local }
+    return { key: 'local', label: '本地文件', icon: PLATFORM_ICONS.local ?? PLATFORM_ICONS.web ?? '' }
   }
   try {
     const host = new URL(props.url).hostname.toLowerCase()
     for (const p of PLATFORM_MAP) {
       if (p.test(host)) {
-        return { key: p.key, label: p.label, icon: PLATFORM_ICONS[p.key] }
+        return { key: p.key, label: p.label, icon: PLATFORM_ICONS[p.key] ?? PLATFORM_ICONS.web ?? '' }
       }
     }
   } catch { /* ignore */ }
-  return { key: 'web', label: '网络采集', icon: PLATFORM_ICONS.web }
+  return { key: 'web', label: '网络采集', icon: PLATFORM_ICONS.web ?? '' }
 })
 </script>
 

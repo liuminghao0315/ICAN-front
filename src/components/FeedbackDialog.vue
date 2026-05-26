@@ -29,18 +29,10 @@
                 <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                 <p>暂无对话记录</p>
               </div>
-              <template v-for="(msg, idx) in allMessages">
-                <div
-                  v-if="msg.role === 'system'"
-                  :key="'s' + idx"
-                  class="chat-bubble-system"
-                >
-                  <span>{{ msg.text }}</span>
-                </div>
-                <div
-                  v-else
-                  :key="'m' + idx"
-                  class="chat-bubble-wrap"
+              <div
+                v-for="(msg, idx) in allMessages"
+                :key="'m' + idx"
+                class="chat-bubble-wrap"
                   :class="useAdminLayout
                     ? (msg.role === 'admin' ? 'bubble-right' : 'bubble-left')
                     : (msg.role === 'user'  ? 'bubble-right' : 'bubble-left')"
@@ -55,7 +47,6 @@
                     <span class="bubble-time">{{ formatTime(msg.time) }}</span>
                   </div>
                 </div>
-              </template>
             </div>
 
             <!-- ===== 管理员操作区（仅在待处理/处理中时显示） ===== -->
@@ -214,6 +205,8 @@ import { submitFeedback, replyFeedback, closeFeedback, getFeedbackById, type Fee
 import { useWebSocket } from '@/composables/useWebSocket'
 import type { FeedbackUpdatedData, FeedbackNewData, FeedbackSyncData } from '@/types'
 
+type ChatFeedbackMessage = FeedbackMessage | { role: 'system'; text: string; time: string }
+
 const props = defineProps<{
   visible: boolean
   taskId: string
@@ -345,7 +338,7 @@ const dialogTitle = computed(() => {
   return props.readonly ? '对话记录' : '反馈记录'
 })
 
-const baseMessages = computed<FeedbackMessage[]>(() => {
+const baseMessages = computed<ChatFeedbackMessage[]>(() => {
   if (!props.feedbackData?.content) return []
   try {
     return JSON.parse(props.feedbackData.content)
@@ -354,7 +347,7 @@ const baseMessages = computed<FeedbackMessage[]>(() => {
   }
 })
 
-const allMessages = computed<FeedbackMessage[]>(() => [
+const allMessages = computed<ChatFeedbackMessage[]>(() => [
   ...baseMessages.value,
   ...localAdminMessages.value,
   ...localUserMessages.value,

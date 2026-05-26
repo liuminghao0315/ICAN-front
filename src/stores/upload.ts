@@ -175,7 +175,13 @@ export const useUploadStore = defineStore('upload', () => {
         if (!currentTask || currentTask.status === 'cancelled') {
           return // 已被中止，放弃创建分析任务
         }
-        await createAnalysisTask({ videoId: finalVideoId, taskType: 'FULL_ANALYSIS', selectedPackageIds })
+        const taskRes = await createAnalysisTask({ videoId: finalVideoId, taskType: 'FULL_ANALYSIS', selectedPackageIds })
+        if (taskRes.code !== 200) {
+          throw new Error(taskRes.message || '创建分析任务失败')
+        }
+        if (taskRes.data?.id && taskRes.data?.status) {
+          wsStore.applyTaskStatus(taskRes.data.id, taskRes.data.status, { forceActive: true })
+        }
         // 创建任务后再次检查（极端情况：createAnalysisTask 期间被中止）
         if (isCancelled()) return
       }

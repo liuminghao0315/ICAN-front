@@ -102,7 +102,7 @@
           </div>
           <div class="solutions-visual">
             <div class="solution-image-wrap">
-              <img :src="solutions[activeSolutionIndex].image" :alt="solutions[activeSolutionIndex].title" />
+              <img :src="activeSolution.image" :alt="activeSolution.title" />
             </div>
           </div>
         </div>
@@ -319,6 +319,7 @@ const solutions: readonly Solution[] = [
 ] as const
 
 const activeSolutionIndex = ref(0)
+const activeSolution = computed<Solution>(() => solutions[activeSolutionIndex.value] ?? solutions[0]!)
 
 const homeSectionCopy = {
   application: {

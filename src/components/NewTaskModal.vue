@@ -143,7 +143,7 @@
                 <el-icon><Warning /></el-icon>
                 <div class="warn-content">
                   <span>{{ urlState.validateError }}</span>
-                  <router-link v-if="userStore.isAdmin" to="/admin/cookies" class="inline-link">前往 Cookie 管理页面配置 →</router-link>
+                  <router-link v-if="userStore.isAdmin" to="/admin/settings" class="inline-link">前往系统设置配置 Cookie →</router-link>
                 </div>
               </div>
 

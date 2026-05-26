@@ -232,7 +232,7 @@
                 <span class="status-tag" :class="getTaskStatusClass(task.status)">
                   {{ task.statusDesc || getTaskStatusText(task.status) }}
                 </span>
-                <div class="task-progress" v-if="task.status === 'PROCESSING'">
+                <div class="task-progress" v-if="task.status === 'DOWNLOADING' || task.status === 'PROCESSING'">
                   <el-progress 
                     :percentage="task.progress" 
                     :stroke-width="4"
@@ -307,7 +307,7 @@ import {
   type VideoInfo,
   type UploadTrendItem
 } from '@/api'
-import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskStatus } from '@/types'
+import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskStatus, VideoStatus } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { useWebSocket } from '@/composables/useWebSocket'
 
@@ -533,9 +533,9 @@ const formatPercent = (value: number | undefined | null): string => {
 
 const getStatusText = (status: string) => {
   const texts: Record<string, string> = {
+    'DOWNLOADING': '下载中',
     'UPLOADED': '待分析',
     'ANALYZING': '分析中',
-    'PROCESSING': '分析中',
     'COMPLETED': '已完成',
     'FAILED': '失败'
   }
@@ -544,9 +544,9 @@ const getStatusText = (status: string) => {
 
 const getStatusClass = (status: string) => {
   const classes: Record<string, string> = {
+    'DOWNLOADING': 'pending',
     'UPLOADED': 'pending',
     'ANALYZING': 'processing',
-    'PROCESSING': 'processing',
     'COMPLETED': 'completed',
     'FAILED': 'failed'
   }
@@ -595,6 +595,20 @@ const getTaskStatusClass = (status: TaskStatus) => {
     'CANCELLED': 'cancelled'
   }
   return classes[status] || 'pending'
+}
+
+const mapTaskStatusToVideoStatus = (status: TaskStatus, currentVideoStatus?: VideoStatus): VideoStatus => {
+  const statusMap: Record<TaskStatus, VideoStatus> = {
+    DOWNLOADING: 'DOWNLOADING',
+    PENDING: 'ANALYZING',
+    PROCESSING: 'ANALYZING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    // 下载中取消时后端会把 video.status 置为 FAILED（文件未完整）；
+    // 分析中/排队中取消时 video.status 回到 UPLOADED。
+    CANCELLED: currentVideoStatus === 'DOWNLOADING' ? 'FAILED' : 'UPLOADED'
+  }
+  return statusMap[status]
 }
 
 // 获取主题相关的颜色
@@ -845,7 +859,7 @@ subscribeProgress((data) => {
   const task = recentTasks.value.find(t => t.id === data.taskId)
   if (task) {
     task.progress = data.progress
-    task.status = 'PROCESSING'
+    task.status = data.status
   }
 
   // 对齐记录中心逻辑：下载完成后实时回填封面与视频地址
@@ -854,9 +868,7 @@ subscribeProgress((data) => {
     if (data.title) {
       video.title = data.title
     }
-    if (data.status) {
-      video.status = data.status as VideoInfo['status']
-    }
+    video.status = mapTaskStatusToVideoStatus(data.status, video.status)
     if (data.stage === 'PENDING' && data.videoUrl) {
       video.videoUrl = data.videoUrl
     }

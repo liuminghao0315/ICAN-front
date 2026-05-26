@@ -4,6 +4,7 @@
  */
 
 import { onUnmounted, watch } from 'vue'
+import type { WatchStopHandle } from 'vue'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useUserStore } from '@/stores/user'
 import type { TaskProgressData, TaskCompletedData, TaskFailedData, VideoDeletedData, FeedbackNewData, FeedbackUpdatedData, FeedbackLockedData, FeedbackSyncData, NotificationNewData } from '@/types'
@@ -100,8 +101,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     wsStore.notifyTaskChanged()
   }
 
+  let stopLoginWatch: WatchStopHandle | null = null
+
   // 监听登录状态变化，自动连接 WebSocket
-  watch(
+  stopLoginWatch = watch(
     () => userStore.isLoggedIn,
     (isLoggedIn) => {
       if (isLoggedIn && autoConnect) {
@@ -117,6 +120,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     // 组件卸载时取消所有订阅，但不断开 WebSocket 连接
     unsubscribers.forEach(unsubscribe => unsubscribe())
     unsubscribers.length = 0
+    if (stopLoginWatch) {
+      stopLoginWatch()
+      stopLoginWatch = null
+    }
   })
   
   return {

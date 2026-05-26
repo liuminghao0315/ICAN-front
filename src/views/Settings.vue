@@ -423,12 +423,16 @@ function onDrag(e: MouseEvent) {
 function stopDrag() { dragging = false }
 
 function startTouchDrag(e: TouchEvent) {
-  lastX = e.touches[0].clientX; lastY = e.touches[0].clientY
+  const touch = e.touches[0]
+  if (!touch) return
+  lastX = touch.clientX; lastY = touch.clientY
 }
 function onTouchDrag(e: TouchEvent) {
-  offsetX.value += e.touches[0].clientX - lastX
-  offsetY.value += e.touches[0].clientY - lastY
-  lastX = e.touches[0].clientX; lastY = e.touches[0].clientY
+  const touch = e.touches[0]
+  if (!touch) return
+  offsetX.value += touch.clientX - lastX
+  offsetY.value += touch.clientY - lastY
+  lastX = touch.clientX; lastY = touch.clientY
   clampOffset()
   drawCanvas()
 }
@@ -602,7 +606,7 @@ async function handleChangeEmail() {
   emailLoading.value = true
   try {
     await changeEmail(newEmail, verifyCode)
-    await userStore.fetchUserInfo?.()
+    userStore.setUserInfo(userStore.userInfo ? { ...userStore.userInfo, email: newEmail } : null)
     emailStep.value = 2
     ElMessage.success('邮箱变更成功')
   } catch (err: any) {

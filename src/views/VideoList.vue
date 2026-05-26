@@ -32,6 +32,14 @@
           </div>
           <div 
             class="filter-chip" 
+            :class="{ active: statusFilter === 'DOWNLOADING' }"
+            @click="statusFilter = 'DOWNLOADING'; fetchVideos()"
+          >
+            <span class="chip-dot info"></span>
+            下载中
+          </div>
+          <div 
+            class="filter-chip" 
             :class="{ active: statusFilter === 'UPLOADED' }"
             @click="statusFilter = 'UPLOADED'; fetchVideos()"
           >
@@ -181,7 +189,7 @@
             </button>
             <button 
               class="neu-btn icon-btn small warning" 
-              v-if="isAnalysisTimeout(video) || video.status === 'FAILED'"
+              v-if="canReanalyzeVideo(video)"
               @click="startAnalysis(video)"
               title="重新分析"
             >
@@ -341,7 +349,7 @@
                 <el-icon><DataAnalysis /></el-icon>
                 开始分析
               </button>
-              <button class="neu-btn warning-btn" v-else-if="isAnalysisTimeout(selectedVideo) || selectedVideo.status === 'FAILED'" @click="startAnalysisFromDialog">
+              <button class="neu-btn warning-btn" v-else-if="canReanalyzeVideo(selectedVideo)" @click="startAnalysisFromDialog">
                 <el-icon><RefreshRight /></el-icon>
                 重新分析
               </button>
@@ -419,9 +427,11 @@ import {
   type VideoInfo
 } from '@/api'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { useWebSocketStore } from '@/stores/websocket'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog.vue'
 
 const router = useRouter()
+const wsStore = useWebSocketStore()
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let detailOverlayMouseDown = false
@@ -472,7 +482,19 @@ const { subscribeProgress, subscribeCompleted, subscribeFailed, notifyTaskChange
 subscribeProgress((data) => {
   const video = videoList.value.find(v => v.id === data.videoId)
   if (video) {
-    video.status = 'ANALYZING'
+    if (data.status === 'FAILED' || data.status === 'CANCELLED') {
+      video.status = data.status === 'FAILED'
+        ? 'FAILED'
+        : (video.status === 'DOWNLOADING' ? 'FAILED' : 'UPLOADED')
+      delete analysisStartTimes.value[video.id]
+    } else if (data.status === 'COMPLETED') {
+      video.status = 'COMPLETED'
+      delete analysisStartTimes.value[video.id]
+    } else if (data.status === 'DOWNLOADING') {
+      video.status = 'DOWNLOADING'
+    } else {
+      video.status = 'ANALYZING'
+    }
   }
 })
 
@@ -545,8 +567,16 @@ const viewVideo = (video: VideoInfo) => {
   detailDialogVisible.value = true
 }
 
+const canReanalyzeVideo = (video: VideoInfo | null | undefined) => {
+  return !!video?.videoUrl && (isAnalysisTimeout(video) || video.status === 'FAILED')
+}
+
 // 开始分析
 const startAnalysis = (video: VideoInfo) => {
+  if ((isAnalysisTimeout(video) || video.status === 'FAILED') && !video.videoUrl) {
+    ElMessage.warning('视频文件不存在，不能重新分析')
+    return
+  }
   selectedVideo.value = video
   // 如果是超时的任务或失败的任务，需要强制重新分析
   analysisOptions.value.forceRestart = isAnalysisTimeout(video) || video.status === 'FAILED'
@@ -555,6 +585,10 @@ const startAnalysis = (video: VideoInfo) => {
 
 // 从详情对话框开始分析
 const startAnalysisFromDialog = () => {
+  if (selectedVideo.value && (isAnalysisTimeout(selectedVideo.value) || selectedVideo.value.status === 'FAILED') && !selectedVideo.value.videoUrl) {
+    ElMessage.warning('视频文件不存在，不能重新分析')
+    return
+  }
   detailDialogVisible.value = false
   // 如果是超时的任务或失败的任务，需要强制重新分析
   if (selectedVideo.value) {
@@ -578,6 +612,9 @@ const confirmCreateTask = async () => {
     if (response.code === 200) {
       ElMessage.success('分析任务创建成功，正在处理中...')
       analysisDialogVisible.value = false
+      if (response.data?.id && response.data?.status) {
+        wsStore.applyTaskStatus(response.data.id, response.data.status, { forceActive: true })
+      }
       // 更新视频状态
       const video = videoList.value.find(v => v.id === selectedVideo.value?.id)
       if (video) {
@@ -670,6 +707,7 @@ const getStatusClass = (video: VideoInfo) => {
     return 'timeout'
   }
   const classes: Record<string, string> = {
+    'DOWNLOADING': 'pending',
     'UPLOADED': 'pending',
     'ANALYZING': 'processing',
     'COMPLETED': 'completed',
@@ -684,6 +722,7 @@ const getStatusText = (video: VideoInfo) => {
     return '分析异常'
   }
   const texts: Record<string, string> = {
+    'DOWNLOADING': '下载中',
     'UPLOADED': '待分析',
     'ANALYZING': '分析中',
     'COMPLETED': '已完成',

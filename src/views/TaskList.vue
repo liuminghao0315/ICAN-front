@@ -38,6 +38,14 @@
           </div>
           <div 
             class="filter-chip" 
+            :class="{ active: statusFilter === 'DOWNLOADING' }"
+            @click="handleStatusFilterChange('DOWNLOADING')"
+          >
+            <span class="chip-dot info"></span>
+            下载中
+          </div>
+          <div 
+            class="filter-chip" 
             :class="{ active: statusFilter === 'PENDING' }"
             @click="handleStatusFilterChange('PENDING')"
           >
@@ -199,7 +207,7 @@
         >
           <div class="task-icon" :class="getStatusClass(task.status)">
             <el-icon :size="24">
-              <Loading v-if="task.status === 'PROCESSING'" class="rotating" />
+              <Loading v-if="task.status === 'PROCESSING' || task.status === 'DOWNLOADING'" class="rotating" />
               <Clock v-else-if="task.status === 'PENDING'" />
               <CircleCheck v-else-if="task.status === 'COMPLETED'" />
               <CircleClose v-else-if="task.status === 'FAILED'" />
@@ -235,7 +243,7 @@
             </div>
             
             <!-- 处理中显示进度条 -->
-            <div class="task-progress" v-else-if="task.status === 'PROCESSING'">
+            <div class="task-progress" v-else-if="task.status === 'PROCESSING' || task.status === 'DOWNLOADING'">
               <div class="progress-bar">
                 <div class="progress-fill" :style="{ width: task.progress + '%' }"></div>
               </div>
@@ -260,7 +268,7 @@
             </button>
             <button 
               class="neu-btn icon-btn small warning" 
-              v-if="task.status === 'PENDING' || task.status === 'PROCESSING'"
+              v-if="task.status === 'DOWNLOADING' || task.status === 'PENDING' || task.status === 'PROCESSING'"
               @click="handleCancel(task)"
               title="取消任务"
             >
@@ -268,7 +276,7 @@
             </button>
             <button 
               class="neu-btn icon-btn small success" 
-              v-if="task.status === 'FAILED' || task.status === 'CANCELLED'"
+              v-if="canRetryAnalysis(task)"
               @click="handleRetry(task)"
               title="重试任务"
             >
@@ -326,8 +334,10 @@ import {
 } from '@/api'
 import type { AnalysisTaskVO, TaskStatus, TaskType, RiskLevel } from '@/types'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { useWebSocketStore } from '@/stores/websocket'
 
 const router = useRouter()
+const wsStore = useWebSocketStore()
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let cancelOverlayMouseDown = false
@@ -363,6 +373,9 @@ subscribeProgress((data) => {
   if (task) {
     task.status = data.status
     task.progress = data.progress
+    if (data.status === 'CANCELLED') {
+      task.errorMessage = null
+    }
   }
 })
 
@@ -381,21 +394,41 @@ subscribeCompleted(async (data) => {
       taskList.value[idx] = response.data
     } else {
       // 接口异常时至少更新状态字段
+      const task = taskList.value[idx]
+      if (!task) return
       taskList.value[idx] = {
-        ...taskList.value[idx],
+        id: task.id,
+        videoId: task.videoId,
+        videoTitle: task.videoTitle,
+        videoUrl: task.videoUrl,
+        taskType: task.taskType,
         status: 'COMPLETED',
         progress: 100,
         resultId: data.resultId,
-        hasResult: true
+        hasResult: true,
+        errorMessage: task.errorMessage,
+        startedAt: task.startedAt,
+        completedAt: task.completedAt,
+        gmtCreated: task.gmtCreated
       }
     }
   } catch {
+    const task = taskList.value[idx]
+    if (!task) return
     taskList.value[idx] = {
-      ...taskList.value[idx],
+      id: task.id,
+      videoId: task.videoId,
+      videoTitle: task.videoTitle,
+      videoUrl: task.videoUrl,
+      taskType: task.taskType,
       status: 'COMPLETED',
       progress: 100,
       resultId: data.resultId,
-      hasResult: true
+      hasResult: true,
+      errorMessage: task.errorMessage,
+      startedAt: task.startedAt,
+      completedAt: task.completedAt,
+      gmtCreated: task.gmtCreated
     }
   }
 
@@ -480,25 +513,40 @@ const confirmCancel = async () => {
   showCancelModal.value = false
   const task = pendingCancelTask.value
   pendingCancelTask.value = null
+  const previousStatus = task.status
+  wsStore.applyTaskStatus(task.id, 'CANCELLED')
+  task.status = 'CANCELLED'
+  wsStore.notifyTaskChanged()
   try {
     const response = await cancelTask(task.id)
     if (response.code === 200) {
       ElMessage.success('任务已取消')
-      task.status = 'CANCELLED'
+      fetchTasks()
     } else {
       ElMessage.error(response.message || '取消失败')
+      task.status = previousStatus
+      wsStore.applyTaskStatus(task.id, previousStatus)
+      wsStore.notifyTaskChanged()
     }
   } catch {
-    // 静默处理
+    task.status = previousStatus
+    wsStore.applyTaskStatus(task.id, previousStatus)
+    wsStore.notifyTaskChanged()
   }
 }
 
 // 重试任务
 const handleRetry = async (task: AnalysisTaskVO) => {
+  if (!canRetryAnalysis(task)) {
+    ElMessage.warning('视频文件不存在，不能重新分析')
+    return
+  }
   try {
     const response = await retryTask(task.id)
     if (response.code === 200) {
       ElMessage.success('任务已重新创建')
+      wsStore.applyTaskStatus(task.id, response.data?.status ?? 'PENDING', { forceActive: true })
+      wsStore.notifyTaskChanged()
       fetchTasks()
     } else {
       ElMessage.error(response.message || '重试失败')
@@ -506,6 +554,13 @@ const handleRetry = async (task: AnalysisTaskVO) => {
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || '重试失败')
   }
+}
+
+const canRetryAnalysis = (task: AnalysisTaskVO) => {
+  const hasVideoFile = !!task.videoUrl
+  if (!hasVideoFile) return false
+  if (task.status === 'CANCELLED') return true
+  return task.status === 'FAILED' && task.failureType === 'ANALYSIS_FAILED'
 }
 
 // 格式化日期
@@ -516,6 +571,7 @@ const formatDate = (dateStr: string): string => {
 // 获取状态类名
 const getStatusClass = (status: TaskStatus) => {
   const classes: Record<TaskStatus, string> = {
+    'DOWNLOADING': 'downloading',
     'PENDING': 'pending',
     'PROCESSING': 'processing',
     'COMPLETED': 'completed',
@@ -528,6 +584,7 @@ const getStatusClass = (status: TaskStatus) => {
 // 获取状态文本
 const getStatusText = (status: TaskStatus) => {
   const texts: Record<TaskStatus, string> = {
+    'DOWNLOADING': '下载中',
     'PENDING': '排队中',
     'PROCESSING': '处理中',
     'COMPLETED': '已完成',
@@ -632,7 +689,7 @@ onMounted(() => {
   // 轮询兜底：每 5 秒刷新一次任务列表（仅当有活跃任务时）
   const pollingInterval = setInterval(() => {
     const hasActiveTasks = taskList.value.some(t =>
-      t.status === 'PENDING' || t.status === 'PROCESSING'
+      t.status === 'DOWNLOADING' || t.status === 'PENDING' || t.status === 'PROCESSING'
     )
     if (hasActiveTasks) {
       fetchTasks()

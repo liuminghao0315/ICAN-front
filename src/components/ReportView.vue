@@ -196,7 +196,7 @@
           <thead><tr><th>序号</th><th>场景名称</th><th>时间段</th><th>置信度</th></tr></thead>
           <tbody>
             <tr v-for="(scene, idx) in data.sceneRecognition" :key="scene.id">
-              <td>{{ idx + 1 }}</td>
+              <td>{{ Number(idx) + 1 }}</td>
               <td>{{ scene.name }}</td>
               <td>{{ formatTime(scene.timeStart) }} - {{ formatTime(scene.timeEnd) }}</td>
               <td>{{ (scene.confidence * 100).toFixed(0) }}%</td>
@@ -259,7 +259,7 @@ const trendChartRef = ref<HTMLElement>()
 const attitudeStats = computed(() => {
   const evidences = props.data.attitude.evidences
   let positive = 0, neutral = 0, negative = 0
-  evidences.forEach(ev => {
+  evidences.forEach((ev: any) => {
     const score = ev.sentimentScore || 50
     if (score < 40) positive++
     else if (score > 70) negative++
@@ -280,18 +280,18 @@ const riskPeakAnalysis = computed(() => {
   const granularity = props.data.timelineData.timeGranularity
   const videoDuration = props.data.videoInfo.duration || 0
   let peakIndex = 0, peakIntensity = 0
-  risks.forEach((risk, idx) => {
+  risks.forEach((risk: any, idx: number) => {
     if (risk.intensity > peakIntensity) { peakIntensity = risk.intensity; peakIndex = idx }
   })
   const peakStartSec = peakIndex * granularity
   const peakEndSec = videoDuration > 0 ? Math.min((peakIndex + 1) * granularity, videoDuration) : (peakIndex + 1) * granularity
 
-  const eventsInPeak = props.data.timelineEvents.filter(e => e.startTime >= peakStartSec && e.startTime < peakEndSec)
+  const eventsInPeak = props.data.timelineEvents.filter((e: any) => e.startTime >= peakStartSec && e.startTime < peakEndSec)
   const candidates = eventsInPeak.length > 0 ? eventsInPeak : [...props.data.timelineEvents]
 
   let triggerEvent = ''
   if (candidates.length > 0) {
-    const top = candidates.reduce((a, b) => b.riskScore > a.riskScore ? b : a)
+    const top = candidates.reduce((a: any, b: any) => b.riskScore > a.riskScore ? b : a)
     if (top.modality === 'speech') triggerEvent = `语音内容「${top.transcript.substring(0, 30)}${top.transcript.length > 30 ? '...' : ''}」`
     else if (top.modality === 'visual') triggerEvent = `视觉特征「${top.detectionLabel}」`
     else if (top.modality === 'audio-effect') triggerEvent = `声学特征「${top.description}」`
@@ -376,7 +376,10 @@ const currentDateTime = computed(() => {
 })
 
 const formatDuration = (seconds: number) => `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`
-const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
+const formatTime = (seconds: string | number) => {
+  const sec = typeof seconds === 'string' ? parseFloat(seconds) : seconds
+  return `${Math.floor(sec / 60).toString().padStart(2, '0')}:${Math.floor(sec % 60).toString().padStart(2, '0')}`
+}
 
 const getConclusionClass = () => {
   const s = props.data.action.modalityFusion.finalScore
@@ -417,7 +420,7 @@ const initTrendChart = () => {
   if (!trendChartRef.value) return
   const chart = echarts.init(trendChartRef.value)
   const g = props.data.timelineData.timeGranularity
-  const xData = props.data.timelineData.comprehensiveRisks.map((_, i) => formatTime(i * g))
+  const xData = props.data.timelineData.comprehensiveRisks.map((_: any, i: number) => formatTime(i * g))
   chart.setOption({
     animation: false,
     grid: { left: 50, right: 72, top: 28, bottom: 36 },
@@ -425,7 +428,7 @@ const initTrendChart = () => {
     yAxis: { type: 'value', name: '风险强度', min: 0, max: 1, axisLabel: { color: '#666', fontSize: 10 }, splitLine: { lineStyle: { color: '#eee', type: 'dashed' } } },
     series: [{
       name: '综合风险', type: 'line', smooth: true,
-      data: props.data.timelineData.comprehensiveRisks.map(r => r.intensity),
+      data: props.data.timelineData.comprehensiveRisks.map((r: any) => r.intensity),
       lineStyle: { color: '#333', width: 1.5 },
       areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(0,0,0,0.1)' }, { offset: 1, color: 'rgba(0,0,0,0.02)' }] } },
       itemStyle: { color: '#333' },

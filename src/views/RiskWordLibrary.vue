@@ -1030,8 +1030,8 @@ const loadPacks = async () => {
         }))
       }))
       if (wordPacks.value.length > 0 && !activePack.value) {
-        activePack.value = wordPacks.value[0]
-        displayPack.value = wordPacks.value[0]
+        activePack.value = wordPacks.value[0] || null
+        displayPack.value = wordPacks.value[0] || null
       }
     }
   } catch (e: any) {
@@ -1377,14 +1377,18 @@ const saveEditPack = async () => {
     if (res.code === 200 && res.data) {
       const idx = wordPacks.value.findIndex(p => p.id === editingPack.value!.id)
       if (idx !== -1) {
+        const pack = wordPacks.value[idx]
+        if (!pack) return
         wordPacks.value[idx] = {
-          ...wordPacks.value[idx],
+          id: pack.id,
           name: res.data.name,
           description: res.data.description || '',
+          words: pack.words,
+          _idx: pack._idx,
         }
         if (activePack.value?.id === editingPack.value.id) {
-          activePack.value = wordPacks.value[idx]
-          displayPack.value = wordPacks.value[idx]
+          activePack.value = wordPacks.value[idx] || null
+          displayPack.value = wordPacks.value[idx] || null
         }
       }
       ElMessage.success('词库包已更新')

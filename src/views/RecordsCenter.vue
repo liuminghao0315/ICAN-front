@@ -386,7 +386,7 @@ import { useFavoritesStore } from '@/stores/favorites'
 import { useSettingsStore } from '@/stores/settings'
 import { useExportReport } from '@/composables/useExportReport'
 import { formatDate } from '@/types'
-import type { AnalysisTaskVO, TaskStatus, RiskLevel } from '@/types'
+import type { AnalysisTaskVO, TaskStatus, RiskLevel, SourceType } from '@/types'
 import NewTaskModal from '@/components/NewTaskModal.vue'
 import NeuSelect from '@/components/NeuSelect.vue'
 import CardView from '@/components/CardView.vue'
@@ -630,16 +630,19 @@ const applyQuickActionFromQuery = (query: Record<string, unknown>) => {
   const action = typeof query.action === 'string' ? query.action : ''
   const status = typeof query.status === 'string' ? query.status.toUpperCase() : ''
   const risk = typeof query.risk === 'string' ? query.risk.toUpperCase() : ''
+  let changed = false
 
   if (action === 'newTask') {
     showNewTaskModal.value = true
   }
 
   if (status && statusFilters.some(f => f.value === status)) {
+    changed = changed || activeStatus.value !== status
     activeStatus.value = status
   }
 
   if (risk && riskOptions.some(r => r.value === risk)) {
+    changed = changed || riskFilter.value !== risk
     riskFilter.value = risk
   }
 
@@ -651,6 +654,8 @@ const applyQuickActionFromQuery = (query: Record<string, unknown>) => {
     delete cleanedQuery.risk
     router.replace({ path: route.path, query: cleanedQuery }).catch(() => {})
   }
+
+  return changed
 }
 
 const renameState = reactive({ visible: false, videoId: '', title: '', originalTitle: '' })
@@ -684,27 +689,13 @@ const fetchAndApplyRecords = async () => {
     status as TaskStatus | undefined,
     riskFilter.value as RiskLevel | undefined || undefined,
     sortField, sortDir,
-    folderId
+    folderId,
+    sourceFilter.value as SourceType | undefined || undefined,
+    searchKeyword.value
   )
   if (res.code === 200) {
     let list = res.data.records || []
     let total = res.data.total || 0
-
-    // 前端来源筛选（后端暂不支持 sourceType 参数）
-    if (sourceFilter.value) {
-      list = list.filter((r: AnalysisTaskVO) => r.sourceType === sourceFilter.value)
-      total = list.length
-    }
-    // 关键词搜索
-    if (searchKeyword.value.trim()) {
-      const kw = searchKeyword.value.trim().toLowerCase()
-      list = list.filter((r: AnalysisTaskVO) =>
-        (r.videoTitle || '').toLowerCase().includes(kw) ||
-        (r.universityName || '').toLowerCase().includes(kw) ||
-        (r.keywords || []).some((k: string) => k.toLowerCase().includes(kw))
-      )
-      total = list.length
-    }
     // 风险最高：后端已按 riskScore DESC 排序，前端无需重复处理
     // 防御性去重：按 id 去重（同一任务不重复展示）
     const seen = new Set<string>()
@@ -880,9 +871,18 @@ const confirmRename = async () => {
 
 const handleReanalyze = async (record: AnalysisTaskVO) => {
   openMenuId.value = null
+  if (!record.videoUrl || record.failureType === 'DOWNLOAD_FAILED' || (record.status === 'FAILED' && record.failureType !== 'ANALYSIS_FAILED')) {
+    ElMessage.warning('视频文件不存在，不能重新分析；请重试下载/重新采搜')
+    return
+  }
   try {
     const res = await retryTask(record.id)
-    if (res.code === 200) { ElMessage.success('重新分析任务已提交'); loadRecords() }
+    if (res.code === 200) {
+      ElMessage.success('重新分析任务已提交')
+      wsStore.applyTaskStatus(record.id, res.data?.status ?? 'PENDING', { forceActive: true })
+      wsStore.notifyTaskChanged()
+      loadRecords()
+    }
     else ElMessage.error(res.message || '提交失败')
   } catch (e: any) { ElMessage.error(e.message || '提交失败') }
 }
@@ -904,28 +904,34 @@ watch(showNewTaskModal, (v) => { if (!v) retryDownloadRecord.value = null })
 
 const handleCancel = async (record: AnalysisTaskVO) => {
   openMenuId.value = null
-  // 下载中的任务不支持取消，只能删除
-  if (record.status === 'DOWNLOADING') {
-    ElMessage.warning('只能取消等待中或处理中的任务')
+  if (!['DOWNLOADING', 'PENDING', 'PROCESSING'].includes(record.status)) {
+    ElMessage.warning('只能取消下载中、等待中或处理中的任务')
     return
   }
-  // 乐观更新：立即减少横幅计数 + 原地更新卡片状态，不等接口返回
-  wsStore.decrementAnalyzingCount()
+
+  const previousStatus = record.status
   const r = records.value.find(r => r.id === record.id)
-  if (r) r.status = 'CANCELLED' as any
+
+  // 乐观更新：统一走全局任务状态机，避免只减计数却不清理 activeTaskStatuses。
+  wsStore.applyTaskStatus(record.id, 'CANCELLED')
+  wsStore.notifyTaskChanged()
+  if (r) r.status = 'CANCELLED'
+
   try {
     const res = await cancelTask(record.id)
     if (res.code === 200) {
       ElMessage.success('任务已取消')
-      // 乐观更新已处理 UI，无需再刷新列表
+      loadRecordsSilent()
     } else {
       // 接口失败时回滚状态和计数，axios 拦截器已弹过错误提示
-      if (r) r.status = record.status
+      if (r) r.status = previousStatus
+      wsStore.applyTaskStatus(record.id, previousStatus)
       wsStore.notifyTaskChanged()
     }
   } catch (e: any) {
     // axios 拦截器已弹过错误提示，只做状态回滚
-    if (r) r.status = record.status
+    if (r) r.status = previousStatus
+    wsStore.applyTaskStatus(record.id, previousStatus)
     wsStore.notifyTaskChanged()
   }
 }
@@ -1021,16 +1027,22 @@ const { subscribeProgress, subscribeCompleted, subscribeFailed } = useWebSocket(
 
 // 新任务创建后立即插入列表首位（无需等待后端推送）
 const handleTaskCreated = (task: AnalysisTaskVO) => {
-  // 防重：如果已存在则跳过（极少情况下 @success 触发的 loadRecords 先到）
-  if (records.value.some(r => r.id === task.id)) return
-  records.value.unshift(task)
-  totalRecords.value++
+  const existing = records.value.find(r => r.id === task.id)
+  if (existing) {
+    Object.assign(existing, task)
+  } else {
+    records.value.unshift(task)
+    totalRecords.value++
+  }
+  wsStore.applyTaskStatus(task.id, task.status, { forceActive: true })
+  wsStore.notifyTaskChanged()
   // 刷新侧边栏文件夹计数
   folderStore.loadTree()
 }
 
 // 任务创建成功（本地上传走此路径）：刷新列表 + 侧边栏计数
 const handleTaskSuccess = () => {
+  wsStore.notifyTaskChanged()
   loadRecords()
   folderStore.loadTree()
 }
@@ -1050,6 +1062,9 @@ subscribeProgress((data) => {
     // 进度只前进不后退；但状态发生切换时允许重置（新阶段有自己的起点）
     if (data.status !== prevStatus || data.progress > (record.progress ?? 0)) {
       record.progress = data.progress
+    }
+    if (data.status === 'CANCELLED') {
+      record.errorMessage = null
     }
     // 元数据阶段：后端获取到真实标题后立即更新卡片标题
     if (data.stage === 'FETCHING_TITLE' && data.title) {
@@ -1093,8 +1108,11 @@ subscribeFailed((data) => {
 })
 
 onMounted(() => {
-  loadRecords()
-  applyQuickActionFromQuery(route.query as Record<string, unknown>)
+  const queryChangedFilters = applyQuickActionFromQuery(route.query as Record<string, unknown>)
+  // 若 query 改变了筛选项，筛选 watcher 会触发首轮加载；否则这里主动加载。
+  if (!queryChangedFilters) {
+    loadRecords()
+  }
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -1110,7 +1128,7 @@ onUnmounted(() => { document.removeEventListener('click', handleClickOutside); i
 // B2：兜底轮询周期 15s → 5min。WS 已订阅 task_completed/failed/changed，正常路径完全靠 WS；
 // 5 分钟兜底仅覆盖 WS 断连或事件丢失的极端情况，与 MainLayout 任务计数策略对齐
 let stalePollTimer: ReturnType<typeof setInterval> | null = null
-const hasActiveTasks = computed(() => records.value.some(r => r.status === 'PENDING' || r.status === 'PROCESSING'))
+const hasActiveTasks = computed(() => records.value.some(r => ['DOWNLOADING', 'PENDING', 'PROCESSING'].includes(r.status)))
 watch(hasActiveTasks, (active) => {
   if (active && !stalePollTimer) {
     stalePollTimer = setInterval(() => { if (hasActiveTasks.value) loadRecordsSilent() }, 5 * 60 * 1000)
@@ -1739,3 +1757,5 @@ watch(() => wsStore.isConnected, (connected, wasConnected) => {
   }
 }
 </style>
+
+

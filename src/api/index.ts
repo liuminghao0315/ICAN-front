@@ -8,6 +8,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import config from '@/config'
+import { pushWsRuntimeTrace } from '@/utils/wsRuntimeTrace'
 import type {
   Result,
   PageResult,
@@ -35,7 +36,8 @@ const PROACTIVE_REFRESH_BEFORE_MS = config.proactiveRefreshBeforeMs
 let proactiveRefreshTimerId: ReturnType<typeof setTimeout> | null = null
 
 /** 从 JWT 中解析过期时间戳（毫秒），失败返回 null */
-function decodeJwtExpMs(token: string): number | null {
+function decodeJwtExpMs(token: string | null | undefined): number | null {
+  if (!token) return null
   try {
     const parts = token.trim().split('.')
     if (parts.length !== 3) return null
@@ -51,6 +53,7 @@ function decodeJwtExpMs(token: string): number | null {
 /** 静默刷新：仅用 refreshToken 换新双 token，更新 store 与 localStorage；失败则退登并跳转，返回 null */
 async function doSilentRefresh(): Promise<{ accessToken: string; refreshToken: string } | null> {
   const userStore = useUserStore()
+  const oldAccessToken = userStore.token || getStoredToken()
   const refreshToken = userStore.refreshToken || getStoredRefreshToken()
   if (!refreshToken) {
     cancelProactiveRefresh()
@@ -82,6 +85,10 @@ async function doSilentRefresh(): Promise<{ accessToken: string; refreshToken: s
           userInfo: null
         }))
       }
+      pushWsRuntimeTrace('TOKEN_REFRESH_SUCCESS', {
+        oldTokenExpMs: decodeJwtExpMs(oldAccessToken),
+        newTokenExpMs: decodeJwtExpMs(accessToken),
+      })
       return { accessToken, refreshToken: newRefreshToken }
     }
   } catch {
@@ -396,8 +403,10 @@ export interface VideoInfo {
   width: number | null
   height: number | null
   thumbnailUrl: string | null
-  videoUrl: string
-  status: 'UPLOADED' | 'ANALYZING' | 'COMPLETED' | 'FAILED'
+  videoUrl: string | null
+  status: 'DOWNLOADING' | 'UPLOADED' | 'ANALYZING' | 'COMPLETED' | 'FAILED'
+  sourceType?: SourceType
+  sourceUrl?: string | null
   gmtCreated: string
 }
 
@@ -530,7 +539,9 @@ export const getTaskList = async (
   riskLevel?: RiskLevel,
   sortBy: string = 'gmtCreated',
   sortOrder: string = 'desc',
-  folderId?: string
+  folderId?: string,
+  sourceType?: SourceType,
+  keyword?: string
 ): Promise<ApiResponse<PageResult<AnalysisTaskVO>>> => {
   const params: Record<string, any> = { page, size, sortBy, sortOrder }
   if (status) {
@@ -542,13 +553,19 @@ export const getTaskList = async (
   if (folderId) {
     params.folderId = folderId
   }
+  if (sourceType) {
+    params.sourceType = sourceType
+  }
+  if (keyword?.trim()) {
+    params.keyword = keyword.trim()
+  }
   const response = await api.get<ApiResponse<PageResult<AnalysisTaskVO>>>('/api/analysis/task/list', { params })
   return response.data
 }
 
-// B1：轻量计数接口——返回 PENDING + PROCESSING 任务数（替代旧的两次 list 调用）
-export const getAnalyzingCount = async (): Promise<ApiResponse<{ count: number }>> => {
-  const response = await api.get<ApiResponse<{ count: number }>>('/api/analysis/task/analyzing-count')
+// B1：轻量计数接口——返回顶部任务横幅数量
+export const getAnalyzingCount = async (): Promise<ApiResponse<{ count: number; analyzingCount?: number; downloadingCount?: number }>> => {
+  const response = await api.get<ApiResponse<{ count: number; analyzingCount?: number; downloadingCount?: number }>>('/api/analysis/task/analyzing-count')
   return response.data
 }
 

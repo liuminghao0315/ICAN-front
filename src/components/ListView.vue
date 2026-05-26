@@ -162,10 +162,10 @@
                 <el-icon><Download /></el-icon>
                 {{ exportingIds.has(record.resultId || '') ? '导出中...' : '导出报告' }}
               </button>
-              <button class="dd-item" v-if="record.status === 'FAILED' && record.failureType === 'DOWNLOAD_FAILED'" @click.stop="emit('retry-download', record)">
+              <button class="dd-item" v-if="canRetryDownload(record)" @click.stop="emit('retry-download', record)">
                 <el-icon><RefreshRight /></el-icon>重试下载
               </button>
-              <button class="dd-item" v-if="(record.status === 'FAILED' && record.failureType !== 'DOWNLOAD_FAILED') || record.status === 'CANCELLED'" @click.stop="emit('reanalyze', record)">
+              <button class="dd-item" v-if="canReanalyze(record)" @click.stop="emit('reanalyze', record)">
                 <el-icon><RefreshRight /></el-icon>重新分析
               </button>
               <button class="dd-item" v-if="['PENDING','PROCESSING','DOWNLOADING'].includes(record.status)" @click.stop="emit('cancel', record)">
@@ -240,6 +240,17 @@ const getStatusClass = (status: string) => ({
 
 const getStatusText = (status: string) => TASK_STATUS_TEXT[status as TaskStatus] || status
 const getRiskText = (level: string | null | undefined) => level ? (RISK_LEVEL_TEXT[level as RiskLevel] || level) : ''
+
+const hasAnalyzableVideo = (record: AnalysisTaskVO) => !!record.videoUrl && record.status !== 'DOWNLOADING'
+const canRetryDownload = (record: AnalysisTaskVO) => {
+  if (record.status !== 'FAILED') return false
+  return record.failureType === 'DOWNLOAD_FAILED' || (record.sourceType === 'URL_IMPORT' && !record.videoUrl)
+}
+const canReanalyze = (record: AnalysisTaskVO) => {
+  if (!hasAnalyzableVideo(record)) return false
+  if (record.status === 'CANCELLED') return true
+  return record.status === 'FAILED' && record.failureType === 'ANALYSIS_FAILED'
+}
 
 const thumbnailLoadFailedMap = ref<Record<string, boolean>>({})
 

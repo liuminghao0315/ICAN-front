@@ -391,7 +391,13 @@ const handleLogin = async () => {
       }
       try {
         const meRes = await getMe()
-        if (meRes.code === 200 && meRes.data) userStore.setUserInfo({ id: meRes.data.id, username: meRes.data.username, email: meRes.data.email, avatarUrl: meRes.data.avatarUrl || '' })
+        if (meRes.code === 200 && meRes.data) userStore.setUserInfo({
+          id: meRes.data.id,
+          username: meRes.data.username,
+          email: meRes.data.email,
+          role: meRes.data.role,
+          avatarUrl: meRes.data.avatarUrl || ''
+        })
       } catch {}
       router.push('/dashboard')
     } else loginError.value = response.message || '登录失败'

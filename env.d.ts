@@ -21,3 +21,21 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+
+type BannerTraceEntry = {
+  ts: string
+  message: string
+  payload?: unknown
+}
+
+type WsRuntimeTraceEntry = {
+  ts: string
+  event: 'CONNECT_ATTEMPT' | 'OPEN' | 'CLOSE' | 'RECONNECT_SCHEDULE' | 'RECONNECT_STOP' | 'RECONNECT_KEEPALIVE_SCHEDULE' | 'HTTP_RECOVER_RECONNECT_HINT' | 'TOKEN_REFRESH_SUCCESS'
+  payload?: unknown
+}
+
+interface Window {
+  __BANNER_TRACE__?: BannerTraceEntry[]
+  __WS_RUNTIME_TRACE__?: WsRuntimeTraceEntry[]
+}
