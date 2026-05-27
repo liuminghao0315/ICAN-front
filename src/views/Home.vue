@@ -51,6 +51,7 @@
           v-for="(_, idx) in heroBackgrounds"
           :key="idx"
           :class="{ active: idx === activeBgIndex }"
+          :aria-current="idx === activeBgIndex ? 'true' : 'false'"
           :aria-label="`切换到背景${idx + 1}`"
           @click="activeBgIndex = idx"
         />
@@ -1084,6 +1085,7 @@ const goHelp = () => router.push('/help')
   gap: 12px;
 
   button {
+    position: relative;
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -1093,10 +1095,27 @@ const goHelp = () => router.push('/help')
     transition: all 0.3s var(--ease);
     padding: 0;
 
-    &.active {
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
       background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
-      border-color: transparent;
-      box-shadow: 0 0 12px var(--accent-glow);
+      opacity: 0;
+      transform: scale(0.4);
+      transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+    }
+
+    &.active {
+      border-color: rgba(255, 255, 255, 0.88);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 3px rgba(23, 210, 255, 0.16), 0 0 12px var(--accent-glow);
+      transform: scale(1.08);
+
+      &::after {
+        opacity: 1;
+        transform: scale(1);
+      }
     }
 
     &:hover:not(.active) {
