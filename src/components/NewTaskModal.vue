@@ -210,7 +210,7 @@
                 识别到：{{ urlState.validatedTitle }}
               </p>
               <!-- 默认提示 -->
-              <p class="field-hint" v-else-if="!urlState.validateError">支持抖音、B站、YouTube 等主流平台，或直接粘贴 .mp4 / .flv 等视频地址（抖音每日限 20 条）</p>
+              <p class="field-hint" v-else-if="!urlState.validateError">支持抖音、B站、YouTube 等主流平台，或直接粘贴 .mp4 / .flv 等视频地址</p>
             </div>
             <div class="form-field" v-if="urlState.validatedTitle">
               <label>标题（可选）</label>

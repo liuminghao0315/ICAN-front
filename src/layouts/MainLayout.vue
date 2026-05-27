@@ -657,33 +657,6 @@
     checkActiveTaskCounts('taskChanged')
   })
 
-  // 监听登录状态变化，自动连接/断开 WebSocket
-  watch(
-    () => userStore.isLoggedIn,
-    (isLoggedIn) => {
-      if (isLoggedIn) {
-        wsStore.connect()
-        scheduleNextTaskCountPoll()
-        // 登录后检查顶部任务横幅计数
-        checkActiveTaskCounts('login')
-      } else {
-        clearTaskCountPolling()
-        // 登出时清除任务状态
-        wsStore.hardResetActiveTaskCounts(0, 0)
-      }
-    },
-    { immediate: true }
-  )
-
-  // WebSocket 重连后做一次轻量计数同步：
-  // 正常活跃态切换完全信任 WS，但断线重连期间可能错过部分事件，需要在重连成功后与服务端重新对齐。
-  watch(() => wsStore.isConnected, (connected, wasConnected) => {
-    if (connected && wasConnected === false) {
-      checkActiveTaskCounts('reconnect')
-    }
-    scheduleNextTaskCountPoll()
-  })
-
   const ACTIVE_TASK_COUNT_POLL_INTERVAL = 5 * 1000
   const IDLE_TASK_COUNT_POLL_INTERVAL = 60 * 1000
   const hasActiveTaskCounts = computed(() => wsStore.downloadingCount > 0 || wsStore.analyzingCount > 0)
@@ -722,6 +695,33 @@
   }
 
   watch(hasActiveTaskCounts, () => {
+    scheduleNextTaskCountPoll()
+  })
+
+  // 监听登录状态变化，自动连接/断开 WebSocket
+  watch(
+    () => userStore.isLoggedIn,
+    (isLoggedIn) => {
+      if (isLoggedIn) {
+        wsStore.connect()
+        scheduleNextTaskCountPoll()
+        // 登录后检查顶部任务横幅计数
+        checkActiveTaskCounts('login')
+      } else {
+        clearTaskCountPolling()
+        // 登出时清除任务状态
+        wsStore.hardResetActiveTaskCounts(0, 0)
+      }
+    },
+    { immediate: true }
+  )
+
+  // WebSocket 重连后做一次轻量计数同步：
+  // 正常活跃态切换完全信任 WS，但断线重连期间可能错过部分事件，需要在重连成功后与服务端重新对齐。
+  watch(() => wsStore.isConnected, (connected, wasConnected) => {
+    if (connected && wasConnected === false) {
+      checkActiveTaskCounts('reconnect')
+    }
     scheduleNextTaskCountPoll()
   })
 
