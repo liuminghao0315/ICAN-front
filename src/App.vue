@@ -36,6 +36,22 @@ body {
   background: var(--bg-page);
 }
 
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-switching,
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none !important;
+  }
+}
+
 /* 全局滚动条美化 - 扁平风格 */
 ::-webkit-scrollbar {
   width: 8px;

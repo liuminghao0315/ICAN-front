@@ -10,6 +10,9 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 export type Language = 'zh-CN' | 'en-US'
 export type ViewMode = 'card' | 'list'
 
+const THEME_TRANSITION_CLASS = 'theme-switching'
+const THEME_TRANSITION_DURATION_MS = 160
+
 export const useSettingsStore = defineStore('settings', () => {
   const themeMode = ref<ThemeMode>('system')
   const language = ref<Language>('zh-CN')
@@ -18,6 +21,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const sidebarCollapsed = ref(false)
   const recordsViewMode = ref<ViewMode>('card')
   const favoritesViewMode = ref<ViewMode>('card')
+  let themeTransitionTimer: ReturnType<typeof setTimeout> | null = null
 
   const getThemeVars = (theme: 'light' | 'dark') => {
     return theme === 'dark'
@@ -51,12 +55,37 @@ export const useSettingsStore = defineStore('settings', () => {
         }
   }
 
-  // 应用主题到 <html> 元素（同时同步内联变量，确保运行时切换立即生效）
-  function applyTheme(mode: ThemeMode) {
-    const html = document.documentElement
-    const resolvedTheme: 'light' | 'dark' = mode === 'system'
+  function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
+    return mode === 'system'
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       : mode
+  }
+
+  function startThemeTransition() {
+    if (typeof document === 'undefined') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const html = document.documentElement
+    html.classList.add(THEME_TRANSITION_CLASS)
+
+    if (themeTransitionTimer) {
+      clearTimeout(themeTransitionTimer)
+    }
+    themeTransitionTimer = setTimeout(() => {
+      html.classList.remove(THEME_TRANSITION_CLASS)
+      themeTransitionTimer = null
+    }, THEME_TRANSITION_DURATION_MS)
+  }
+
+  // 应用主题到 <html> 元素（同时同步内联变量，确保运行时切换立即生效）
+  function applyTheme(mode: ThemeMode, options?: { animate?: boolean }) {
+    const html = document.documentElement
+    const resolvedTheme = resolveTheme(mode)
+    const previousTheme = html.getAttribute('data-theme') as 'light' | 'dark' | null
+
+    if (options?.animate && previousTheme && previousTheme !== resolvedTheme) {
+      startThemeTransition()
+    }
 
     html.setAttribute('data-theme', resolvedTheme)
     html.style.colorScheme = resolvedTheme
@@ -70,7 +99,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function setTheme(mode: ThemeMode) {
     themeMode.value = mode
-    applyTheme(mode)
+    applyTheme(mode, { animate: true })
   }
 
   function setLanguage(lang: Language) {
@@ -99,7 +128,7 @@ export const useSettingsStore = defineStore('settings', () => {
     // 监听系统主题变化（仅 system 模式下生效）
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
       if (themeMode.value === 'system') {
-        applyTheme('system')
+        applyTheme('system', { animate: true })
       }
     })
   }
