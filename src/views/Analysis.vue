@@ -3,7 +3,7 @@
     ref="analysisPageRef" 
     class="analysis-page"
   >
-    <div class="header-actions" :class="{ 'interactive-mode': viewMode === 'interactive' && analysisData }">
+    <div class="header-actions">
       <h2 class="page-title">
         分析结果
         <span v-if="isReviewMode" class="review-badge">审核反馈</span>
@@ -717,12 +717,7 @@ $purple: #409EFF;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
-    margin-left: 0;
-    transition: margin-left 0.3s ease;
-    
-    &.interactive-mode {
-      margin-left: 20px;
-    }
+    margin-left: 20px;
     
     .page-title {
       font-size: 22px;

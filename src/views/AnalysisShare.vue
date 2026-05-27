@@ -1,6 +1,6 @@
 <template>
   <div class="analysis-page">
-    <div class="header-actions" :class="{ 'interactive-mode': viewMode === 'interactive' && analysisData }">
+    <div class="header-actions">
       <div class="header-title-group">
         <h2 class="page-title">
           分析结果
@@ -158,12 +158,7 @@ $purple: #409EFF;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
-    margin-left: 0;
-    transition: margin-left 0.3s ease;
-
-    &.interactive-mode {
-      margin-left: 20px;
-    }
+    margin-left: 20px;
 
     .page-title {
       font-size: 22px;

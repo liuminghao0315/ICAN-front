@@ -300,7 +300,7 @@
       </el-header>
 
       <!-- 内容区 -->
-      <el-main class="main-content">
+      <el-main class="main-content" :class="{ 'analysis-detail-no-left-padding': isAnalysisDetail }">
         <Suspense>
           <template #default>
             <router-view />
@@ -1814,7 +1814,13 @@
   }
 }
 
-// 分析页面交互视图专用样式 - 移除底部内边距
+// 分析详情页（真实分析页 + 分享页）统一去掉主内容区左内边距，
+// 避免 Analysis / AnalysisShare 再额外叠加默认 24px 左边距。
+.main-content.analysis-detail-no-left-padding {
+  padding-left: 0;
+}
+
+// 分析页面交互视图专用样式（历史类名）- 仅移除底部内边距
 .main-content.interactive-mode-no-padding {
   padding-bottom: 0;
 }
