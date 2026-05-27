@@ -1953,12 +1953,13 @@ const confirmMerge = async () => {
   border-radius: 8px;
   border: 1px solid var(--border-color);
   background: var(--bg-card);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   box-shadow: none;
   transition: all 0.2s;
   &:hover {
+    background: var(--bg-hover);
     border-color: var(--color-primary);
     color: var(--color-primary);
   }
@@ -2477,7 +2478,8 @@ const confirmMerge = async () => {
   justify-content: flex-end;
   gap: 8px;
   padding: 14px 22px 18px;
-  border-top: 1px solid rgba(209, 217, 230, 0.5);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
 
   // 弹窗内确认按钮：实心蓝，覆盖新拟态阴影
   .btn-primary {
@@ -2493,8 +2495,142 @@ const confirmMerge = async () => {
       transform: translateY(-1px);
     }
     &:active { transform: translateY(0); }
-    &:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; background: rgba(75, 112, 226, 0.4); }
+    &:disabled {
+      opacity: 0.68;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+      background: rgba(75, 112, 226, 0.58);
+      color: rgba(245, 248, 255, 0.95) !important;
+    }
   }
+}
+
+:global(html[data-theme='dark'] .modal-card) {
+  background: #1f2337;
+  border-color: rgba(130, 145, 190, 0.28);
+}
+
+:global(html[data-theme='dark'] .modal-header) {
+  background: #1f2337;
+  border-bottom-color: rgba(130, 145, 190, 0.2);
+}
+
+:global(html[data-theme='dark'] .modal-header h3) {
+  color: #f3f7ff;
+}
+
+:global(html[data-theme='dark'] .modal-body) {
+  background: #1f2337;
+}
+
+:global(html[data-theme='dark'] .modal-footer) {
+  background: #1f2337;
+  border-top-color: rgba(130, 145, 190, 0.2);
+}
+
+:global(html[data-theme='dark'] .modal-body .form-group label) {
+  color: #d9e3fb;
+}
+
+:global(html[data-theme='dark'] .modal-body .form-input) {
+  background: #282d46;
+  border-color: rgba(130, 145, 190, 0.22);
+  color: #eef4ff;
+}
+
+:global(html[data-theme='dark'] .modal-body .form-input::placeholder) {
+  color: #96a3c7;
+}
+
+:global(html[data-theme='dark'] .modal-footer .btn-ghost) {
+  background: #262b42;
+  border-color: rgba(130, 145, 190, 0.32);
+  color: #e7efff;
+}
+
+:global(html[data-theme='dark'] .modal-footer .btn-ghost:hover) {
+  background: #303653;
+  border-color: rgba(153, 171, 225, 0.52);
+  color: #ffffff;
+}
+
+:global(html[data-theme='dark'] .modal-footer .btn-primary:disabled) {
+  background: rgba(85, 104, 163, 0.72);
+  color: rgba(245, 248, 255, 0.96) !important;
+  opacity: 0.92;
+}
+
+:global(html[data-theme='dark'] .filter-pill .pill-count) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .ai-prompt-hint) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .ai-empty-hint) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .modal-body .form-hint) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .empty-state-center .empty-hint) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .empty-state-center .empty-svg circle) {
+  fill: rgba(143, 163, 200, 0.08) !important;
+  stroke: rgba(143, 163, 200, 0.22) !important;
+}
+
+:global(html[data-theme='dark'] .empty-state-center .empty-svg path) {
+  stroke: rgba(143, 163, 200, 0.46) !important;
+}
+
+:global(html[data-theme='dark'] .empty-state-center .ai-empty-svg circle) {
+  fill: rgba(143, 163, 200, 0.06) !important;
+  stroke: rgba(143, 163, 200, 0.2) !important;
+}
+
+:global(html[data-theme='dark'] .empty-state-center .ai-empty-svg path) {
+  fill: rgba(143, 163, 200, 0.08) !important;
+  stroke: rgba(143, 163, 200, 0.34) !important;
+}
+
+:global(html[data-theme='dark'] .empty-state-center .ai-empty-svg line) {
+  stroke: rgba(143, 163, 200, 0.58) !important;
+}
+
+:global(html[data-theme='dark'] .empty-state-center .ai-empty-svg circle[cx='50'][cy='58']) {
+  fill: rgba(143, 163, 200, 0.58) !important;
+  stroke: none !important;
+}
+
+:global(html[data-theme='dark'] .sidebar-search .search-icon) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .sidebar-search .search-input::placeholder) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .sort-field-btn),
+:global(html[data-theme='dark'] .sort-field-btn .sort-icon),
+:global(html[data-theme='dark'] .sort-field-btn .sort-chevron),
+:global(html[data-theme='dark'] .sort-order-btn),
+:global(html[data-theme='dark'] .sort-order-btn .order-icon) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .pack-item .pack-meta) {
+  color: rgb(143, 163, 200) !important;
+}
+
+:global(html[data-theme='dark'] .pack-item .pack-more-btn) {
+  color: rgb(143, 163, 200) !important;
 }
 
 // ===== 入库成功 Toast =====

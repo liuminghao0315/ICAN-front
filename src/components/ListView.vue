@@ -372,7 +372,16 @@ $cols-location-batch: 32px 112px 1fr 90px 120px 110px 130px 100px;
     transform: none;
   }
 
-  &.is-failed { opacity: .75; }
+  &.is-failed {
+    .col-thumb,
+    .col-info,
+    .col-duration,
+    .col-source,
+    .col-location,
+    .col-date {
+      opacity: .75;
+    }
+  }
 }
 
 // ── 勾选列 ────────────────────────────────────────────────

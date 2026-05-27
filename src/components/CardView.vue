@@ -272,7 +272,14 @@ const handleFavorite = async (record: AnalysisTaskVO) => {
     box-shadow: none;
     transform: none;
   }
-  &.is-failed { opacity: .8; }
+  &.is-failed {
+    .card-cover,
+    .card-body,
+    .folder-path-tag,
+    .footer-meta {
+      opacity: .8;
+    }
+  }
 }
 
 .card-checkbox {

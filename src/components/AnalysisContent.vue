@@ -11488,12 +11488,21 @@ html[data-theme='dark'] .analysis-content-wrapper .detection-label .confidence-b
   font-weight: 700 !important;
   letter-spacing: 0.2px;
 }
-/* 六卡主标题在深色模式下要明显可见 */
-html[data-theme='dark'] .analysis-content-wrapper .pro-label {
-  color: #8fa3c8 !important;
+html[data-theme='dark'] .analysis-content-wrapper .video-source-badge .source-hint {
+  color: rgb(143, 163, 200) !important;
+  font-weight: 400 !important;
 }
-html[data-theme='dark'] .analysis-content-wrapper .panel-category {
-  color: #8fa3c8 !important;
+html[data-theme='dark'] .analysis-content-wrapper .pro-label .ai-predict-badge,
+html[data-theme='dark'] .analysis-content-wrapper .panel-confidence-inline .ai-predict-badge-panel {
+  color: rgb(143, 163, 200) !important;
+  background: rgba(96, 115, 180, 0.18) !important;
+  border-color: rgba(155, 173, 226, 0.28) !important;
+  font-weight: 500 !important;
+}
+html[data-theme='dark'] .analysis-content-wrapper .score-unit {
+  color: rgb(143, 163, 200) !important;
+  font-weight: 500 !important;
+  opacity: 0.92 !important;
 }
 html[data-theme='light'] .analysis-content-wrapper .risk-keyword {
   font-weight: 400 !important;
