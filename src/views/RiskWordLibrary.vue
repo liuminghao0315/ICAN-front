@@ -132,7 +132,7 @@
         </TransitionGroup>
 
         <!-- 空搜索结果 -->
-        <div v-if="filteredPacks.length === 0 && packSearch" class="pack-empty-search">
+        <div v-if="!dataLoading && filteredPacks.length === 0 && packSearch" class="pack-empty-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
@@ -196,7 +196,7 @@
         </div>
 
         <!-- 有词库包时的工作区 -->
-        <div v-else key="workspace-content" class="workspace-inner">
+        <div v-else-if="!dataLoading" key="workspace-content" class="workspace-inner">
 
           <!-- 顶部信息看板 -->
           <div class="workspace-header">
