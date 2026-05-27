@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   getAdminCookies,
@@ -24,6 +24,21 @@ const addLoading = ref(false)
 const showEditDialog = ref(false)
 const editForm = ref({ id: '', cookieValue: '', label: '' })
 const editLoading = ref(false)
+const concurrencyInputRef = ref<HTMLInputElement | null>(null)
+const addLabelInputRef = ref<HTMLInputElement | null>(null)
+const addCookieTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const editLabelInputRef = ref<HTMLInputElement | null>(null)
+const editCookieTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+const shouldIgnoreKeyboardSubmit = (event: KeyboardEvent) =>
+  event.isComposing || event.keyCode === 229
+
+const focusElement = (target: HTMLInputElement | HTMLTextAreaElement | null) => {
+  if (!target) return
+  nextTick(() => {
+    setTimeout(() => target.focus(), 40)
+  })
+}
 
 const platforms = [
   { key: 'KUAISHOU', name: '快手' }
@@ -72,6 +87,27 @@ async function handleAdd() {
 function openEditDialog(cookie: PlatformCookieVO) {
   editForm.value = { id: cookie.id, cookieValue: cookie.cookieValue, label: cookie.label || '' }
   showEditDialog.value = true
+}
+
+function handleSaveConcurrencyEnter(event: KeyboardEvent) {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (savingConcurrency.value) return
+  void saveConcurrency()
+}
+
+function handleAddCookieShortcut(event: KeyboardEvent) {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (addLoading.value) return
+  void handleAdd()
+}
+
+function handleEditCookieShortcut(event: KeyboardEvent) {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (editLoading.value) return
+  void handleEdit()
 }
 
 async function handleEdit() {
@@ -170,6 +206,14 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+watch(showAddDialog, (visible) => {
+  if (visible) focusElement(addLabelInputRef.value)
+}, { flush: 'post' })
+
+watch(showEditDialog, (visible) => {
+  if (visible) focusElement(editLabelInputRef.value)
+}, { flush: 'post' })
 </script>
 
 <template>
@@ -227,11 +271,13 @@ onMounted(async () => {
           <label>最大并发数</label>
           <div class="concurrency-input-group">
             <input
+              ref="concurrencyInputRef"
               v-model="maxConcurrency"
               type="number"
               min="1"
               max="10"
               class="concurrency-input"
+              @keydown.enter="handleSaveConcurrencyEnter"
             />
             <button class="btn-save" :disabled="savingConcurrency" @click="saveConcurrency">
               {{ savingConcurrency ? '保存中...' : '保存' }}
@@ -254,11 +300,11 @@ onMounted(async () => {
           <h3>添加 Cookie</h3>
           <div class="form-group">
             <label>备注名称</label>
-            <input v-model="addForm.label" placeholder="如：账号A、小明的号" />
+            <input ref="addLabelInputRef" v-model="addForm.label" placeholder="如：账号A、小明的号" />
           </div>
           <div class="form-group">
             <label>Cookie 值</label>
-            <textarea v-model="addForm.cookieValue" rows="5" placeholder="粘贴完整的Cookie字符串"></textarea>
+            <textarea ref="addCookieTextareaRef" v-model="addForm.cookieValue" rows="5" placeholder="粘贴完整的Cookie字符串" @keydown.enter.ctrl="handleAddCookieShortcut"></textarea>
           </div>
           <div class="dialog-actions">
             <button class="btn-cancel" @click="showAddDialog = false">取消</button>
@@ -277,11 +323,11 @@ onMounted(async () => {
           <h3>编辑 Cookie</h3>
           <div class="form-group">
             <label>备注名称</label>
-            <input v-model="editForm.label" placeholder="如：账号A、小明的号" />
+            <input ref="editLabelInputRef" v-model="editForm.label" placeholder="如：账号A、小明的号" />
           </div>
           <div class="form-group">
             <label>Cookie 值</label>
-            <textarea v-model="editForm.cookieValue" rows="5" placeholder="粘贴完整的Cookie字符串"></textarea>
+            <textarea ref="editCookieTextareaRef" v-model="editForm.cookieValue" rows="5" placeholder="粘贴完整的Cookie字符串" @keydown.enter.ctrl="handleEditCookieShortcut"></textarea>
           </div>
           <div class="dialog-actions">
             <button class="btn-cancel" @click="showEditDialog = false">取消</button>

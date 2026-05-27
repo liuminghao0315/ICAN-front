@@ -145,7 +145,7 @@
         <!-- 搜索 -->
         <div class="search-box">
           <el-icon class="search-icon"><Search /></el-icon>
-          <input v-model="searchKeyword" class="search-input" placeholder="搜索标题 / 高校 / 关键词" @input="debouncedSearch" />
+          <input v-model="searchKeyword" class="search-input" placeholder="搜索标题 / 高校 / 关键词" @input="debouncedSearch" @keydown.enter="handleSearchEnter" />
           <button v-if="searchKeyword" class="search-clear" @click="searchKeyword = ''; loadRecords()">
             <el-icon><Close /></el-icon>
           </button>
@@ -714,6 +714,14 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 const debouncedSearch = () => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { currentPage.value = 1; loadRecords() }, 300)
+}
+
+const handleSearchEnter = (event: KeyboardEvent) => {
+  if (event.isComposing || event.keyCode === 229) return
+  event.preventDefault()
+  if (searchTimer) clearTimeout(searchTimer)
+  currentPage.value = 1
+  void loadRecords()
 }
 
 watch([activeStatus, sourceFilter, riskFilter, sortOrder], () => { currentPage.value = 1; loadRecords() })

@@ -40,7 +40,7 @@
             <span class="subtitle-icon">📧</span>
             请使用邮箱注册，仅支持 QQ 邮箱或网易邮箱
           </p>
-          <input v-model="registerForm.username" class="form__input" type="text" name="register-username" autocomplete="username" placeholder="用户名（2-20个字符）" required />
+          <input ref="registerUsernameInputRef" v-model="registerForm.username" class="form__input" type="text" name="register-username" autocomplete="username" placeholder="用户名（2-20个字符）" required />
           <input v-model="registerForm.password" class="form__input" type="password" name="register-password" autocomplete="new-password" placeholder="密码（6-20个字符）" required @blur="handlePasswordBlur" />
           <input v-model="confirmPassword" class="form__input" type="password" name="register-confirm-password" autocomplete="new-password" placeholder="确认密码" required @blur="handleConfirmPasswordBlur" />
           <input v-model="registerForm.email" class="form__input" type="email" name="register-email" autocomplete="email" placeholder="邮箱（仅支持 @qq.com、@163.com、@126.com）" required />
@@ -60,8 +60,8 @@
             <span class="subtitle-icon">📧</span>
             请使用您的用户名登录
           </p>
-          <input v-model="loginForm.username" class="form__input" type="text" name="login-username" autocomplete="username" placeholder="用户名" required />
-          <input v-model="loginForm.password" class="form__input" type="password" name="login-password" autocomplete="current-password" placeholder="密码" required />
+          <input ref="loginUsernameInputRef" v-model="loginForm.username" class="form__input" type="text" name="login-username" autocomplete="username" placeholder="用户名" required />
+          <input v-model="loginForm.password" class="form__input" type="password" name="login-password" autocomplete="current-password" placeholder="密码" required @keydown.enter="handleLoginEnter" />
           <button type="button" class="form__link" @click="openForgotPassword">忘记密码？</button>
           <div v-if="loginError" class="error-message">{{ loginError }}</div>
           <button type="button" class="form__button button submit" :disabled="logging" @click="handleLogin">{{ logging ? '登录中...' : '登录' }}</button>
@@ -76,12 +76,14 @@
 
           <template v-if="forgotStep === 1">
             <input
+              ref="forgotUsernameInputRef"
               v-model="forgotUsername"
               class="form__input"
               type="text"
               autocomplete="username"
               placeholder="请输入用户名或邮箱"
               required
+              @keydown.enter="handleForgotStep1Enter"
             />
             <div v-if="forgotError" class="error-message">{{ forgotError }}</div>
             <button type="button" class="form__button button submit" :disabled="sendingResetCode" @click="handleSendResetCode">{{ sendingResetCode ? '发送中...' : '发送验证码' }}</button>
@@ -89,9 +91,9 @@
           </template>
 
           <template v-else-if="forgotStep === 2">
-            <input v-model="forgotVerifyCode" class="form__input" type="text" autocomplete="one-time-code" inputmode="numeric" placeholder="请输入验证码" required />
+            <input ref="forgotVerifyCodeInputRef" v-model="forgotVerifyCode" class="form__input" type="text" autocomplete="one-time-code" inputmode="numeric" placeholder="请输入验证码" required />
             <input v-model="forgotNewPassword" class="form__input" type="password" autocomplete="new-password" placeholder="请输入新密码（6-20个字符）" required />
-            <input v-model="forgotConfirmPassword" class="form__input" type="password" autocomplete="new-password" placeholder="请确认新密码" required />
+            <input v-model="forgotConfirmPassword" class="form__input" type="password" autocomplete="new-password" placeholder="请确认新密码" required @keydown.enter="handleForgotStep2Enter" />
             <div v-if="forgotError" class="error-message">{{ forgotError }}</div>
             <button type="button" class="form__button button submit" :disabled="resettingPassword" @click="handleResetPassword">{{ resettingPassword ? '重置中...' : '重置密码' }}</button>
             <button type="button" class="form__button button secondary" @click="backForgotStep1">返回上一步</button>
@@ -126,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { login, register, sendRegisterCode, getMe, sendResetPwdCode, resetPwd, scheduleProactiveRefresh } from '@/api'
 import type { LoginParams, RegisterParams, SendRegisterCodeParams, SendResetPwdCodeParams, ResetPwdParams } from '@/api'
@@ -210,6 +212,41 @@ const forgotError = ref('')
 const sendingResetCode = ref(false)
 const resettingPassword = ref(false)
 
+const registerUsernameInputRef = ref<HTMLInputElement | null>(null)
+const loginUsernameInputRef = ref<HTMLInputElement | null>(null)
+const forgotUsernameInputRef = ref<HTMLInputElement | null>(null)
+const forgotVerifyCodeInputRef = ref<HTMLInputElement | null>(null)
+
+const shouldIgnoreKeyboardSubmit = (event: KeyboardEvent) =>
+  event.isComposing || event.keyCode === 229
+
+const focusInput = (target: HTMLInputElement | null) => {
+  if (!target) return
+  nextTick(() => {
+    setTimeout(() => {
+      target.focus()
+    }, 60)
+  })
+}
+
+const focusPrimaryInput = () => {
+  if (showForgotPassword.value) {
+    if (forgotStep.value === 1) {
+      focusInput(forgotUsernameInputRef.value)
+    } else if (forgotStep.value === 2) {
+      focusInput(forgotVerifyCodeInputRef.value)
+    }
+    return
+  }
+
+  if (isLogin.value) {
+    focusInput(loginUsernameInputRef.value)
+    return
+  }
+
+  focusInput(registerUsernameInputRef.value)
+}
+
 const openForgotPassword = () => {
   showForgotPassword.value = true
   forgotError.value = ''
@@ -256,6 +293,27 @@ const switchToRegister = () => {
   router.push('/register')
   loginForm.value = { username: '', password: '' }
   loginError.value = ''
+}
+
+const handleLoginEnter = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (logging.value) return
+  handleLogin()
+}
+
+const handleForgotStep1Enter = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (sendingResetCode.value) return
+  handleSendResetCode()
+}
+
+const handleForgotStep2Enter = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (resettingPassword.value) return
+  handleResetPassword()
 }
 
 const handlePasswordBlur = () => {
@@ -410,6 +468,10 @@ const handleLogin = async () => {
     logging.value = false
   }
 }
+
+watch([isLogin, showForgotPassword, forgotStep], () => {
+  focusPrimaryInput()
+}, { flush: 'post' })
 </script>
 
 <style scoped lang="scss">

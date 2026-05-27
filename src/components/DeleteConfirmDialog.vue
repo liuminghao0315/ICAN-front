@@ -21,7 +21,7 @@
           </div>
           
           <div class="dialog-actions">
-            <button class="neu-btn cancel-btn" @click="handleCancel">
+            <button ref="cancelButtonRef" class="neu-btn cancel-btn" @click="handleCancel">
               取消
             </button>
             <button class="neu-btn delete-btn" @click="handleConfirm">
@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 
 interface Props {
   visible: boolean
@@ -51,6 +51,7 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const cancelButtonRef = ref<HTMLButtonElement | null>(null)
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let mouseDownOnOverlay = false
@@ -79,6 +80,9 @@ const handleCancel = () => {
 // 监听 ESC 键
 watch(() => props.visible, (newVal) => {
   if (newVal) {
+    nextTick(() => {
+      setTimeout(() => cancelButtonRef.value?.focus(), 40)
+    })
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleCancel()

@@ -8,7 +8,7 @@
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input v-model="packSearch" class="search-input" placeholder="搜索词汇、包名、描述..." />
+        <input v-model="packSearch" class="search-input" placeholder="搜索词汇、包名、描述..." @keydown.enter.prevent />
         <button v-if="packSearch" class="search-clear" @click="packSearch = ''">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
@@ -356,11 +356,11 @@
             <div class="modal-body">
               <div class="form-group">
                 <label>词库包名称</label>
-                <input v-model="newPackForm.name" class="form-input" placeholder="例如：心理危机、校园霸凌..." maxlength="20" />
+                <input ref="newPackNameInputRef" v-model="newPackForm.name" class="form-input" placeholder="例如：心理危机、校园霸凌..." maxlength="20" />
               </div>
               <div class="form-group">
                 <label>简短描述</label>
-                <input v-model="newPackForm.description" class="form-input" placeholder="一两句话描述该词库包的用途..." maxlength="60" />
+                <input v-model="newPackForm.description" class="form-input" placeholder="一两句话描述该词库包的用途..." maxlength="60" @keydown.enter="handleCreatePackEnter" />
               </div>
               <!-- 导入分隔线 -->
               <div class="import-divider">
@@ -480,11 +480,11 @@
             <div class="modal-body">
               <div class="form-group">
                 <label>词库包名称</label>
-                <input v-model="editPackForm.name" class="form-input" placeholder="词库包名称..." maxlength="20" />
+                <input ref="editPackNameInputRef" v-model="editPackForm.name" class="form-input" placeholder="词库包名称..." maxlength="20" />
               </div>
               <div class="form-group">
                 <label>简短描述</label>
-                <input v-model="editPackForm.description" class="form-input" placeholder="一两句话描述该词库包的用途..." maxlength="60" />
+                <input v-model="editPackForm.description" class="form-input" placeholder="一两句话描述该词库包的用途..." maxlength="60" @keydown.enter="handleSaveEditPackEnter" />
               </div>
             </div>
             <div class="modal-footer">
@@ -743,7 +743,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   getWordPackList,
@@ -852,11 +852,23 @@ const showAddWordModal = ref(false)
 const showAIToast = ref(false)
 const aiPendingCount = ref(0)
 const editingWord = ref<RiskWord | null>(null)
+const newPackNameInputRef = ref<HTMLInputElement | null>(null)
 
 // 编辑词库包 Modal
 const showEditPackModal = ref(false)
 const editingPack = ref<WordPack | null>(null)
 const editPackForm = ref({ name: '', description: '' })
+const editPackNameInputRef = ref<HTMLInputElement | null>(null)
+
+const shouldIgnoreKeyboardSubmit = (event: KeyboardEvent) =>
+  event.isComposing || event.keyCode === 229
+
+const focusInput = (target: HTMLInputElement | null) => {
+  if (!target) return
+  nextTick(() => {
+    setTimeout(() => target.focus(), 40)
+  })
+}
 
 // 右键/操作菜单
 const packMenuVisible = ref(false)
@@ -1052,6 +1064,14 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', closeSortDropdown)
 })
 
+watch(showNewPackModal, (visible) => {
+  if (visible) focusInput(newPackNameInputRef.value)
+}, { flush: 'post' })
+
+watch(showEditPackModal, (visible) => {
+  if (visible) focusInput(editPackNameInputRef.value)
+}, { flush: 'post' })
+
 // ── 常量 ──
 const riskFilters = [
   { label: '全部', value: 'all' },
@@ -1162,6 +1182,12 @@ const createPack = async () => {
   }
   showNewPackModal.value = false
   newPackForm.value = { name: '', description: '' }
+}
+
+const handleCreatePackEnter = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  void createPack()
 }
 
 const editWord = (word: RiskWord) => {
@@ -1398,6 +1424,12 @@ const saveEditPack = async () => {
   }
   showEditPackModal.value = false
   editingPack.value = null
+}
+
+const handleSaveEditPackEnter = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  void saveEditPack()
 }
 
 const confirmDeletePack = async (pack: WordPack | null) => {

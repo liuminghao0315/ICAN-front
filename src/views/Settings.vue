@@ -142,7 +142,7 @@
             <div class="form-group">
               <label>验证码</label>
               <div class="input-with-btn">
-                <input v-model="pwdForm.verifyCode" type="text" placeholder="发送到当前绑定邮箱"
+                <input ref="pwdVerifyCodeInputRef" v-model="pwdForm.verifyCode" type="text" placeholder="发送到当前绑定邮箱"
                        inputmode="numeric" autocomplete="one-time-code"/>
                 <button class="btn-send" :disabled="pwdSending || pwdCooldown > 0"
                         @click="handleSendPwdCode">
@@ -158,8 +158,8 @@
             </div>
             <div class="form-group">
               <label>确认新密码</label>
-              <input v-model="pwdForm.confirmPwd" type="password" placeholder="再次输入新密码"
-                     autocomplete="new-password"/>
+                <input v-model="pwdForm.confirmPwd" type="password" placeholder="再次输入新密码"
+                     autocomplete="new-password" @keydown.enter="handleChangePwdEnter"/>
             </div>
             <div v-if="pwdError" class="form-error">{{ pwdError }}</div>
             <div class="form-actions">
@@ -202,7 +202,7 @@
               <div class="form-group">
                 <label>新邮箱地址</label>
                 <div class="input-with-btn">
-                  <input v-model="emailForm.newEmail" type="email"
+                  <input ref="emailNewEmailInputRef" v-model="emailForm.newEmail" type="email"
                          placeholder="支持QQ、163、126邮箱" autocomplete="email"/>
                   <button class="btn-send" :disabled="emailSending || emailCooldown > 0"
                           @click="handleSendEmailCode">
@@ -214,7 +214,7 @@
                 <label>验证码</label>
                 <input v-model="emailForm.verifyCode" type="text"
                        placeholder="请输入邮箱收到的验证码"
-                       inputmode="numeric" autocomplete="one-time-code"/>
+                       inputmode="numeric" autocomplete="one-time-code" @keydown.enter="handleChangeEmailEnter"/>
               </div>
               <div v-if="emailError" class="form-error">{{ emailError }}</div>
               <div class="form-actions">
@@ -257,6 +257,19 @@ import { ElMessage } from 'element-plus'
 
 const userStore = useUserStore()
 
+const pwdVerifyCodeInputRef = ref<HTMLInputElement | null>(null)
+const emailNewEmailInputRef = ref<HTMLInputElement | null>(null)
+
+const shouldIgnoreKeyboardSubmit = (event: KeyboardEvent) =>
+  event.isComposing || event.keyCode === 229
+
+const focusInput = (target: HTMLInputElement | null) => {
+  if (!target) return
+  nextTick(() => {
+    setTimeout(() => target.focus(), 40)
+  })
+}
+
 // ── 用户首字母（头像无图时显示）──────────────────────────────────────────
 const initials = computed(() =>
   (userStore.userInfo?.username || '用').charAt(0).toUpperCase()
@@ -269,6 +282,14 @@ const openPanel = ref<'avatar' | 'changePwd' | 'changeEmail' | null>(null)
 function togglePanel(panel: 'avatar' | 'changePwd' | 'changeEmail') {
   openPanel.value = openPanel.value === panel ? null : panel
 }
+
+watch(openPanel, (panel) => {
+  if (panel === 'changePwd') {
+    focusInput(pwdVerifyCodeInputRef.value)
+  } else if (panel === 'changeEmail') {
+    focusInput(emailNewEmailInputRef.value)
+  }
+}, { flush: 'post' })
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 头像上传 + Canvas 圆形裁剪
@@ -554,6 +575,13 @@ async function handleChangePwd() {
   }
 }
 
+function handleChangePwdEnter(event: KeyboardEvent) {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (pwdLoading.value) return
+  handleChangePwd()
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 变更邮箱
 // ═══════════════════════════════════════════════════════════════════════════
@@ -614,6 +642,13 @@ async function handleChangeEmail() {
   } finally {
     emailLoading.value = false
   }
+}
+
+function handleChangeEmailEnter(event: KeyboardEvent) {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (emailLoading.value || emailStep.value !== 1) return
+  handleChangeEmail()
 }
 
 // ─── 清理定时器 ──────────────────────────────────────────────────────────

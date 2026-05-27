@@ -186,7 +186,7 @@
             <p class="neu-modal-desc">确定要取消这个分析任务吗？</p>
           </div>
           <div class="neu-modal-actions">
-            <button class="neu-btn" @click="showCancelModal = false">再想想</button>
+            <button ref="cancelModalDismissButtonRef" class="neu-btn" @click="showCancelModal = false">再想想</button>
             <button class="neu-btn danger-btn" @click="confirmCancel">确认取消</button>
           </div>
         </div>
@@ -323,7 +323,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -338,6 +338,7 @@ import { useWebSocketStore } from '@/stores/websocket'
 
 const router = useRouter()
 const wsStore = useWebSocketStore()
+const cancelModalDismissButtonRef = ref<HTMLButtonElement | null>(null)
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let cancelOverlayMouseDown = false
@@ -507,6 +508,13 @@ const handleCancel = (task: AnalysisTaskVO) => {
   pendingCancelTask.value = task
   showCancelModal.value = true
 }
+
+watch(showCancelModal, (visible) => {
+  if (!visible) return
+  nextTick(() => {
+    setTimeout(() => cancelModalDismissButtonRef.value?.focus(), 40)
+  })
+}, { flush: 'post' })
 
 const confirmCancel = async () => {
   if (!pendingCancelTask.value) return

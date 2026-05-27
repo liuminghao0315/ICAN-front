@@ -79,11 +79,13 @@
               <div class="form-field">
                 <label>视频标题</label>
                 <input
+                  ref="localTitleInputRef"
                   v-model="localState.title"
                   class="neu-input"
                   placeholder="请输入视频标题"
                   maxlength="100"
                   :disabled="localState.status === 'uploading'"
+                  @keydown.enter="handleLocalSubmitEnter"
                 />
               </div>
             </div>
@@ -95,6 +97,7 @@
               <label>视频平台链接 / 直接视频地址</label>
               <div class="url-input-wrap">
                 <input
+                  ref="urlInputRef"
                   v-model="urlState.url"
                   class="neu-input"
                   :class="{
@@ -106,6 +109,7 @@
                   :disabled="urlState.status === 'validating' || urlState.status === 'submitting'"
                   @input="onUrlInput"
                   @paste="onUrlPaste"
+                  @keydown.enter="handleUrlSubmitEnter"
                 />
                 <!-- 校验中 spinner -->
                 <span class="url-status-icon validating" v-if="urlState.status === 'validating'">
@@ -182,11 +186,13 @@
                     </div>
                   </div>
                   <textarea
+                    ref="cookieTextareaRef"
                     v-model="cookiePanel.content"
                     class="cookie-textarea"
                     placeholder="# Netscape HTTP Cookie File&#10;# 粘贴从插件导出的 cookies 内容..."
                     rows="6"
                     spellcheck="false"
+                    @keydown.enter.ctrl="handleCookieSaveShortcut"
                   />
                   <div class="cookie-panel-footer">
                     <span class="cookie-saved-tip" v-if="cookiePanel.saved">
@@ -215,11 +221,13 @@
             <div class="form-field" v-if="urlState.validatedTitle">
               <label>标题（可选）</label>
               <input
+                ref="urlTitleInputRef"
                 v-model="urlState.title"
                 class="neu-input"
                 :placeholder="urlState.validatedTitle || '不填则自动提取'"
                 maxlength="100"
                 :disabled="urlState.status === 'submitting'"
+                @keydown.enter="handleUrlSubmitEnter"
               />
             </div>
           </div>
@@ -313,7 +321,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { ElMessage, type UploadFile } from 'element-plus'
 import { createUrlImportTask, validateImportUrl, savePlatformCookies, getWordPackBriefList } from '@/api'
 import { useUploadStore } from '@/stores/upload'
@@ -356,6 +364,20 @@ const activeTab = ref<'local' | 'url'>('local')
 const uploadRef = ref()
 const uploadStore = useUploadStore()
 const userStore = useUserStore()
+const localTitleInputRef = ref<HTMLInputElement | null>(null)
+const urlInputRef = ref<HTMLInputElement | null>(null)
+const urlTitleInputRef = ref<HTMLInputElement | null>(null)
+const cookieTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+const shouldIgnoreKeyboardSubmit = (event: KeyboardEvent) =>
+  event.isComposing || event.keyCode === 229
+
+const focusElement = (target: HTMLInputElement | HTMLTextAreaElement | null) => {
+  if (!target) return
+  nextTick(() => {
+    setTimeout(() => target.focus(), 40)
+  })
+}
 
 // 本地上传状态
 const localState = reactive({
@@ -526,6 +548,7 @@ watch(() => props.visible, (val) => {
       urlState.url = props.prefillUrl
       setTimeout(() => triggerValidate(), 50)
     }
+    focusActiveTabPrimaryInput()
   } else {
     // 关闭时：非上传中则重置（上传中的任务已转入后台）
     if (localState.status !== 'uploading') {
@@ -533,6 +556,48 @@ watch(() => props.visible, (val) => {
     }
   }
 })
+
+watch(activeTab, () => {
+  if (!props.visible) return
+  focusActiveTabPrimaryInput()
+}, { flush: 'post' })
+
+watch(() => localState.file, (file) => {
+  if (!props.visible || activeTab.value !== 'local' || !file) return
+  focusElement(localTitleInputRef.value)
+}, { flush: 'post' })
+
+watch(() => urlState.validatedTitle, (title) => {
+  if (!props.visible || activeTab.value !== 'url' || !title) return
+  if (cookiePanel.visible) return
+  focusElement(urlTitleInputRef.value)
+}, { flush: 'post' })
+
+watch(() => cookiePanel.visible, (visible) => {
+  if (!props.visible || !visible) return
+  focusElement(cookieTextareaRef.value)
+}, { flush: 'post' })
+
+function focusActiveTabPrimaryInput() {
+  if (activeTab.value === 'local') {
+    if (localState.file) {
+      focusElement(localTitleInputRef.value)
+    }
+    return
+  }
+
+  if (cookiePanel.visible) {
+    focusElement(cookieTextareaRef.value)
+    return
+  }
+
+  if (urlState.validatedTitle) {
+    focusElement(urlTitleInputRef.value)
+    return
+  }
+
+  focusElement(urlInputRef.value)
+}
 
 function resetForm() {
   activeTab.value = 'local'
@@ -615,6 +680,30 @@ const clearLocalFile = () => {
   localState.title = ''
   localState.status = 'pending'
   localState.progress = 0
+  if (props.visible && activeTab.value === 'local') {
+    focusActiveTabPrimaryInput()
+  }
+}
+
+const handleLocalSubmitEnter = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (!canSubmit.value || activeTab.value !== 'local') return
+  void handleSubmit()
+}
+
+const handleUrlSubmitEnter = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (!canSubmit.value || activeTab.value !== 'url') return
+  void handleSubmit()
+}
+
+const handleCookieSaveShortcut = (event: KeyboardEvent) => {
+  if (shouldIgnoreKeyboardSubmit(event)) return
+  event.preventDefault()
+  if (cookiePanel.saving || !cookiePanel.content.trim()) return
+  void handleSaveCookies()
 }
 
 const handleSubmit = async () => {

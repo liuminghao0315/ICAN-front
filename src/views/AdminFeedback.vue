@@ -99,7 +99,7 @@
             <!-- 操作区 -->
             <div class="detail-actions" v-if="(item.status === 'PENDING' || item.status === 'PROCESSING') && item.handlerId === currentUserId">
               <!-- 回复框：纯发消息 -->
-              <textarea v-model="replyText" class="reply-textarea" placeholder="输入回复内容..." rows="3"></textarea>
+              <textarea ref="replyTextareaRef" v-model="replyText" class="reply-textarea" placeholder="输入回复内容（Ctrl+Enter 发送）..." rows="3" @keydown.enter.ctrl="handleReplyShortcut(item)"></textarea>
               <div class="reply-btns">
                 <button class="action-btn send-btn" @click.stop="handleSendReply(item)" :disabled="replying || !replyText.trim()">{{ replying ? '发送中...' : '发送回复' }}</button>
               </div>
@@ -179,6 +179,15 @@ const replyText = ref('')
 const locking = ref(false)
 const replying = ref(false)
 const closing = ref(false)
+const replyTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+const focusReplyTextarea = () => {
+  nextTick(() => {
+    setTimeout(() => {
+      replyTextareaRef.value?.focus()
+    }, 40)
+  })
+}
 
 const statusMap: Record<string, string> = { PENDING: '待处理', PROCESSING: '处理中', RESOLVED: '已解决', REJECTED: '已驳回' }
 const typeMap: Record<string, string> = { INACCURATE: '分析不准确', MISSING: '信息缺失', OTHER: '其他' }
@@ -225,6 +234,10 @@ const toggleExpand = (id: string) => {
   if (expandedId.value === id) {
     if (unreadMap.value[id]) delete unreadMap.value[id]
     scrollChatToBottom(id)
+    const target = feedbacks.value.find(f => f.id === id)
+    if (target && (target.status === 'PENDING' || target.status === 'PROCESSING') && target.handlerId === currentUserId.value) {
+      focusReplyTextarea()
+    }
   }
 }
 
@@ -271,6 +284,11 @@ const handleSendReply = async (item: FeedbackVO) => {
     else { ElMessage.error(res.message || '发送失败') }
   } catch { ElMessage.error('发送失败') }
   replying.value = false
+}
+
+const handleReplyShortcut = (item: FeedbackVO) => {
+  if (replying.value || !replyText.value.trim()) return
+  void handleSendReply(item)
 }
 
 const handleClose = async (item: FeedbackVO, status: string) => {

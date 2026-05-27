@@ -284,7 +284,7 @@
                     </div>
                     <p class="confirm-message">确定要退出登录吗？</p>
                     <div class="confirm-actions">
-                      <button class="confirm-btn cancel-btn" @click="showLogoutConfirm = false">
+                      <button ref="logoutCancelButtonRef" class="confirm-btn cancel-btn" @click="showLogoutConfirm = false">
                         取消
                       </button>
                       <button class="confirm-btn primary-btn" @click="handleLogout">
@@ -317,7 +317,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+  import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useRouter, useRoute } from 'vue-router'
   import { useUserStore } from '@/stores'
@@ -513,6 +513,7 @@
 
   const isDropdownOpen = ref(false)
   const showLogoutConfirm = ref(false)
+  const logoutCancelButtonRef = ref<HTMLButtonElement | null>(null)
   const userDropdownRef = ref<HTMLElement | null>(null)
   const logBannerTraceFe = (message: string, payload?: unknown) => {
     pushBannerTrace(`[BANNER_TRACE_FE] ${message}`, payload)
@@ -570,6 +571,13 @@
       isDropdownOpen.value = false
     }
   }
+
+  watch(showLogoutConfirm, (visible) => {
+    if (!visible) return
+    nextTick(() => {
+      setTimeout(() => logoutCancelButtonRef.value?.focus(), 40)
+    })
+  }, { flush: 'post' })
 
   // 检查顶部任务横幅计数（DOWNLOADING 单独显示；PENDING + PROCESSING 作为分析中）
   let activeCountRequestSeq = 0
