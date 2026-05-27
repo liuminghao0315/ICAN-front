@@ -24,87 +24,89 @@
           </svg>
         </div>
 
-        <Transition name="panel">
-        <div v-if="openPanel === 'avatar'" class="card-body avatar-body">
-          <!-- 当前头像预览 -->
-          <div class="current-avatar-wrap">
-            <div class="current-avatar" :class="{ 'has-image': currentAvatarUrl }">
-              <img v-if="currentAvatarUrl" :src="currentAvatarUrl" alt="当前头像" />
-              <span v-else class="avatar-initials">{{ initials }}</span>
-            </div>
-            <div class="avatar-hint">当前头像</div>
-          </div>
-
-          <!-- 右侧操作区 -->
-          <div class="avatar-editor">
-            <!-- 未选图时：拖放 / 点击上传区 -->
-            <div
-              v-if="!rawImageSrc"
-              class="drop-zone"
-              :class="{ dragging: isDragging }"
-              @click="triggerFilePicker"
-              @dragover.prevent="isDragging = true"
-              @dragleave.prevent="isDragging = false"
-              @drop.prevent="handleFileDrop"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                   stroke-linecap="round" stroke-linejoin="round" class="drop-icon">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              <div class="drop-text">点击选择或拖拽图片至此</div>
-              <div class="drop-hint">支持 JPG、PNG、WebP，最大 2 MB</div>
-            </div>
-
-            <!-- 已选图时：Canvas 裁剪器 -->
-            <div v-else class="cropper-wrap">
-              <div class="canvas-container">
-                <!-- 离屏 canvas 用于绘制图像，交互层叠加在上面 -->
-                <canvas
-                  ref="cropCanvas"
-                  class="crop-canvas"
-                  @mousedown="startDrag"
-                  @mousemove="onDrag"
-                  @mouseup="stopDrag"
-                  @mouseleave="stopDrag"
-                  @touchstart.prevent="startTouchDrag"
-                  @touchmove.prevent="onTouchDrag"
-                  @touchend.prevent="stopDrag"
-                  @wheel.prevent="onWheel"
-                />
-                <!-- 圆形遮罩（纯 CSS，不参与裁剪逻辑） -->
-                <div class="circle-overlay" />
+        <div class="panel-shell" :class="{ 'is-open': openPanel === 'avatar' }">
+          <div class="panel-shell-inner">
+            <div class="card-body avatar-body" :inert="openPanel !== 'avatar'" :aria-hidden="openPanel === 'avatar' ? 'false' : 'true'">
+              <!-- 当前头像预览 -->
+              <div class="current-avatar-wrap">
+                <div class="current-avatar" :class="{ 'has-image': currentAvatarUrl }">
+                  <img v-if="currentAvatarUrl" :src="currentAvatarUrl" alt="当前头像" />
+                  <span v-else class="avatar-initials">{{ initials }}</span>
+                </div>
+                <div class="avatar-hint">当前头像</div>
               </div>
 
-              <div class="crop-controls">
-                <span class="scale-label">缩放</span>
-                <input
-                  type="range"
-                  :min="fitScale"
-                  max="3"
-                  step="0.01"
-                  v-model.number="scale"
-                  class="scale-slider"
-                  @input="drawCanvas"
-                />
-                <span class="scale-value">{{ Math.round(scale * 100) }}%</span>
-                <button class="btn-text-sm" @click="resetCrop">重置</button>
-                <button class="btn-text-sm danger" @click="clearImage">重新选择</button>
-              </div>
+              <!-- 右侧操作区 -->
+              <div class="avatar-editor">
+                <!-- 未选图时：拖放 / 点击上传区 -->
+                <div
+                  v-if="!rawImageSrc"
+                  class="drop-zone"
+                  :class="{ dragging: isDragging }"
+                  @click="triggerFilePicker"
+                  @dragover.prevent="isDragging = true"
+                  @dragleave.prevent="isDragging = false"
+                  @drop.prevent="handleFileDrop"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                      stroke-linecap="round" stroke-linejoin="round" class="drop-icon">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <div class="drop-text">点击选择或拖拽图片至此</div>
+                  <div class="drop-hint">支持 JPG、PNG、WebP，最大 2 MB</div>
+                </div>
 
-              <div v-if="cropError" class="form-error">{{ cropError }}</div>
+                <!-- 已选图时：Canvas 裁剪器 -->
+                <div v-else class="cropper-wrap">
+                  <div class="canvas-container">
+                    <!-- 离屏 canvas 用于绘制图像，交互层叠加在上面 -->
+                    <canvas
+                      ref="cropCanvas"
+                      class="crop-canvas"
+                      @mousedown="startDrag"
+                      @mousemove="onDrag"
+                      @mouseup="stopDrag"
+                      @mouseleave="stopDrag"
+                      @touchstart.prevent="startTouchDrag"
+                      @touchmove.prevent="onTouchDrag"
+                      @touchend.prevent="stopDrag"
+                      @wheel.prevent="onWheel"
+                    />
+                    <!-- 圆形遮罩（纯 CSS，不参与裁剪逻辑） -->
+                    <div class="circle-overlay" />
+                  </div>
 
-              <div class="form-actions crop-actions">
-                <button class="btn-secondary" @click="clearImage">取消</button>
-                <button class="btn-primary" :disabled="uploading" @click="handleUpload">
-                  {{ uploading ? '上传中...' : '保存头像' }}
-                </button>
+                  <div class="crop-controls">
+                    <span class="scale-label">缩放</span>
+                    <input
+                      type="range"
+                      :min="fitScale"
+                      max="3"
+                      step="0.01"
+                      v-model.number="scale"
+                      class="scale-slider"
+                      @input="drawCanvas"
+                    />
+                    <span class="scale-value">{{ Math.round(scale * 100) }}%</span>
+                    <button class="btn-text-sm" @click="resetCrop">重置</button>
+                    <button class="btn-text-sm danger" @click="clearImage">重新选择</button>
+                  </div>
+
+                  <div v-if="cropError" class="form-error">{{ cropError }}</div>
+
+                  <div class="form-actions crop-actions">
+                    <button class="btn-secondary" @click="clearImage">取消</button>
+                    <button class="btn-primary" :disabled="uploading" @click="handleUpload">
+                      {{ uploading ? '上传中...' : '保存头像' }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        </Transition>
         <!-- 隐藏文件选择器 -->
         <input
           ref="fileInputRef"
@@ -137,39 +139,41 @@
           </svg>
         </div>
 
-        <Transition name="panel">
-          <div v-if="openPanel === 'changePwd'" class="card-body">
-            <div class="form-group">
-              <label>验证码</label>
-              <div class="input-with-btn">
-                <input ref="pwdVerifyCodeInputRef" v-model="pwdForm.verifyCode" type="text" placeholder="发送到当前绑定邮箱"
-                       inputmode="numeric" autocomplete="one-time-code"/>
-                <button class="btn-send" :disabled="pwdSending || pwdCooldown > 0"
-                        @click="handleSendPwdCode">
-                  {{ pwdCooldown > 0 ? `${pwdCooldown}s` : (pwdSending ? '发送中' : '发送验证码') }}
+        <div class="panel-shell" :class="{ 'is-open': openPanel === 'changePwd' }">
+          <div class="panel-shell-inner">
+            <div class="card-body" :inert="openPanel !== 'changePwd'" :aria-hidden="openPanel === 'changePwd' ? 'false' : 'true'">
+              <div class="form-group">
+                <label>验证码</label>
+                <div class="input-with-btn">
+                  <input ref="pwdVerifyCodeInputRef" v-model="pwdForm.verifyCode" type="text" placeholder="发送到当前绑定邮箱"
+                        inputmode="numeric" autocomplete="one-time-code"/>
+                  <button class="btn-send" :disabled="pwdSending || pwdCooldown > 0"
+                          @click="handleSendPwdCode">
+                    {{ pwdCooldown > 0 ? `${pwdCooldown}s` : (pwdSending ? '发送中' : '发送验证码') }}
+                  </button>
+                </div>
+                <div class="form-hint">验证码将发送至：{{ userStore.userInfo?.email || '未绑定邮箱' }}</div>
+              </div>
+              <div class="form-group">
+                <label>新密码</label>
+                <input v-model="pwdForm.newPwd" type="password" placeholder="6-20个字符"
+                      autocomplete="new-password"/>
+              </div>
+              <div class="form-group">
+                <label>确认新密码</label>
+                  <input v-model="pwdForm.confirmPwd" type="password" placeholder="再次输入新密码"
+                      autocomplete="new-password" @keydown.enter="handleChangePwdEnter"/>
+              </div>
+              <div v-if="pwdError" class="form-error">{{ pwdError }}</div>
+              <div class="form-actions">
+                <button class="btn-secondary" @click="resetPwdForm">取消</button>
+                <button class="btn-primary" :disabled="pwdLoading" @click="handleChangePwd">
+                  {{ pwdLoading ? '保存中...' : '保存修改' }}
                 </button>
               </div>
-              <div class="form-hint">验证码将发送至：{{ userStore.userInfo?.email || '未绑定邮箱' }}</div>
-            </div>
-            <div class="form-group">
-              <label>新密码</label>
-              <input v-model="pwdForm.newPwd" type="password" placeholder="6-20个字符"
-                     autocomplete="new-password"/>
-            </div>
-            <div class="form-group">
-              <label>确认新密码</label>
-                <input v-model="pwdForm.confirmPwd" type="password" placeholder="再次输入新密码"
-                     autocomplete="new-password" @keydown.enter="handleChangePwdEnter"/>
-            </div>
-            <div v-if="pwdError" class="form-error">{{ pwdError }}</div>
-            <div class="form-actions">
-              <button class="btn-secondary" @click="resetPwdForm">取消</button>
-              <button class="btn-primary" :disabled="pwdLoading" @click="handleChangePwd">
-                {{ pwdLoading ? '保存中...' : '保存修改' }}
-              </button>
             </div>
           </div>
-        </Transition>
+        </div>
       </div>
 
       <!-- ===== 变更邮箱 ===== -->
@@ -196,53 +200,55 @@
           </svg>
         </div>
 
-        <Transition name="panel">
-          <div v-if="openPanel === 'changeEmail'" class="card-body">
-            <template v-if="emailStep === 1">
-              <div class="form-group">
-                <label>新邮箱地址</label>
-                <div class="input-with-btn">
-                  <input ref="emailNewEmailInputRef" v-model="emailForm.newEmail" type="email"
-                         placeholder="支持QQ、163、126邮箱" autocomplete="email"/>
-                  <button class="btn-send" :disabled="emailSending || emailCooldown > 0"
-                          @click="handleSendEmailCode">
-                    {{ emailCooldown > 0 ? `${emailCooldown}s` : (emailSending ? '发送中' : '发送验证码') }}
+        <div class="panel-shell" :class="{ 'is-open': openPanel === 'changeEmail' }">
+          <div class="panel-shell-inner">
+            <div class="card-body" :inert="openPanel !== 'changeEmail'" :aria-hidden="openPanel === 'changeEmail' ? 'false' : 'true'">
+              <template v-if="emailStep === 1">
+                <div class="form-group">
+                  <label>新邮箱地址</label>
+                  <div class="input-with-btn">
+                    <input ref="emailNewEmailInputRef" v-model="emailForm.newEmail" type="email"
+                          placeholder="支持QQ、163、126邮箱" autocomplete="email"/>
+                    <button class="btn-send" :disabled="emailSending || emailCooldown > 0"
+                            @click="handleSendEmailCode">
+                      {{ emailCooldown > 0 ? `${emailCooldown}s` : (emailSending ? '发送中' : '发送验证码') }}
+                    </button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>验证码</label>
+                  <input v-model="emailForm.verifyCode" type="text"
+                        placeholder="请输入邮箱收到的验证码"
+                        inputmode="numeric" autocomplete="one-time-code" @keydown.enter="handleChangeEmailEnter"/>
+                </div>
+                <div v-if="emailError" class="form-error">{{ emailError }}</div>
+                <div class="form-actions">
+                  <button class="btn-secondary" @click="resetEmailForm">取消</button>
+                  <button class="btn-primary" :disabled="emailLoading" @click="handleChangeEmail">
+                    {{ emailLoading ? '验证中...' : '下一步' }}
                   </button>
                 </div>
-              </div>
-              <div class="form-group">
-                <label>验证码</label>
-                <input v-model="emailForm.verifyCode" type="text"
-                       placeholder="请输入邮箱收到的验证码"
-                       inputmode="numeric" autocomplete="one-time-code" @keydown.enter="handleChangeEmailEnter"/>
-              </div>
-              <div v-if="emailError" class="form-error">{{ emailError }}</div>
-              <div class="form-actions">
-                <button class="btn-secondary" @click="resetEmailForm">取消</button>
-                <button class="btn-primary" :disabled="emailLoading" @click="handleChangeEmail">
-                  {{ emailLoading ? '验证中...' : '下一步' }}
-                </button>
-              </div>
-            </template>
+              </template>
 
-            <template v-else-if="emailStep === 2">
-              <div class="success-message">
-                <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2">
-                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke-linecap="round"
-                        stroke-linejoin="round"/>
-                  <polyline points="22 4 12 14.01 9 11.01" stroke-linecap="round"
-                            stroke-linejoin="round"/>
-                </svg>
-                <div class="success-title">邮箱变更成功</div>
-                <div class="success-desc">新邮箱：{{ emailForm.newEmail }}</div>
-              </div>
-              <div class="form-actions">
-                <button class="btn-primary full-width" @click="resetEmailForm">完成</button>
-              </div>
-            </template>
+              <template v-else-if="emailStep === 2">
+                <div class="success-message">
+                  <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke-linecap="round"
+                          stroke-linejoin="round"/>
+                    <polyline points="22 4 12 14.01 9 11.01" stroke-linecap="round"
+                              stroke-linejoin="round"/>
+                  </svg>
+                  <div class="success-title">邮箱变更成功</div>
+                  <div class="success-desc">新邮箱：{{ emailForm.newEmail }}</div>
+                </div>
+                <div class="form-actions">
+                  <button class="btn-primary full-width" @click="resetEmailForm">完成</button>
+                </div>
+              </template>
+            </div>
           </div>
-        </Transition>
+        </div>
       </div>
 
     </div>
@@ -259,16 +265,11 @@ const userStore = useUserStore()
 
 const pwdVerifyCodeInputRef = ref<HTMLInputElement | null>(null)
 const emailNewEmailInputRef = ref<HTMLInputElement | null>(null)
+const PANEL_OPEN_SETTLE_MS = 320
+let panelFocusTimer: number | null = null
 
 const shouldIgnoreKeyboardSubmit = (event: KeyboardEvent) =>
   event.isComposing || event.keyCode === 229
-
-const focusInput = (target: HTMLInputElement | null) => {
-  if (!target) return
-  nextTick(() => {
-    setTimeout(() => target.focus(), 40)
-  })
-}
 
 // ── 用户首字母（头像无图时显示）──────────────────────────────────────────
 const initials = computed(() =>
@@ -284,10 +285,25 @@ function togglePanel(panel: 'avatar' | 'changePwd' | 'changeEmail') {
 }
 
 watch(openPanel, (panel) => {
-  if (panel === 'changePwd') {
-    focusInput(pwdVerifyCodeInputRef.value)
-  } else if (panel === 'changeEmail') {
-    focusInput(emailNewEmailInputRef.value)
+  if (panelFocusTimer) {
+    clearTimeout(panelFocusTimer)
+    panelFocusTimer = null
+  }
+
+  if (panel === 'changePwd' || panel === 'changeEmail') {
+    nextTick(() => {
+      panelFocusTimer = window.setTimeout(() => {
+        const target = panel === 'changePwd'
+          ? pwdVerifyCodeInputRef.value
+          : emailNewEmailInputRef.value
+        if (!target) return
+        try {
+          target.focus({ preventScroll: true })
+        } catch {
+          target.focus()
+        }
+      }, PANEL_OPEN_SETTLE_MS)
+    })
   }
 }, { flush: 'post' })
 
@@ -655,13 +671,14 @@ function handleChangeEmailEnter(event: KeyboardEvent) {
 onUnmounted(() => {
   if (pwdCooldownTimer)   clearInterval(pwdCooldownTimer)
   if (emailCooldownTimer) clearInterval(emailCooldownTimer)
+  if (panelFocusTimer) clearTimeout(panelFocusTimer)
 })
 </script>
 
 <style scoped>
 /* ===== 页面布局 ===== */
 .settings-page {
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--bg-page);
   padding: 32px 24px;
 }
@@ -717,7 +734,8 @@ onUnmounted(() => {
   background: var(--bg-icon);
   color: var(--color-primary);
   flex-shrink: 0;
-  margin-top: -2px;
+  align-self: center;
+  margin-top: 0;
 }
 
 .card-icon svg {
@@ -765,6 +783,32 @@ onUnmounted(() => {
 /* ===== 卡片内容 ===== */
 .card-body {
   padding: 0 28px 28px;
+}
+
+.panel-shell {
+  display: grid;
+  grid-template-rows: 0fr;
+  align-items: stretch;
+  transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-shell.is-open {
+  grid-template-rows: 1fr;
+}
+
+.panel-shell-inner {
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  overflow-anchor: none;
+  overflow: hidden;
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: clip-path;
+}
+
+.panel-shell.is-open .panel-shell-inner {
+  clip-path: inset(0 0 0 0);
 }
 
 /* ===== 头像区布局 ===== */
@@ -834,7 +878,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+              background-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   background: var(--bg-hover);
 }
 
@@ -972,7 +1017,7 @@ onUnmounted(() => {
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: color 0.2s, background-color 0.2s;
   white-space: nowrap;
 }
 
@@ -1044,7 +1089,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, color 0.2s ease, background-color 0.2s ease;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1096,7 +1141,7 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, color 0.2s ease, background-color 0.2s ease;
   letter-spacing: -0.01em;
 }
 
@@ -1165,27 +1210,6 @@ onUnmounted(() => {
   font-size: 14px;
   color: var(--text-secondary);
   line-height: 1.5;
-}
-
-/* ===== 过渡动画 ===== */
-.panel-enter-active,
-.panel-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.panel-enter-from,
-.panel-leave-to {
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.panel-enter-to,
-.panel-leave-from {
-  max-height: 600px;
-  opacity: 1;
-  transform: translateY(0);
 }
 
 /* ===== 响应式 ===== */
