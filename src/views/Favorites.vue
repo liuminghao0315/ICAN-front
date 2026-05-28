@@ -50,7 +50,7 @@
 
     <!-- 内容区 -->
     <RequestState
-      v-if="loading && records.length === 0"
+      v-if="recordsViewState === 'loading'"
       mode="loading"
       title="收藏内容加载中"
       description="正在整理你的收藏记录，请稍候..."
@@ -58,7 +58,7 @@
     />
 
     <RequestState
-      v-else-if="!loading && loadError && records.length === 0"
+      v-else-if="recordsViewState === 'error'"
       mode="error"
       title="收藏内容加载失败"
       :description="loadError"
@@ -67,8 +67,8 @@
       @retry="loadRecords"
     />
 
-    <Transition v-else name="view-fade" mode="out-in">
-      <div v-if="records.length > 0" :key="viewMode">
+    <Transition v-else-if="recordsViewState === 'data'" name="view-fade" mode="out-in">
+      <div :key="viewMode">
         <CardView
           v-if="viewMode === 'card'"
           :records="records"
@@ -115,8 +115,8 @@
     </Transition>
 
     <!-- 空状态 -->
-    <Transition name="empty-fade">
-      <div class="empty-state" v-if="!loading && !loadError && records.length === 0">
+    <Transition v-else name="empty-fade">
+      <div class="empty-state">
         <div class="empty-illustration">
           <div class="star-float">
             <svg viewBox="0 0 80 80" fill="none">
@@ -140,25 +140,17 @@
       </div>
     </Transition>
 
-    <!-- 加载 -->
-    <div class="loading-state" v-if="loading && records.length > 0">
-      <el-icon class="rotating" :size="28"><Loading /></el-icon>
-      <span>加载中...</span>
-    </div>
-
     <!-- 分页 -->
-    <Transition name="pagination-fade">
-      <div class="pagination-wrapper" v-if="totalRecords > 12">
-        <div class="neu-pagination">
-          <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--; loadRecords()"><el-icon><ArrowLeft /></el-icon></button>
-          <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-          <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++; loadRecords()"><el-icon><ArrowRight /></el-icon></button>
-        </div>
-        <div class="page-size-select">
-          <NeuSelect v-model="pageSizeStr" :options="pageSizeOptions" placeholder="每页条数" />
-        </div>
+    <div class="pagination-wrapper" v-if="recordsViewState === 'data' && totalRecords > 12">
+      <div class="neu-pagination">
+        <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--; loadRecords()"><el-icon><ArrowLeft /></el-icon></button>
+        <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++; loadRecords()"><el-icon><ArrowRight /></el-icon></button>
       </div>
-    </Transition>
+      <div class="page-size-select">
+        <NeuSelect v-model="pageSizeStr" :options="pageSizeOptions" placeholder="每页条数" />
+      </div>
+    </div>
 
     <!-- 视频预览弹窗 -->
     <VideoPreviewModal
@@ -287,6 +279,7 @@ import { useFolderStore } from '@/stores/folder'
 import { useSettingsStore } from '@/stores/settings'
 import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
+import { deriveRecordsViewState } from '@/utils/recordsViewState'
 import CardView from '@/components/CardView.vue'
 import ListView from '@/components/ListView.vue'
 import NeuSelect from '@/components/NeuSelect.vue'
@@ -314,6 +307,11 @@ const totalRecords = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(pagePrefsStore.favorites.pageSize)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize.value)))
+const recordsViewState = computed(() => deriveRecordsViewState({
+  loading: loading.value,
+  loadError: loadError.value,
+  recordCount: records.value.length,
+}))
 
 // 每页条数选择器
 const pageSizeOptions = [

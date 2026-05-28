@@ -155,7 +155,7 @@
 
     <!-- ── 视图内容区（带淡入淡出切换动画） ── -->
     <RequestState
-      v-if="loading && records.length === 0"
+      v-if="recordsViewState === 'loading'"
       mode="loading"
       title="记录中心加载中"
       description="正在汇总你的分析记录，请稍候..."
@@ -163,7 +163,7 @@
     />
 
     <RequestState
-      v-else-if="!loading && loadError && records.length === 0"
+      v-else-if="recordsViewState === 'error'"
       mode="error"
       title="记录中心加载失败"
       :description="loadError"
@@ -172,8 +172,8 @@
       @retry="loadRecords"
     />
 
-    <Transition v-else name="view-fade" mode="out-in">
-      <div v-if="records.length > 0" :key="viewMode">
+    <Transition v-else-if="recordsViewState === 'data'" name="view-fade" mode="out-in">
+      <div :key="viewMode">
         <!-- 空文件夹提示：当前目录本身无直接视频，展示的是子文件夹内容 -->
         <div class="subfolder-hint" v-if="showSubfolderHint">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
@@ -235,8 +235,8 @@
     </Transition>
 
     <!-- 空状态 -->
-    <Transition name="empty-fade">
-    <div class="empty-state" v-if="!loading && !loadError && records.length === 0">
+    <Transition v-else name="empty-fade">
+    <div class="empty-state">
       <div class="empty-icon"><el-icon :size="36"><FolderOpened /></el-icon></div>
       <h3>{{ hasActiveFilters ? '未找到匹配的记录' : '暂无记录' }}</h3>
       <p>{{ hasActiveFilters ? '尝试调整筛选条件或清除搜索关键词' : '点击"新建分析任务"开始你的第一次舆情分析' }}</p>
@@ -249,29 +249,21 @@
     </div>
     </Transition>
 
-    <!-- 加载 -->
-    <div class="loading-state" v-if="loading && records.length > 0">
-      <el-icon class="rotating" :size="28"><Loading /></el-icon>
-      <span>加载中...</span>
-    </div>
-
     <!-- 分页 -->
-    <Transition name="pagination-fade">
-      <div class="pagination-wrapper" v-if="totalRecords > 12">
-        <div class="neu-pagination">
-          <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--; loadRecords()"><el-icon><ArrowLeft /></el-icon></button>
-          <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-          <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++; loadRecords()"><el-icon><ArrowRight /></el-icon></button>
-        </div>
-        <div class="page-size-select">
-          <NeuSelect
-            v-model="pageSizeStr"
-            :options="pageSizeOptions"
-            placeholder="每页条数"
-          />
-        </div>
+    <div class="pagination-wrapper" v-if="recordsViewState === 'data' && totalRecords > 12">
+      <div class="neu-pagination">
+        <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--; loadRecords()"><el-icon><ArrowLeft /></el-icon></button>
+        <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++; loadRecords()"><el-icon><ArrowRight /></el-icon></button>
       </div>
-    </Transition>
+      <div class="page-size-select">
+        <NeuSelect
+          v-model="pageSizeStr"
+          :options="pageSizeOptions"
+          placeholder="每页条数"
+        />
+      </div>
+    </div>
 
     <!-- 重命名弹窗 -->
     <Teleport to="body">
@@ -406,6 +398,7 @@ import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
 import { formatDate } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel, SourceType } from '@/types'
+import { deriveRecordsViewState } from '@/utils/recordsViewState'
 import NewTaskModal from '@/components/NewTaskModal.vue'
 import NeuSelect from '@/components/NeuSelect.vue'
 import CardView from '@/components/CardView.vue'
@@ -606,6 +599,11 @@ const selectedIds = reactive(new Set<string>())
 
 const totalPages = computed(() => Math.ceil(totalRecords.value / pageSize.value))
 const hasActiveFilters = computed(() => !!(activeStatus.value || sourceFilter.value || riskFilter.value || searchKeyword.value.trim() || sortOrder.value !== 'newest'))
+const recordsViewState = computed(() => deriveRecordsViewState({
+  loading: loading.value,
+  loadError: loadError.value,
+  recordCount: records.value.length,
+}))
 
 const clearAllFilters = () => {
   activeStatus.value = ''
