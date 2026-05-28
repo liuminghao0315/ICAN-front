@@ -143,6 +143,7 @@
           
           <div
             class="video-list"
+            :class="{ 'is-empty': !loading && recentVideos.length === 0 }"
             v-loading="loading"
             :element-loading-background="dashboardLoadingMaskBg"
           >
@@ -203,6 +204,7 @@
           
           <div
             class="task-list"
+            :class="{ 'is-empty': !tasksLoading && recentTasks.length === 0 }"
             v-loading="tasksLoading"
             :element-loading-background="dashboardLoadingMaskBg"
           >
@@ -1523,6 +1525,11 @@ onBeforeUnmount(() => {
   overflow-x: hidden;
   padding: 16px;
 
+  &.is-empty {
+    display: flex;
+    min-height: 300px;
+  }
+
   // 美化滚动条
   &::-webkit-scrollbar {
     width: 6px;
@@ -1650,6 +1657,11 @@ onBeforeUnmount(() => {
   max-height: 260px;
   overflow-y: auto;
   padding: 16px;
+
+  &.is-empty {
+    display: flex;
+    min-height: 300px;
+  }
 
   // 美化滚动条
   &::-webkit-scrollbar {
@@ -1851,6 +1863,12 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: 48px 20px;
   color: var(--text-secondary);
+
+  .video-list.is-empty &,
+  .task-list.is-empty & {
+    flex: 1;
+    min-height: 0;
+  }
   
   &.small {
     padding: 32px 20px;
@@ -1859,6 +1877,10 @@ onBeforeUnmount(() => {
       margin: 12px 0 0;
       font-size: 12px;
     }
+  }
+
+  .task-list.is-empty &.small {
+    padding: 48px 20px;
   }
   
   p {
