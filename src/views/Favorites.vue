@@ -131,9 +131,13 @@
             </svg>
           </div>
         </div>
-        <h3 class="empty-title">暂无收藏</h3>
-        <p class="empty-desc">去记录中心发掘有价值的分析，点击卡片上的星标即可收藏</p>
-        <button class="ctrl-btn primary" @click="router.push('/records')">
+        <h3 class="empty-title">{{ hasActiveFilters ? '未找到匹配的记录' : '暂无收藏' }}</h3>
+        <p class="empty-desc">{{ hasActiveFilters ? '尝试调整筛选条件或清除搜索关键词' : '去记录中心发掘有价值的分析，点击卡片上的星标即可收藏' }}</p>
+        <button v-if="hasActiveFilters" class="ctrl-btn" @click="clearAllFilters">
+          <el-icon><RefreshRight /></el-icon>
+          清除筛选
+        </button>
+        <button v-else class="ctrl-btn primary" @click="router.push('/records')">
           <el-icon><List /></el-icon>
           前往记录中心
         </button>
@@ -271,7 +275,7 @@ import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Check, Grid, List, Warning, DCaret, Search, Close, Loading, ArrowLeft, ArrowRight, Connection, CopyDocument } from '@element-plus/icons-vue'
+import { Check, Grid, List, Warning, DCaret, Search, Close, ArrowLeft, ArrowRight, Connection, CopyDocument, RefreshRight } from '@element-plus/icons-vue'
 import { getFavoriteList, renameVideo, deleteVideo, getResultById } from '@/api'
 import type { AnalysisTaskVO } from '@/types'
 import { useFavoritesStore } from '@/stores/favorites'
@@ -312,6 +316,12 @@ const recordsViewState = computed(() => deriveRecordsViewState({
   loadError: loadError.value,
   recordCount: records.value.length,
 }))
+const hasActiveFilters = computed(() => !!(
+  sourceFilter.value ||
+  riskFilter.value ||
+  searchKeyword.value.trim() ||
+  sortOrder.value !== 'gmtCreated,desc'
+))
 
 // 每页条数选择器
 const pageSizeOptions = [
@@ -362,10 +372,19 @@ watch([sourceFilter, riskFilter, sortOrder], () => {
   loadRecords()
 })
 
+const clearAllFilters = () => {
+  sourceFilter.value = ''
+  riskFilter.value = ''
+  sortOrder.value = 'gmtCreated,desc'
+  searchKeyword.value = ''
+  currentPage.value = 1
+  loadRecords()
+}
+
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 const debouncedSearch = () => {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { currentPage.value = 1; loadRecords() }, 350)
+  searchTimer = setTimeout(() => { currentPage.value = 1; loadRecords() }, 300)
 }
 
 const handleSearchEnter = (event: KeyboardEvent) => {
@@ -670,9 +689,6 @@ $shadow-in: none;
 
 .favorites-page {
   width: 100%;
-  min-height: calc(100vh - 120px);
-  display: flex;
-  flex-direction: column;
   position: relative;
 }
 
@@ -780,9 +796,9 @@ $shadow-in: none;
 
 // ── 空状态 ──
 .empty-state {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 16px; padding: 20px 20px 300px; text-align: center;
-  margin: auto;
+  min-height: 360px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 20px; text-align: center;
   width: 100%;
 }
 .empty-illustration {
@@ -806,18 +822,10 @@ $shadow-in: none;
 .empty-title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0; }
 .empty-desc { font-size: 13px; color: var(--text-secondary); margin: 0; max-width: 320px; line-height: 1.6; }
 
-// ── 加载 ──
-.loading-state {
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  padding: 60px; color: var(--text-secondary); font-size: 14px;
-  .rotating { animation: spin 1s linear infinite; }
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
 // ── 分页 ──
 .pagination-wrapper {
   display: flex; align-items: center; justify-content: center;
-  gap: 16px; margin-top: 28px;
+  gap: 16px; margin-top: 28px; margin-bottom: 0;
 
   .page-size-select {
     :deep(.neu-select) { display: inline-flex; }
@@ -1071,7 +1079,4 @@ $shadow-in: none;
 @keyframes dd-out { from { opacity: 1; } to { opacity: 0; transform: translateY(4px); } }
 .tooltip-fade-enter-active, .tooltip-fade-leave-active { transition: opacity .15s; }
 .tooltip-fade-enter-from, .tooltip-fade-leave-to { opacity: 0; }
-.pagination-fade-enter-active { transition: opacity .25s ease, transform .25s ease; }
-.pagination-fade-leave-active { transition: opacity .2s ease; }
-.pagination-fade-enter-from, .pagination-fade-leave-to { opacity: 0; }
 </style>
