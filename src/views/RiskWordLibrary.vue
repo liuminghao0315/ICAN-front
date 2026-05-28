@@ -2555,56 +2555,56 @@ const confirmMerge = async () => {
   }
 }
 
-:global(html[data-theme='dark'] .modal-card) {
+:global(html[data-theme='dark']) .modal-card {
   background: #1f2337;
   border-color: rgba(130, 145, 190, 0.28);
 }
 
-:global(html[data-theme='dark'] .modal-header) {
+:global(html[data-theme='dark']) .modal-header {
   background: #1f2337;
   border-bottom-color: rgba(130, 145, 190, 0.2);
 }
 
-:global(html[data-theme='dark'] .modal-header h3) {
+:global(html[data-theme='dark']) .modal-header h3 {
   color: #f3f7ff;
 }
 
-:global(html[data-theme='dark'] .modal-body) {
+:global(html[data-theme='dark']) .modal-body {
   background: #1f2337;
 }
 
-:global(html[data-theme='dark'] .modal-footer) {
+:global(html[data-theme='dark']) .modal-footer {
   background: #1f2337;
   border-top-color: rgba(130, 145, 190, 0.2);
 }
 
-:global(html[data-theme='dark'] .modal-body .form-group label) {
+:global(html[data-theme='dark']) .modal-body .form-group label {
   color: #d9e3fb;
 }
 
-:global(html[data-theme='dark'] .modal-body .form-input) {
+:global(html[data-theme='dark']) .modal-body .form-input {
   background: #282d46;
   border-color: rgba(130, 145, 190, 0.22);
   color: #eef4ff;
 }
 
-:global(html[data-theme='dark'] .modal-body .form-input::placeholder) {
+:global(html[data-theme='dark']) .modal-body .form-input::placeholder {
   color: #96a3c7;
 }
 
-:global(html[data-theme='dark'] .modal-footer .btn-ghost) {
+:global(html[data-theme='dark']) .modal-footer .btn-ghost {
   background: #262b42;
   border-color: rgba(130, 145, 190, 0.32);
   color: #e7efff;
 }
 
-:global(html[data-theme='dark'] .modal-footer .btn-ghost:hover) {
+:global(html[data-theme='dark']) .modal-footer .btn-ghost:hover {
   background: #303653;
   border-color: rgba(153, 171, 225, 0.52);
   color: #ffffff;
 }
 
-:global(html[data-theme='dark'] .modal-footer .btn-primary:disabled) {
+:global(html[data-theme='dark']) .modal-footer .btn-primary:disabled {
   background: rgba(85, 104, 163, 0.72);
   color: rgba(245, 248, 255, 0.96) !important;
   opacity: 0.92;
@@ -2622,7 +2622,7 @@ const confirmMerge = async () => {
   color: rgb(143, 163, 200) !important;
 }
 
-:global(html[data-theme='dark'] .modal-body .form-hint) {
+:global(html[data-theme='dark']) .modal-body .form-hint {
   color: rgb(143, 163, 200) !important;
 }
 
