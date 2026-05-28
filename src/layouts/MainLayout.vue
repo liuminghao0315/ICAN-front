@@ -160,7 +160,11 @@
         <!-- 中部：上传中 / 下载中 / 分析中 通知（主流顶部通知样式，不覆盖左右） -->
         <div class="header-center">
           <Transition name="top-notice">
-            <div class="header-notices" v-if="uploadStore.activeCount > 0 || hasDownloadingTasks || hasAnalyzingTasks">
+            <div
+              class="header-notices"
+              :style="headerNoticesStyle"
+              v-if="uploadStore.activeCount > 0 || hasDownloadingTasks || hasAnalyzingTasks"
+            >
               <!-- 上传中 -->
               <Transition name="top-notice-item">
                 <div
@@ -538,6 +542,24 @@
   const hasDownloadingTasks = computed(() => wsStore.downloadingCount > 0)
   const analyzingTaskCount = computed(() => wsStore.analyzingCount)
   const hasAnalyzingTasks = computed(() => wsStore.analyzingCount > 0)
+  const activeHeaderNoticeCount = computed(() => {
+    let count = 0
+    if (uploadStore.activeCount > 0) count++
+    if (hasDownloadingTasks.value) count++
+    if (hasAnalyzingTasks.value) count++
+    return count
+  })
+  const headerNoticesStyle = computed(() => {
+    const maxWidthByCount = {
+      1: '440px',
+      2: '760px',
+      3: '960px'
+    } as const
+
+    return {
+      '--header-notices-max-width': maxWidthByCount[activeHeaderNoticeCount.value as 1 | 2 | 3] ?? maxWidthByCount[3]
+    }
+  })
   const userInfoRef = ref<HTMLElement | null>(null)
   const dropdownPosition = ref({ top: 0, right: 0 })
 
@@ -1330,8 +1352,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 12px;
-  margin: 0 8px;
+  padding: 0 8px;
+  margin: 0 4px;
 }
 
 .header-notices {
@@ -1339,7 +1361,7 @@
   align-items: stretch;
   gap: 8px;
   width: 100%;
-  max-width: 560px;
+  max-width: min(var(--header-notices-max-width, 960px), 100%);
 }
 
 .header-notice {
