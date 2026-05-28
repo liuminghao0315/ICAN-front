@@ -186,7 +186,7 @@
                   @click="router.push({ path: '/records', query: { status: 'DOWNLOADING' } })"
                 >
                   <span class="notice-icon">
-                    <el-icon><Download class="rotating" /></el-icon>
+                    <el-icon><Download class="bouncing" /></el-icon>
                   </span>
                   <span class="notice-line">您有 {{ downloadingTaskCount }} 个任务下载中，点击查看</span>
                   <el-icon class="notice-arrow"><ArrowRight /></el-icon>
@@ -1399,6 +1399,11 @@
     .rotating {
       animation: rotate 2s linear infinite;
     }
+
+    .bouncing {
+      animation: gentle-bounce 1.55s ease-in-out infinite;
+      transform-origin: center bottom;
+    }
   }
 
   .notice-line {
@@ -1603,6 +1608,25 @@
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes gentle-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  28% {
+    transform: translateY(-1.5px);
+  }
+
+  52% {
+    transform: translateY(-3px);
+  }
+
+  76% {
+    transform: translateY(-1px);
   }
 }
 
