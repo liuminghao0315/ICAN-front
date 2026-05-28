@@ -49,8 +49,26 @@
     </div>
 
     <!-- 内容区 -->
-    <Transition name="view-fade" mode="out-in">
-      <div v-if="!loading && records.length > 0" :key="viewMode">
+    <RequestState
+      v-if="loading && records.length === 0"
+      mode="loading"
+      title="收藏内容加载中"
+      description="正在整理你的收藏记录，请稍候..."
+      :min-height="340"
+    />
+
+    <RequestState
+      v-else-if="!loading && loadError && records.length === 0"
+      mode="error"
+      title="收藏内容加载失败"
+      :description="loadError"
+      :retryable="true"
+      :min-height="340"
+      @retry="loadRecords"
+    />
+
+    <Transition v-else name="view-fade" mode="out-in">
+      <div v-if="records.length > 0" :key="viewMode">
         <CardView
           v-if="viewMode === 'card'"
           :records="records"
@@ -98,7 +116,7 @@
 
     <!-- 空状态 -->
     <Transition name="empty-fade">
-      <div class="empty-state" v-if="!loading && records.length === 0">
+      <div class="empty-state" v-if="!loading && !loadError && records.length === 0">
         <div class="empty-illustration">
           <div class="star-float">
             <svg viewBox="0 0 80 80" fill="none">
@@ -123,7 +141,7 @@
     </Transition>
 
     <!-- 加载 -->
-    <div class="loading-state" v-if="loading">
+    <div class="loading-state" v-if="loading && records.length > 0">
       <el-icon class="rotating" :size="28"><Loading /></el-icon>
       <span>加载中...</span>
     </div>
@@ -272,6 +290,7 @@ import CardView from '@/components/CardView.vue'
 import ListView from '@/components/ListView.vue'
 import NeuSelect from '@/components/NeuSelect.vue'
 import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
+import RequestState from '@/components/RequestState.vue'
 
 const router = useRouter()
 const favStore = useFavoritesStore()
@@ -288,6 +307,7 @@ const setViewMode = (m: 'card' | 'list') => { viewMode.value = m; viewMenuOpen.v
 // ── 数据 ──
 const records = ref<AnalysisTaskVO[]>([])
 const loading = ref(true)
+const loadError = ref('')
 const totalRecords = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(12)
@@ -348,6 +368,7 @@ const handleSearchEnter = (event: KeyboardEvent) => {
 
 const loadRecords = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const [sortField, sortDir] = sortOrder.value.split(',')
     const res = await getFavoriteList({
@@ -363,7 +384,14 @@ const loadRecords = async () => {
       records.value = res.data.records || []
       totalRecords.value = res.data.total || 0
       favStore.syncFromList(records.value)
+    } else {
+      throw new Error(res.message || '收藏记录暂时无法加载')
     }
+  } catch (error: any) {
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请检查连接后重试'
   } finally {
     loading.value = false
   }

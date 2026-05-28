@@ -151,7 +151,27 @@
         <span class="card-title">视频列表 <span class="count">共 {{ total }} 条</span></span>
       </div>
       
-      <div class="video-list" v-loading="loading">
+      <RequestState
+        v-if="loading && videoList.length === 0"
+        mode="loading"
+        title="视频列表加载中"
+        description="正在同步你的视频数据，请稍候..."
+        :surface="true"
+        :min-height="320"
+      />
+
+      <RequestState
+        v-else-if="!loading && loadError && videoList.length === 0"
+        mode="error"
+        title="视频列表加载失败"
+        :description="loadError"
+        :retryable="true"
+        :surface="true"
+        :min-height="320"
+        @retry="fetchVideos"
+      />
+
+      <div class="video-list" v-else v-loading="loading && videoList.length > 0">
         <div 
           class="video-item" 
           v-for="video in videoList" 
@@ -429,6 +449,7 @@ import {
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
 import DeleteConfirmDialog from '@/components/DeleteConfirmDialog.vue'
+import RequestState from '@/components/RequestState.vue'
 
 const router = useRouter()
 const wsStore = useWebSocketStore()
@@ -448,6 +469,7 @@ const onDetailOverlayMouseUp = () => {
 }
 
 const loading = ref(false)
+const loadError = ref('')
 const videoList = ref<VideoInfo[]>([])
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -539,6 +561,7 @@ const toggleSort = (field: string) => {
 // 获取视频列表
 const fetchVideos = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const status = statusFilter.value || undefined
     const [field, order] = sortBy.value.split('_')
@@ -546,9 +569,14 @@ const fetchVideos = async () => {
     if (response.code === 200) {
       videoList.value = response.data.records
       total.value = response.data.total
+    } else {
+      throw new Error(response.message || '视频列表暂时无法加载')
     }
-  } catch (error) {
-    // 错误已在axios拦截器中处理并显示Toast
+  } catch (error: any) {
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请检查连接后重试'
   } finally {
     loading.value = false
   }

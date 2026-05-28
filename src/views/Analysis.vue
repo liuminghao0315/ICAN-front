@@ -121,12 +121,28 @@
     
     <!-- 加载中 -->
     <div
-      class="neu-card"
-      v-loading="loading"
-      :element-loading-background="'var(--analysis-loading-mask-bg)'"
       v-if="loading"
+      class="neu-card empty-card"
     >
-      <div style="height: 400px;"></div>
+      <RequestState
+        mode="loading"
+        title="分析结果加载中"
+        description="正在整理分析结果，请稍候..."
+        :surface="true"
+        :min-height="400"
+      />
+    </div>
+
+    <div v-else-if="loadError" class="neu-card empty-card">
+      <RequestState
+        mode="error"
+        title="分析结果加载失败"
+        :description="loadError"
+        :retryable="true"
+        :surface="true"
+        :min-height="400"
+        @retry="retryCurrentAnalysisLoad"
+      />
     </div>
     
     <!-- 空状态 -->
@@ -206,6 +222,7 @@ import { getVideoList, getResultById, getResultByVideoId, getResultByTaskId, get
 import type { FeedbackUpdatedData, FeedbackNewData, FeedbackLockedData } from '@/types'
 import AnalysisContent from '@/components/AnalysisContent.vue'
 import FeedbackDialog from '@/components/FeedbackDialog.vue'
+import RequestState from '@/components/RequestState.vue'
 import { useAnalysisActionsStore } from '@/stores/analysisActions'
 import { useUserStore } from '@/stores'
 import { useExportReport } from '@/composables/useExportReport'
@@ -279,6 +296,7 @@ function openReviewChatDialog() {
 
 // ==================== 父组件状态：只负责数据加载 ====================
 const loading = ref(false)
+const loadError = ref('')
 const selectedVideoId = ref<string>('')
 const videoList = ref<VideoInfo[]>([])
 const drawerThumbnailLoadFailedMap = ref<Record<string, boolean>>({})
@@ -322,10 +340,12 @@ const loadAnalysisByVideo = async () => {
   if (!selectedVideoId.value) {
     analysisData.value = null
     emptyMessage.value = '请选择一个视频'
+    loadError.value = ''
     return
   }
   
   loading.value = true
+  loadError.value = ''
   
   try {
     // 使用统一的API调用（指向8080后端）
@@ -344,10 +364,14 @@ const loadAnalysisByVideo = async () => {
       analysisData.value = null
       emptyMessage.value = '该视频尚未分析或分析未完成'
     }
-  } catch {
+  } catch (error: any) {
     // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
     emptyMessage.value = '加载失败，请稍后重试'
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -414,6 +438,7 @@ const onReviewFeedbackRefreshed = (data: FeedbackVO) => {
 
 const loadAnalysisById = async (resultId: string) => {
   loading.value = true
+  loadError.value = ''
   
   try {
     // 使用统一的API调用（指向8080后端）
@@ -429,10 +454,14 @@ const loadAnalysisById = async (resultId: string) => {
       analysisData.value = null
       emptyMessage.value = '分析结果不存在'
     }
-  } catch {
+  } catch (error: any) {
     // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
     emptyMessage.value = '加载失败，请稍后重试'
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -440,6 +469,7 @@ const loadAnalysisById = async (resultId: string) => {
 
 const loadAnalysisByTaskId = async (taskId: string) => {
   loading.value = true
+  loadError.value = ''
   
   try {
     const response = await getResultByTaskId(taskId)
@@ -454,12 +484,31 @@ const loadAnalysisByTaskId = async (taskId: string) => {
       analysisData.value = null
       emptyMessage.value = '该任务尚未生成分析结果'
     }
-  } catch {
+  } catch (error: any) {
     // API 拦截器已弹出错误提示，此处只更新页面状态
     analysisData.value = null
     emptyMessage.value = '加载失败，请稍后重试'
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请稍后重试'
   } finally {
     loading.value = false
+  }
+}
+
+const retryCurrentAnalysisLoad = () => {
+  const resultId = (route.params.resultId as string) || (route.query.resultId as string)
+  if (resultId) {
+    void loadAnalysisById(resultId)
+    return
+  }
+  if (route.query.taskId) {
+    void loadAnalysisByTaskId(route.query.taskId as string)
+    return
+  }
+  if (selectedVideoId.value) {
+    void loadAnalysisByVideo()
   }
 }
 

@@ -154,8 +154,26 @@
     </div>
 
     <!-- ── 视图内容区（带淡入淡出切换动画） ── -->
-    <Transition name="view-fade" mode="out-in">
-      <div v-if="!loading && records.length > 0" :key="viewMode">
+    <RequestState
+      v-if="loading && records.length === 0"
+      mode="loading"
+      title="记录中心加载中"
+      description="正在汇总你的分析记录，请稍候..."
+      :min-height="360"
+    />
+
+    <RequestState
+      v-else-if="!loading && loadError && records.length === 0"
+      mode="error"
+      title="记录中心加载失败"
+      :description="loadError"
+      :retryable="true"
+      :min-height="360"
+      @retry="loadRecords"
+    />
+
+    <Transition v-else name="view-fade" mode="out-in">
+      <div v-if="records.length > 0" :key="viewMode">
         <!-- 空文件夹提示：当前目录本身无直接视频，展示的是子文件夹内容 -->
         <div class="subfolder-hint" v-if="showSubfolderHint">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
@@ -218,7 +236,7 @@
 
     <!-- 空状态 -->
     <Transition name="empty-fade">
-    <div class="empty-state" v-if="!loading && records.length === 0">
+    <div class="empty-state" v-if="!loading && !loadError && records.length === 0">
       <div class="empty-icon"><el-icon :size="36"><FolderOpened /></el-icon></div>
       <h3>{{ hasActiveFilters ? '未找到匹配的记录' : '暂无记录' }}</h3>
       <p>{{ hasActiveFilters ? '尝试调整筛选条件或清除搜索关键词' : '点击"新建分析任务"开始你的第一次舆情分析' }}</p>
@@ -232,7 +250,7 @@
     </Transition>
 
     <!-- 加载 -->
-    <div class="loading-state" v-if="loading">
+    <div class="loading-state" v-if="loading && records.length > 0">
       <el-icon class="rotating" :size="28"><Loading /></el-icon>
       <span>加载中...</span>
     </div>
@@ -392,6 +410,7 @@ import NeuSelect from '@/components/NeuSelect.vue'
 import CardView from '@/components/CardView.vue'
 import ListView from '@/components/ListView.vue'
 import VideoPreviewModal from '@/components/VideoPreviewModal.vue'
+import RequestState from '@/components/RequestState.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -483,6 +502,7 @@ const setViewMode = (mode: 'card' | 'list') => {
 // 列表数据
 const records = ref<AnalysisTaskVO[]>([])
 const loading = ref(true)
+const loadError = ref('')
 const totalRecords = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(12)
@@ -663,8 +683,14 @@ const deleteState = reactive({ visible: false, videoId: '', title: '', isBatch: 
 
 const loadRecords = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     await fetchAndApplyRecords()
+  } catch (error: any) {
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请检查连接后重试'
   } finally {
     loading.value = false
   }

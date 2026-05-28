@@ -12,9 +12,11 @@ import {
   type PlatformCookieVO,
   type SystemSettingsData
 } from '@/api'
+import RequestState from '@/components/RequestState.vue'
 
 // ==================== Cookie 管理 ====================
 const loading = ref(false)
+const loadError = ref('')
 const cookies = ref<Record<string, PlatformCookieVO[]>>({ KUAISHOU: [] })
 
 const showAddDialog = ref(false)
@@ -50,10 +52,11 @@ async function fetchCookies() {
     if (res.code === 200) {
       cookies.value = res.data
     } else {
-      ElMessage.error(res.message || '获取Cookie列表失败')
+      throw new Error(res.message || '获取Cookie列表失败')
     }
-  } catch {
-    ElMessage.error('网络错误')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '网络错误')
+    throw error
   }
 }
 
@@ -157,7 +160,6 @@ function formatTime(time: string | null): string {
 }
 
 // ==================== 系统设置 ====================
-const settingsLoading = ref(false)
 const maxConcurrency = ref('2')
 const processingCount = ref(0)
 const pendingConcurrency = ref<number | null>(null)
@@ -170,9 +172,27 @@ async function fetchSettings() {
       maxConcurrency.value = res.data.settings['max_analysis_concurrency'] || '2'
       processingCount.value = res.data.processingCount
       pendingConcurrency.value = res.data.pendingConcurrency
+    } else {
+      throw new Error(res.message || '获取设置失败')
     }
-  } catch {
-    ElMessage.error('获取设置失败')
+  } catch (error: any) {
+    ElMessage.error(error?.message || '获取设置失败')
+    throw error
+  }
+}
+
+async function loadPageData() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    await Promise.all([fetchCookies(), fetchSettings()])
+  } catch (error: any) {
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请检查连接后重试'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -199,12 +219,7 @@ async function saveConcurrency() {
 }
 
 onMounted(async () => {
-  loading.value = true
-  try {
-    await Promise.all([fetchCookies(), fetchSettings()])
-  } finally {
-    loading.value = false
-  }
+  await loadPageData()
 })
 
 watch(showAddDialog, (visible) => {
@@ -223,75 +238,97 @@ watch(showEditDialog, (visible) => {
       <p class="page-desc">管理平台Cookie与分析并发控制</p>
     </div>
 
-    <!-- Cookie 管理 -->
-    <div class="platform-sections">
-      <div v-for="platform in platforms" :key="platform.key" class="platform-section">
+    <RequestState
+      v-if="loading"
+      mode="loading"
+      title="系统设置加载中"
+      description="正在获取平台 Cookie 和并发配置，请稍候..."
+      :surface="true"
+      :min-height="360"
+    />
+
+    <RequestState
+      v-else-if="loadError"
+      mode="error"
+      title="系统设置加载失败"
+      :description="loadError"
+      :retryable="true"
+      :surface="true"
+      :min-height="360"
+      @retry="loadPageData"
+    />
+
+    <template v-else>
+      <!-- Cookie 管理 -->
+      <div class="platform-sections">
+        <div v-for="platform in platforms" :key="platform.key" class="platform-section">
+          <div class="section-header">
+            <h3>Cookie 管理 - {{ platform.name }}</h3>
+            <button class="btn-add" @click="openAddDialog(platform.key)">+ 添加Cookie</button>
+          </div>
+
+          <div v-if="cookies[platform.key]?.length === 0" class="empty-state">
+            暂无Cookie，点击上方按钮添加
+          </div>
+
+          <div v-else class="cookie-list">
+            <div v-for="cookie in cookies[platform.key]" :key="cookie.id" class="cookie-card">
+              <div class="cookie-main">
+                <div class="cookie-label">
+                  <span class="label-text">{{ cookie.label || '未命名' }}</span>
+                  <span :class="['status-badge', cookie.status === 'ACTIVE' ? 'active' : 'expired']">
+                    {{ cookie.status === 'ACTIVE' ? '活跃' : '过期' }}
+                  </span>
+                </div>
+                <div class="cookie-value" :title="cookie.cookieValue">
+                  {{ truncateCookie(cookie.cookieValue) }}
+                </div>
+                <div class="cookie-meta">
+                  <span>使用 {{ cookie.useCount }} 次</span>
+                  <span>最后使用: {{ formatTime(cookie.lastUsedAt) }}</span>
+                </div>
+              </div>
+              <div class="cookie-actions">
+                <button class="btn-action btn-edit" @click="openEditDialog(cookie)">编辑</button>
+                <button class="btn-action btn-delete" @click="handleDelete(cookie)">删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分析并发控制 -->
+      <div class="platform-section concurrency-section">
         <div class="section-header">
-          <h3>Cookie 管理 - {{ platform.name }}</h3>
-          <button class="btn-add" @click="openAddDialog(platform.key)">+ 添加Cookie</button>
+          <h3>分析并发控制</h3>
         </div>
-
-        <div v-if="cookies[platform.key]?.length === 0" class="empty-state">
-          暂无Cookie，点击上方按钮添加
-        </div>
-
-        <div v-else class="cookie-list">
-          <div v-for="cookie in cookies[platform.key]" :key="cookie.id" class="cookie-card">
-            <div class="cookie-main">
-              <div class="cookie-label">
-                <span class="label-text">{{ cookie.label || '未命名' }}</span>
-                <span :class="['status-badge', cookie.status === 'ACTIVE' ? 'active' : 'expired']">
-                  {{ cookie.status === 'ACTIVE' ? '活跃' : '过期' }}
-                </span>
-              </div>
-              <div class="cookie-value" :title="cookie.cookieValue">
-                {{ truncateCookie(cookie.cookieValue) }}
-              </div>
-              <div class="cookie-meta">
-                <span>使用 {{ cookie.useCount }} 次</span>
-                <span>最后使用: {{ formatTime(cookie.lastUsedAt) }}</span>
-              </div>
+        <div class="concurrency-content">
+          <div class="concurrency-row">
+            <label>最大并发数</label>
+            <div class="concurrency-input-group">
+              <input
+                ref="concurrencyInputRef"
+                v-model="maxConcurrency"
+                type="number"
+                min="1"
+                max="10"
+                class="concurrency-input"
+                @keydown.enter="handleSaveConcurrencyEnter"
+              />
+              <button class="btn-save" :disabled="savingConcurrency" @click="saveConcurrency">
+                {{ savingConcurrency ? '保存中...' : '保存' }}
+              </button>
             </div>
-            <div class="cookie-actions">
-              <button class="btn-action btn-edit" @click="openEditDialog(cookie)">编辑</button>
-              <button class="btn-action btn-delete" @click="handleDelete(cookie)">删除</button>
-            </div>
+          </div>
+          <div class="concurrency-status">
+            <span class="status-item">当前正在分析: <b>{{ processingCount }}</b> 个任务</span>
+            <span v-if="pendingConcurrency !== null" class="status-item pending-notice">
+              已预约: 限制 {{ pendingConcurrency }} 并发（等待当前分析完成后生效）
+            </span>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- 分析并发控制 -->
-    <div class="platform-section concurrency-section">
-      <div class="section-header">
-        <h3>分析并发控制</h3>
-      </div>
-      <div class="concurrency-content">
-        <div class="concurrency-row">
-          <label>最大并发数</label>
-          <div class="concurrency-input-group">
-            <input
-              ref="concurrencyInputRef"
-              v-model="maxConcurrency"
-              type="number"
-              min="1"
-              max="10"
-              class="concurrency-input"
-              @keydown.enter="handleSaveConcurrencyEnter"
-            />
-            <button class="btn-save" :disabled="savingConcurrency" @click="saveConcurrency">
-              {{ savingConcurrency ? '保存中...' : '保存' }}
-            </button>
-          </div>
-        </div>
-        <div class="concurrency-status">
-          <span class="status-item">当前正在分析: <b>{{ processingCount }}</b> 个任务</span>
-          <span v-if="pendingConcurrency !== null" class="status-item pending-notice">
-            已预约: 限制 {{ pendingConcurrency }} 并发（等待当前分析完成后生效）
-          </span>
-        </div>
-      </div>
-    </div>
+    </template>
 
     <!-- 添加对话框 -->
     <Teleport to="body">

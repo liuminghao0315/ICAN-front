@@ -132,7 +132,7 @@
         </TransitionGroup>
 
         <!-- 空搜索结果 -->
-        <div v-if="!dataLoading && filteredPacks.length === 0 && packSearch" class="pack-empty-search">
+        <div v-if="!dataLoading && !loadError && filteredPacks.length === 0 && packSearch" class="pack-empty-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
@@ -168,9 +168,20 @@
         </div>
       </div>
 
+      <RequestState
+        v-else-if="loadError && wordPacks.length === 0"
+        mode="error"
+        title="词库包加载失败"
+        :description="loadError"
+        :retryable="true"
+        :surface="true"
+        :min-height="360"
+        @retry="loadPacks"
+      />
+
       <!-- 无词库包时的全局空状态 -->
       <Transition name="empty-fade" mode="out-in">
-        <div v-if="!dataLoading && wordPacks.length === 0" key="no-packs" class="empty-state-full">
+        <div v-if="!dataLoading && !loadError && wordPacks.length === 0" key="no-packs" class="empty-state-full">
           <div class="empty-illustration">
             <div class="empty-icon-wrap">
               <svg viewBox="0 0 120 120" fill="none">
@@ -196,7 +207,7 @@
         </div>
 
         <!-- 有词库包时的工作区 -->
-        <div v-else-if="!dataLoading" key="workspace-content" class="workspace-inner">
+        <div v-else-if="!dataLoading && !loadError" key="workspace-content" class="workspace-inner">
 
           <!-- 顶部信息看板 -->
           <div class="workspace-header">
@@ -755,6 +766,7 @@ import {
   expandWordByAI,
   type AIWordItem
 } from '@/api'
+import RequestState from '@/components/RequestState.vue'
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let newPackOverlayMouseDown = false
@@ -835,6 +847,7 @@ interface AIRecommendItem {
 // ── 数据（从后端加载） ──
 const wordPacks = ref<WordPack[]>([])
 const dataLoading = ref(true)
+const loadError = ref('')
 
 // AI 提示词输入
 const aiPromptInput = ref('')
@@ -1027,6 +1040,7 @@ const wordForm = ref({ text: '', risk: 'medium' as RiskLevel })
 // ── 初始化加载 ──
 const loadPacks = async () => {
   dataLoading.value = true
+  loadError.value = ''
   try {
     const res = await getWordPackList()
     if (res.code === 200 && res.data) {
@@ -1045,8 +1059,11 @@ const loadPacks = async () => {
         activePack.value = wordPacks.value[0] || null
         displayPack.value = wordPacks.value[0] || null
       }
+    } else {
+      throw new Error(res.message || '词库包暂时无法加载')
     }
   } catch (e: any) {
+    loadError.value = e?.message || '网络请求失败，请检查连接后重试'
     ElMessage.error('加载词库包失败: ' + (e.message || '网络错误'))
   } finally {
     dataLoading.value = false
@@ -1702,6 +1719,7 @@ const confirmMerge = async () => {
   gap: 9px;
   padding: 8px 9px;
   border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .pack-sk-icon {
@@ -1709,7 +1727,7 @@ const confirmMerge = async () => {
   height: 28px;
   border-radius: 7px;
   flex-shrink: 0;
-  background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 75%);
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.06) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
@@ -1724,7 +1742,7 @@ const confirmMerge = async () => {
 .pack-sk-line {
   height: 9px;
   border-radius: 5px;
-  background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 75%);
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.05) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   &.long { width: 70%; }

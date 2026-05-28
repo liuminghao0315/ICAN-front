@@ -17,7 +17,25 @@
     </div>
 
     <div class="feedback-list">
-      <div v-if="feedbacks.length === 0 && !loading" class="empty-state">
+      <RequestState
+        v-if="loading && feedbacks.length === 0"
+        mode="loading"
+        title="反馈记录加载中"
+        description="正在同步最新反馈，请稍候..."
+        :min-height="320"
+      />
+
+      <RequestState
+        v-else-if="!loading && loadError && feedbacks.length === 0"
+        mode="error"
+        title="反馈记录加载失败"
+        :description="loadError"
+        :retryable="true"
+        :min-height="320"
+        @retry="loadFeedbacks"
+      />
+
+      <div v-else-if="feedbacks.length === 0" class="empty-state">
         <p>暂无反馈记录</p>
       </div>
 
@@ -137,6 +155,7 @@ import { ElMessage } from 'element-plus'
 import { useWebSocket } from '@/composables/useWebSocket'
 import type { FeedbackNewData, FeedbackLockedData, FeedbackSyncData } from '@/types'
 import NeuSelect from '@/components/NeuSelect.vue'
+import RequestState from '@/components/RequestState.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -144,6 +163,7 @@ const currentUserId = computed(() => userStore.userInfo?.id ?? '')
 const { subscribeFeedbackNew, subscribeVideoDeleted, subscribeFeedbackLocked, subscribeFeedbackSync } = useWebSocket({ autoConnect: false })
 
 const loading = ref(false)
+const loadError = ref('')
 const feedbacks = ref<FeedbackVO[]>([])
 const statusFilter = ref('')
 const scopeFilter = ref<'ALL' | 'MINE'>('ALL')
@@ -200,6 +220,7 @@ watch([scopeFilter, statusFilter], () => {
 
 const loadFeedbacks = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getAdminFeedbackList(
       currentPage.value,
@@ -224,7 +245,12 @@ const loadFeedbacks = async () => {
         scrollChatToBottom(expandedId.value)
       }
     }
-  } catch { /* silent */ }
+  } catch (error: any) {
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请检查连接后重试'
+  }
   loading.value = false
 }
 

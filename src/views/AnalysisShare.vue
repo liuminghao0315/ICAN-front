@@ -21,13 +21,26 @@
       </div>
     </div>
 
-    <div
-      class="neu-card"
-      v-loading="loading"
-      :element-loading-background="'var(--analysis-loading-mask-bg)'"
-      v-if="loading"
-    >
-      <div style="height: 400px;"></div>
+    <div v-if="loading" class="neu-card empty-card">
+      <RequestState
+        mode="loading"
+        title="分享结果加载中"
+        description="正在获取分享结果，请稍候..."
+        :surface="true"
+        :min-height="400"
+      />
+    </div>
+
+    <div v-else-if="loadError" class="neu-card empty-card">
+      <RequestState
+        mode="error"
+        title="分享结果加载失败"
+        :description="loadError"
+        :retryable="true"
+        :surface="true"
+        :min-height="400"
+        @retry="loadSharedResult"
+      />
     </div>
 
     <div v-else-if="!analysisData" class="neu-card empty-card">
@@ -57,6 +70,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { VideoPlay, Document, DataAnalysis } from '@element-plus/icons-vue'
 import AnalysisContent from '@/components/AnalysisContent.vue'
+import RequestState from '@/components/RequestState.vue'
 import { getSharedAnalysisResult } from '@/api'
 import type { AnalysisResult } from '@/data/mockAnalysisResult'
 import { useExportReport } from '@/composables/useExportReport'
@@ -64,6 +78,7 @@ import { useExportReport } from '@/composables/useExportReport'
 const route = useRoute()
 const viewMode = ref<'interactive' | 'report'>('interactive')
 const loading = ref(false)
+const loadError = ref('')
 const analysisData = ref<AnalysisResult | null>(null)
 const analysisContentRef = ref<InstanceType<typeof AnalysisContent> | null>(null)
 const { exportReportByUrl } = useExportReport()
@@ -72,19 +87,32 @@ const loadSharedResult = async () => {
   const token = route.params.token as string | undefined
   if (!token) {
     analysisData.value = null
+    loadError.value = ''
     return
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getSharedAnalysisResult(token)
     if (res.code === 200 && res.data) {
       analysisData.value = res.data as AnalysisResult
     } else {
       analysisData.value = null
+      loadError.value = ''
     }
-  } catch {
+  } catch (error: any) {
     analysisData.value = null
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请稍后重试'
+    const status = error?.response?.status
+    if (status === 404 || status === 410 || /失效|不存在|无效/.test(message)) {
+      loadError.value = ''
+    } else {
+      loadError.value = message
+    }
     ElMessage.error('分享链接不存在或已失效')
   } finally {
     loading.value = false

@@ -199,7 +199,27 @@
         <span class="card-title">任务列表 <span class="count">共 {{ total }} 条</span></span>
       </div>
       
-      <div class="task-list" v-loading="loading">
+      <RequestState
+        v-if="loading && taskList.length === 0"
+        mode="loading"
+        title="分析任务加载中"
+        description="正在获取最新任务状态，请稍候..."
+        :surface="true"
+        :min-height="320"
+      />
+
+      <RequestState
+        v-else-if="!loading && loadError && taskList.length === 0"
+        mode="error"
+        title="分析任务加载失败"
+        :description="loadError"
+        :retryable="true"
+        :surface="true"
+        :min-height="320"
+        @retry="fetchTasks"
+      />
+
+      <div class="task-list" v-else v-loading="loading && taskList.length > 0">
         <div 
           class="task-item" 
           v-for="task in taskList" 
@@ -335,6 +355,7 @@ import {
 import type { AnalysisTaskVO, TaskStatus, TaskType, RiskLevel } from '@/types'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { useWebSocketStore } from '@/stores/websocket'
+import RequestState from '@/components/RequestState.vue'
 
 const router = useRouter()
 const wsStore = useWebSocketStore()
@@ -355,6 +376,7 @@ const onCancelOverlayMouseUp = () => {
 }
 
 const loading = ref(false)
+const loadError = ref('')
 const taskList = ref<AnalysisTaskVO[]>([])
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -449,6 +471,7 @@ subscribeFailed((data) => {
 // 获取任务列表
 const fetchTasks = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const status = statusFilter.value || undefined
     const riskLevel = riskFilter.value || undefined
@@ -464,9 +487,14 @@ const fetchTasks = async () => {
     if (response.code === 200) {
       taskList.value = response.data.records
       total.value = response.data.total
+    } else {
+      throw new Error(response.message || '任务列表暂时无法加载')
     }
-  } catch (error) {
-    // 错误已在axios拦截器中处理并显示Toast
+  } catch (error: any) {
+    loadError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '网络请求失败，请检查连接后重试'
   } finally {
     loading.value = false
   }
