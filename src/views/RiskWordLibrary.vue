@@ -766,6 +766,7 @@ import {
   expandWordByAI,
   type AIWordItem
 } from '@/api'
+import { usePagePrefsStore } from '@/stores/pagePrefs'
 import RequestState from '@/components/RequestState.vue'
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
@@ -845,6 +846,7 @@ interface AIRecommendItem {
 }
 
 // ── 数据（从后端加载） ──
+const pagePrefsStore = usePagePrefsStore()
 const wordPacks = ref<WordPack[]>([])
 const dataLoading = ref(true)
 const loadError = ref('')
@@ -907,8 +909,8 @@ const commitToastText = ref('')
 let commitToastTimer: ReturnType<typeof setTimeout> | null = null
 
 // 排序
-const sortOrder = ref<'desc' | 'asc'>('desc') // desc = 最新在前 / 最多在前
-const sortField = ref<'date' | 'count'>('date') // date = 按添加日期，count = 按总词汇数
+const sortOrder = ref<'desc' | 'asc'>(pagePrefsStore.riskWordLibrary.sortOrder) // desc = 最新在前 / 最多在前
+const sortField = ref<'date' | 'count'>(pagePrefsStore.riskWordLibrary.sortField) // date = 按添加日期，count = 按总词汇数
 const showSortDropdown = ref(false)
 
 const sortFieldLabel = computed(() => sortField.value === 'date' ? '按添加日期' : '按总词汇数')
@@ -921,6 +923,13 @@ const selectSortField = (field: 'date' | 'count') => {
   sortField.value = field
   showSortDropdown.value = false
 }
+
+watch([sortField, sortOrder], () => {
+  pagePrefsStore.setRiskWordLibraryPrefs({
+    sortField: sortField.value,
+    sortOrder: sortOrder.value,
+  })
+})
 
 // 点击外部关闭下拉
 const closeSortDropdown = (e: MouseEvent) => {
@@ -1056,8 +1065,12 @@ const loadPacks = async () => {
         }))
       }))
       if (wordPacks.value.length > 0 && !activePack.value) {
-        activePack.value = wordPacks.value[0] || null
-        displayPack.value = wordPacks.value[0] || null
+        const preferredPackId = pagePrefsStore.riskWordLibrary.activePackId
+        const preferredPack = preferredPackId
+          ? wordPacks.value.find(p => p.id === preferredPackId) || null
+          : null
+        activePack.value = preferredPack || wordPacks.value[0] || null
+        displayPack.value = preferredPack || wordPacks.value[0] || null
       }
     } else {
       throw new Error(res.message || '词库包暂时无法加载')
@@ -1162,6 +1175,7 @@ const highlightText = (text: string) => {
 // ── 操作 ──
 const selectPack = (pack: WordPack) => {
   activePack.value = pack
+  pagePrefsStore.setRiskWordLibraryPrefs({ activePackId: pack.id })
   activeFilter.value = 'all'
   // 短暂延迟切换 displayPack，让 empty-fade 的 leave 先完成，避免空状态闪烁
   setTimeout(() => { displayPack.value = pack }, 160)
@@ -1192,6 +1206,7 @@ const createPack = async () => {
       wordPacks.value.push(newPack)
       activePack.value = newPack
       displayPack.value = newPack
+      pagePrefsStore.setRiskWordLibraryPrefs({ activePackId: newPack.id })
       ElMessage.success('词库包创建成功')
     }
   } catch (e: any) {
@@ -1235,7 +1250,11 @@ const saveWord = async () => {
       await addWordsToWordPack(activePack.value.id, [{ text: newText, risk: wordForm.value.risk }])
       await loadPacks()
       const updated = wordPacks.value.find(p => p.id === activePack.value?.id)
-      if (updated) { activePack.value = updated; displayPack.value = updated }
+      if (updated) {
+        activePack.value = updated
+        displayPack.value = updated
+        pagePrefsStore.setRiskWordLibraryPrefs({ activePackId: updated.id })
+      }
     } catch (e: any) {
       ElMessage.error('保存失败: ' + (e.message || '网络错误'))
     }
@@ -1261,7 +1280,11 @@ const saveWord = async () => {
       await addWordsToWordPack(activePack.value.id, wordsToAdd)
       await loadPacks()
       const updated = wordPacks.value.find(p => p.id === activePack.value?.id)
-      if (updated) { activePack.value = updated; displayPack.value = updated }
+      if (updated) {
+        activePack.value = updated
+        displayPack.value = updated
+        pagePrefsStore.setRiskWordLibraryPrefs({ activePackId: updated.id })
+      }
       if (dupTexts.length > 0) {
         ElMessage.success(`成功添加 ${newTexts.length} 个词汇，${dupTexts.length} 个重复已跳过`)
       } else {
@@ -1432,6 +1455,9 @@ const saveEditPack = async () => {
         if (activePack.value?.id === editingPack.value.id) {
           activePack.value = wordPacks.value[idx] || null
           displayPack.value = wordPacks.value[idx] || null
+          if (wordPacks.value[idx]) {
+            pagePrefsStore.setRiskWordLibraryPrefs({ activePackId: wordPacks.value[idx]!.id })
+          }
         }
       }
       ElMessage.success('词库包已更新')
@@ -1458,6 +1484,7 @@ const confirmDeletePack = async (pack: WordPack | null) => {
     if (activePack.value?.id === pack.id) {
       activePack.value = wordPacks.value[0] ?? null
       displayPack.value = wordPacks.value[0] ?? null
+      pagePrefsStore.setRiskWordLibraryPrefs({ activePackId: wordPacks.value[0]?.id ?? '' })
     }
     ElMessage.success('词库包已删除')
   } catch (e: any) {
@@ -1504,7 +1531,11 @@ const confirmMerge = async () => {
     await loadPacks()
     // 切换到目标包
     const updated = wordPacks.value.find(p => p.id === targetPack.id)
-    if (updated) { activePack.value = updated; displayPack.value = updated }
+    if (updated) {
+      activePack.value = updated
+      displayPack.value = updated
+      pagePrefsStore.setRiskWordLibraryPrefs({ activePackId: updated.id })
+    }
     ElMessage.success(`已将「${sourcePack.name}」合并到「${targetPack.name}」，新增 ${wordsToAdd.length} 个词汇`)
   } catch (e: any) {
     ElMessage.error('合并失败: ' + (e.message || '网络错误'))

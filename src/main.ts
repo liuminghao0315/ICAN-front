@@ -13,7 +13,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 import App from './App.vue'
 import router from './router'
-import { useSettingsStore } from './stores'
+import { useSettingsStore, usePagePrefsStore } from './stores'
 
 const app = createApp(App)
 
@@ -25,6 +25,8 @@ app.use(pinia)
 // 初始化主题（需在 pinia 挂载后）
 const settingsStore = useSettingsStore()
 settingsStore.init()
+const pagePrefsStore = usePagePrefsStore()
+pagePrefsStore.init()
 
 // Element Plus
 app.use(ElementPlus, { locale: zhCn })

@@ -285,6 +285,7 @@ import type { AnalysisTaskVO } from '@/types'
 import { useFavoritesStore } from '@/stores/favorites'
 import { useFolderStore } from '@/stores/folder'
 import { useSettingsStore } from '@/stores/settings'
+import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
 import CardView from '@/components/CardView.vue'
 import ListView from '@/components/ListView.vue'
@@ -296,6 +297,7 @@ const router = useRouter()
 const favStore = useFavoritesStore()
 const folderStore = useFolderStore()
 const settingsStore = useSettingsStore()
+const pagePrefsStore = usePagePrefsStore()
 const { exportReportByUrl, exportingIds } = useExportReport()
 
 // ── 视图（持久化到 settings store）──
@@ -310,7 +312,7 @@ const loading = ref(true)
 const loadError = ref('')
 const totalRecords = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(12)
+const pageSize = ref(pagePrefsStore.favorites.pageSize)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize.value)))
 
 // 每页条数选择器
@@ -319,17 +321,19 @@ const pageSizeOptions = [
   { label: '每页 24 条', value: '24' },
   { label: '每页 48 条', value: '48' },
 ]
-const pageSizeStr = ref('12')
+const pageSizeStr = ref(String(pagePrefsStore.favorites.pageSize))
 watch(pageSizeStr, (val) => {
-  pageSize.value = Number(val)
+  const nextPageSize = Number(val) as 12 | 24 | 48
+  pageSize.value = nextPageSize
+  pagePrefsStore.setFavoritesPrefs({ pageSize: pageSize.value as 12 | 24 | 48 })
   currentPage.value = 1
   loadRecords()
 })
 
 // ── 筛选 ──
-const sourceFilter = ref('')
-const riskFilter = ref('')
-const sortOrder = ref('gmtCreated,desc')
+const sourceFilter = ref(pagePrefsStore.favorites.sourceFilter)
+const riskFilter = ref(pagePrefsStore.favorites.riskFilter)
+const sortOrder = ref(pagePrefsStore.favorites.sortOrder)
 const searchKeyword = ref('')
 
 const sourceOptions = [
@@ -350,7 +354,15 @@ const sortOptions = [
   { label: '风险从高到低', value: 'riskLevel,desc' },
 ]
 
-watch([sourceFilter, riskFilter, sortOrder], () => { currentPage.value = 1; loadRecords() })
+watch([sourceFilter, riskFilter, sortOrder], () => {
+  pagePrefsStore.setFavoritesPrefs({
+    sourceFilter: sourceFilter.value,
+    riskFilter: riskFilter.value,
+    sortOrder: sortOrder.value as 'gmtCreated,desc' | 'gmtCreated,asc' | 'riskLevel,desc',
+  })
+  currentPage.value = 1
+  loadRecords()
+})
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 const debouncedSearch = () => {

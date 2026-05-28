@@ -402,6 +402,7 @@ import { useWebSocketStore } from '@/stores/websocket'
 import { useFolderStore } from '@/stores/folder'
 import { useFavoritesStore } from '@/stores/favorites'
 import { useSettingsStore } from '@/stores/settings'
+import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
 import { formatDate } from '@/types'
 import type { AnalysisTaskVO, TaskStatus, RiskLevel, SourceType } from '@/types'
@@ -418,6 +419,7 @@ const wsStore = useWebSocketStore()
 const folderStore = useFolderStore()
 const favStore = useFavoritesStore()
 const settingsStore = useSettingsStore()
+const pagePrefsStore = usePagePrefsStore()
 const { recordsViewMode: viewMode } = storeToRefs(settingsStore)
 const { exportReportByUrl, exportReportsByUrls, exportingIds } = useExportReport()
 const showNewTaskModal = ref(false)
@@ -505,11 +507,11 @@ const loading = ref(true)
 const loadError = ref('')
 const totalRecords = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(12)
-const activeStatus = ref<string>('')
-const sourceFilter = ref<string>('')
-const riskFilter = ref<string>('')
-const sortOrder = ref<string>('newest')
+const pageSize = ref(pagePrefsStore.records.pageSize)
+const activeStatus = ref<string>(pagePrefsStore.records.activeStatus)
+const sourceFilter = ref<string>(pagePrefsStore.records.sourceFilter)
+const riskFilter = ref<string>(pagePrefsStore.records.riskFilter)
+const sortOrder = ref<string>(pagePrefsStore.records.sortOrder)
 const searchKeyword = ref('')
 
 // 每页条数选择器（NeuSelect 需要 string 类型）
@@ -518,9 +520,11 @@ const pageSizeOptions = [
   { label: '每页 24 条', value: '24' },
   { label: '每页 48 条', value: '48' },
 ]
-const pageSizeStr = ref('12')
+const pageSizeStr = ref(String(pagePrefsStore.records.pageSize))
 watch(pageSizeStr, (val) => {
-  pageSize.value = Number(val)
+  const nextPageSize = Number(val) as 12 | 24 | 48
+  pageSize.value = nextPageSize
+  pagePrefsStore.setRecordsPrefs({ pageSize: pageSize.value as 12 | 24 | 48 })
   currentPage.value = 1
   loadRecords()
 })
@@ -750,10 +754,23 @@ const handleSearchEnter = (event: KeyboardEvent) => {
   void loadRecords()
 }
 
-watch([activeStatus, sourceFilter, riskFilter, sortOrder], () => { currentPage.value = 1; loadRecords() })
+watch([activeStatus, sourceFilter, riskFilter, sortOrder], () => {
+  pagePrefsStore.setRecordsPrefs({
+    activeStatus: activeStatus.value,
+    sourceFilter: sourceFilter.value,
+    riskFilter: riskFilter.value,
+    sortOrder: sortOrder.value as 'newest' | 'oldest' | 'risk_desc',
+  })
+  currentPage.value = 1
+  loadRecords()
+})
 
 // 监听文件夹切换
-watch(() => folderStore.activeFolderId, () => { currentPage.value = 1; loadRecords() })
+watch(() => folderStore.activeFolderId, (folderId) => {
+  pagePrefsStore.setRecordsPrefs({ activeFolderId: folderId || '__ALL__' })
+  currentPage.value = 1
+  loadRecords()
+})
 
 // 批量管理
 const toggleBatchMode = () => {
@@ -1177,6 +1194,9 @@ subscribeFailed((data) => {
 })
 
 onMounted(() => {
+  if (pagePrefsStore.records.activeFolderId) {
+    folderStore.setActive(pagePrefsStore.records.activeFolderId)
+  }
   const queryChangedFilters = applyQuickActionFromQuery(route.query as Record<string, unknown>)
   // 若 query 改变了筛选项，筛选 watcher 会触发首轮加载；否则这里主动加载。
   if (!queryChangedFilters) {

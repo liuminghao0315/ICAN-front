@@ -73,15 +73,21 @@ import AnalysisContent from '@/components/AnalysisContent.vue'
 import RequestState from '@/components/RequestState.vue'
 import { getSharedAnalysisResult } from '@/api'
 import type { AnalysisResult } from '@/data/mockAnalysisResult'
+import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
 
 const route = useRoute()
-const viewMode = ref<'interactive' | 'report'>('interactive')
+const pagePrefsStore = usePagePrefsStore()
+const viewMode = ref<'interactive' | 'report'>(pagePrefsStore.analysisShare.viewMode)
 const loading = ref(false)
 const loadError = ref('')
 const analysisData = ref<AnalysisResult | null>(null)
 const analysisContentRef = ref<InstanceType<typeof AnalysisContent> | null>(null)
 const { exportReportByUrl } = useExportReport()
+
+watch(viewMode, (mode) => {
+  pagePrefsStore.setAnalysisSharePrefs({ viewMode: mode })
+})
 
 const loadSharedResult = async () => {
   const token = route.params.token as string | undefined

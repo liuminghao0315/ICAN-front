@@ -225,11 +225,13 @@ import FeedbackDialog from '@/components/FeedbackDialog.vue'
 import RequestState from '@/components/RequestState.vue'
 import { useAnalysisActionsStore } from '@/stores/analysisActions'
 import { useUserStore } from '@/stores'
+import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const pagePrefsStore = usePagePrefsStore()
 
 // 模态框关闭逻辑：只有 mousedown 和 mouseup 都在外部才关闭
 let drawerOverlayMouseDown = false
@@ -303,10 +305,14 @@ const drawerThumbnailLoadFailedMap = ref<Record<string, boolean>>({})
 const analysisData = ref<any>(null)  // 分析结果数据
 const emptyMessage = ref('请选择一个视频')
 const showVideoDrawer = ref(false)
-const viewMode = ref<'interactive' | 'report'>('interactive')  // 视图模式
+const viewMode = ref<'interactive' | 'report'>(pagePrefsStore.analysis.viewMode)  // 视图模式
 const showFeedbackDialog = ref(false)
 const currentFeedback = ref<FeedbackVO | null>(null)
 const analysisContentRef = ref<InstanceType<typeof AnalysisContent> | null>(null)
+
+watch(viewMode, (mode) => {
+  pagePrefsStore.setAnalysisPrefs({ viewMode: mode })
+})
 
 // ==================== 数据加载方法 ====================
 const fetchVideos = async () => {
