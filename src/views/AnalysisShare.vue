@@ -75,6 +75,7 @@ import { getSharedAnalysisResult } from '@/api'
 import type { AnalysisResult } from '@/data/mockAnalysisResult'
 import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
+import { resolveReportPdfUrl } from '@/utils/reportPdfExport'
 
 const route = useRoute()
 const pagePrefsStore = usePagePrefsStore()
@@ -125,38 +126,41 @@ const loadSharedResult = async () => {
   }
 }
 
-const waitReportRender = () => new Promise(resolve => setTimeout(resolve, 400))
+const refreshSharedReportPdfUrl = async (): Promise<string | null> => {
+  const token = route.params.token as string | undefined
+  if (!token) {
+    return null
+  }
+
+  try {
+    const res = await getSharedAnalysisResult(token)
+    if (res.code === 200 && res.data) {
+      analysisData.value = res.data as AnalysisResult
+      return (res.data as AnalysisResult).reportPdfUrl || null
+    }
+  } catch (error) {
+    console.warn('刷新分享 reportPdfUrl 失败', error)
+  }
+
+  return null
+}
 
 const handleExportPdf = async () => {
   const fileName = analysisData.value.videoInfo?.fileName
     ? analysisData.value.videoInfo.fileName.replace(/\.[^.]+$/, '.pdf')
     : undefined
 
-  if (analysisData.value?.reportPdfUrl) {
-    await exportReportByUrl(analysisData.value.reportPdfUrl, fileName)
+  const pdfUrl = await resolveReportPdfUrl({
+    currentUrl: analysisData.value?.reportPdfUrl ?? null,
+    refresh: refreshSharedReportPdfUrl,
+  })
+
+  if (pdfUrl) {
+    await exportReportByUrl(pdfUrl, fileName)
     return
   }
 
-  const exporter = analysisContentRef.value?.exportToPdf
-  if (!exporter) {
-    ElMessage.warning('当前报告暂不可导出，请稍后重试')
-    return
-  }
-
-  const previousViewMode = viewMode.value
-  if (viewMode.value !== 'report') {
-    viewMode.value = 'report'
-    await nextTick()
-    await waitReportRender()
-  }
-
-  try {
-    await exporter()
-  } finally {
-    if (previousViewMode !== viewMode.value) {
-      viewMode.value = previousViewMode
-    }
-  }
+  ElMessage.warning('PDF 报告尚未生成，请稍后重试')
 }
 
 onMounted(() => {

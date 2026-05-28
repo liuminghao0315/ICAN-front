@@ -227,6 +227,7 @@ import { useAnalysisActionsStore } from '@/stores/analysisActions'
 import { useUserStore } from '@/stores'
 import { usePagePrefsStore } from '@/stores/pagePrefs'
 import { useExportReport } from '@/composables/useExportReport'
+import { resolveReportPdfUrl } from '@/utils/reportPdfExport'
 
 const route = useRoute()
 const router = useRouter()
@@ -545,38 +546,62 @@ const getStatusText = (status: string) => {
 
 // 导出PDF
 const { exportReportByUrl } = useExportReport()
-const waitReportRender = () => new Promise(resolve => setTimeout(resolve, 400))
+
+const refreshAnalysisReportPdfUrl = async (): Promise<string | null> => {
+  const currentResultId = analysisData.value?.id
+  const currentTaskId = analysisData.value?.taskId
+  const currentVideoId = selectedVideoId.value
+
+  try {
+    if (currentResultId) {
+      const response = await getResultById(currentResultId)
+      if (response.code === 200 && response.data) {
+        const resultData = response.data as any
+        analysisData.value = resultData
+        return resultData.reportPdfUrl || null
+      }
+    }
+
+    if (currentTaskId) {
+      const response = await getResultByTaskId(currentTaskId)
+      if (response.code === 200 && response.data) {
+        const resultData = response.data as any
+        analysisData.value = resultData
+        return resultData.reportPdfUrl || null
+      }
+    }
+
+    if (currentVideoId) {
+      const response = await getResultByVideoId(currentVideoId)
+      if (response.code === 200 && response.data) {
+        const resultData = response.data as any
+        analysisData.value = resultData
+        return resultData.reportPdfUrl || null
+      }
+    }
+  } catch (error) {
+    console.warn('刷新 reportPdfUrl 失败', error)
+  }
+
+  return null
+}
 
 const handleExportPdf = async () => {
   const fileName = analysisData.value?.videoInfo?.fileName
     ? analysisData.value.videoInfo.fileName.replace(/\.[^.]+$/, '.pdf')
     : undefined
 
-  if (analysisData.value?.reportPdfUrl) {
-    await exportReportByUrl(analysisData.value.reportPdfUrl, fileName)
+  const pdfUrl = await resolveReportPdfUrl({
+    currentUrl: analysisData.value?.reportPdfUrl ?? null,
+    refresh: refreshAnalysisReportPdfUrl,
+  })
+
+  if (pdfUrl) {
+    await exportReportByUrl(pdfUrl, fileName)
     return
   }
 
-  const exporter = analysisContentRef.value?.exportToPdf
-  if (!exporter) {
-    ElMessage.warning('当前报告暂不可导出，请稍后重试')
-    return
-  }
-
-  const previousViewMode = viewMode.value
-  if (viewMode.value !== 'report') {
-    viewMode.value = 'report'
-    await nextTick()
-    await waitReportRender()
-  }
-
-  try {
-    await exporter()
-  } finally {
-    if (previousViewMode !== viewMode.value) {
-      viewMode.value = previousViewMode
-    }
-  }
+  ElMessage.warning('PDF 报告尚未生成，请稍后重试')
 }
 
 // 监听侧边栏导出按钮触发

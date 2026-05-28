@@ -542,7 +542,7 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
 .cover-confidential {
   margin-top: 40px;
   font-size: 13px;
-  color: #888;
+  color: #767676;
   letter-spacing: 6px;
 }
 .cover-title {
@@ -555,7 +555,7 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
 }
 .cover-subtitle {
   font-size: 13px;
-  color: #999;
+  color: #767676;
   letter-spacing: 2px;
   margin-bottom: 52px;
 }
@@ -566,10 +566,10 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
   text-align: left;
   td { padding: 10px 8px; color: #333; }
   .ct-key { font-weight: 600; color: #1a1a1a; white-space: nowrap; text-align: right; padding-right: 0; letter-spacing: 1px; }
-  .ct-sep { padding: 10px 10px 10px 4px; color: #999; width: 20px; }
+  .ct-sep { padding: 10px 10px 10px 4px; color: #767676; width: 20px; }
 }
 .cover-org { font-size: 15px; font-weight: 600; color: #333; letter-spacing: 2px; margin-bottom: 6px; }
-.cover-version { font-size: 13px; color: #999; margin-bottom: 40px; }
+.cover-version { font-size: 13px; color: #767676; margin-bottom: 40px; }
 .text-link { color: #1565c0; text-decoration: none; word-break: break-all; &:hover { text-decoration: underline; } }
 
 // -------------------- 通用区块 --------------------
@@ -809,7 +809,7 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
   font-size: 12px;
   color: #555;
 }
-.dim-evidence { text-align: right; font-size: 12px; color: #999; margin-top: 4px; }
+.dim-evidence { text-align: right; font-size: 12px; color: #767676; margin-top: 4px; }
 
 // ====================================================================
 //  证据表格 —— 学术三线表（严格三线规范）
@@ -878,7 +878,7 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
   vertical-align: middle;
   border-radius: 2px;
 }
-.ev-kw { color: #777; font-size: 12px; }
+.ev-kw { color: #767676; font-size: 12px; }
 // 风险分值超过80分加粗醒目
 .score-critical { font-weight: 700; color: #C00000; }
 
@@ -923,7 +923,7 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
   break-inside: avoid;
 }
 .foot-rule { height: 1px; background: #999; margin-bottom: 8px; }
-.foot-row { display: flex; justify-content: space-between; font-size: 11px; color: #999; margin-bottom: 3px; }
+.foot-row { display: flex; justify-content: space-between; font-size: 11px; color: #767676; margin-bottom: 3px; }
 
 // ====================================================================
 //  @media print —— 打印 / PDF 导出核心
@@ -1015,7 +1015,7 @@ onMounted(() => nextTick(() => { initRadarChart(); initTrendChart() }))
 .report-paper .dim-evidence,
 .report-paper .ev-kw,
 .report-paper .foot-row {
-  color: #999999 !important;
+  color: #767676 !important;
 }
 .report-paper .sub-heading,
 .report-paper .ct-key,
