@@ -74,10 +74,16 @@
               muted
               playsinline
               style="display:none"
+              @loadedmetadata="onThumbMetadata"
               @seeked="onThumbSeeked"
             ></video>
             <!-- 截帧用 canvas（隐藏） -->
-            <canvas ref="captureCanvasRef" style="display:none" width="160" height="90"></canvas>
+            <canvas
+              ref="captureCanvasRef"
+              style="display:none"
+              :width="framePreview.width"
+              :height="framePreview.height"
+            ></canvas>
 
             <!-- 大播放按钮（暂停时居中显示） -->
             <Transition name="fade">
@@ -105,9 +111,15 @@
                 <div
                   class="frame-preview"
                   v-if="framePreview.visible"
-                  :style="{ left: framePreview.x + 'px' }"
+                  :style="{ left: framePreview.x + 'px', width: framePreview.width + 'px' }"
                 >
-                  <canvas ref="thumbCanvasRef" class="frame-canvas" width="160" height="90"></canvas>
+                  <canvas
+                    ref="thumbCanvasRef"
+                    class="frame-canvas"
+                    :width="framePreview.width"
+                    :height="framePreview.height"
+                    :style="{ width: framePreview.width + 'px', height: framePreview.height + 'px' }"
+                  ></canvas>
                   <span class="frame-time">{{ formatTime(framePreview.time) }}</span>
                 </div>
               </Transition>
@@ -155,6 +167,12 @@
 
 <script setup lang="ts">
 import { ref, watch, onUnmounted, reactive } from 'vue'
+import {
+  clampPreviewOffset,
+  computePreviewSize,
+  PREVIEW_MAX_HEIGHT,
+  PREVIEW_MAX_WIDTH,
+} from '@/utils/videoPreviewSizing'
 
 const props = defineProps<{
   visible: boolean
@@ -199,9 +217,25 @@ const isFullscreen = ref(false)
 const progressPct = ref(0)
 
 // ── 进度条帧预览 ──────────────────────────────────────
-const PREVIEW_W = 160
-const PREVIEW_H = 90
-const framePreview = reactive({ visible: false, x: 0, time: 0 })
+const framePreview = reactive({
+  visible: false,
+  x: 0,
+  time: 0,
+  width: PREVIEW_MAX_WIDTH,
+  height: PREVIEW_MAX_HEIGHT,
+})
+
+const syncPreviewSize = (videoWidth?: number, videoHeight?: number) => {
+  const nextSize = computePreviewSize(
+    videoWidth ?? 0,
+    videoHeight ?? 0,
+    PREVIEW_MAX_WIDTH,
+    PREVIEW_MAX_HEIGHT,
+  )
+
+  framePreview.width = nextSize.width
+  framePreview.height = nextSize.height
+}
 
 // 节流：避免每次 mousemove 都 seek，间隔 80ms
 let seekThrottleTimer: ReturnType<typeof setTimeout> | null = null
@@ -217,8 +251,7 @@ const onProgressHover = (e: MouseEvent) => {
 
   // 气泡水平位置：以进度条左边缘为基准，限制不超出两侧
   const rawX = e.clientX - rect.left
-  const clampedX = Math.max(PREVIEW_W / 2, Math.min(rect.width - PREVIEW_W / 2, rawX))
-  framePreview.x = clampedX - PREVIEW_W / 2
+  framePreview.x = clampPreviewOffset(rawX, rect.width, framePreview.width)
   framePreview.time = hoverTime
   framePreview.visible = true
 
@@ -243,11 +276,20 @@ const onThumbSeeked = () => {
   const display = thumbCanvasRef.value
   if (!thumb || !canvas || !display) { isSeeking = false; return }
 
+  canvas.width = framePreview.width
+  canvas.height = framePreview.height
+  display.width = framePreview.width
+  display.height = framePreview.height
+
   const ctx = canvas.getContext('2d')
   if (ctx) {
-    ctx.drawImage(thumb, 0, 0, PREVIEW_W, PREVIEW_H)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(thumb, 0, 0, canvas.width, canvas.height)
     const dCtx = display.getContext('2d')
-    if (dCtx) dCtx.drawImage(canvas, 0, 0)
+    if (dCtx) {
+      dCtx.clearRect(0, 0, display.width, display.height)
+      dCtx.drawImage(canvas, 0, 0)
+    }
   }
   isSeeking = false
 
@@ -293,6 +335,7 @@ watch(() => props.visible, (val) => {
     currentTime.value = 0
     duration.value = 0
     progressPct.value = 0
+    syncPreviewSize()
     videoSrc.value = props.videoUrl || null
     document.addEventListener('keydown', onKeydown)
     document.addEventListener('fullscreenchange', onFullscreenChange)
@@ -310,6 +353,13 @@ const onMetadata = () => {
   if (videoRef.value) {
     duration.value = videoRef.value.duration || 0
     videoRef.value.volume = volume.value
+    syncPreviewSize(videoRef.value.videoWidth, videoRef.value.videoHeight)
+  }
+}
+
+const onThumbMetadata = () => {
+  if (thumbVideoRef.value) {
+    syncPreviewSize(thumbVideoRef.value.videoWidth, thumbVideoRef.value.videoHeight)
   }
 }
 
@@ -403,6 +453,7 @@ const destroyPlayer = () => {
   error.value = false
   isPlaying.value = false
   framePreview.visible = false
+  syncPreviewSize()
   if (seekThrottleTimer) { clearTimeout(seekThrottleTimer); seekThrottleTimer = null }
   pendingSeekTime = null
   isSeeking = false
@@ -700,7 +751,6 @@ $purple-light: #66b1ff;
   position: absolute;
   bottom: calc(100% + 10px);  // 进度条上方 10px
   transform: translateX(0);
-  width: 160px;
   border-radius: 10px;
   overflow: hidden;
   background: rgba(12, 16, 30, 0.92);
@@ -725,8 +775,6 @@ $purple-light: #66b1ff;
 
 .frame-canvas {
   display: block;
-  width: 160px;
-  height: 90px;
   background: #000;
 }
 
