@@ -660,14 +660,14 @@ onUnmounted(() => { document.removeEventListener('click', handleOutsideClick) })
 </script>
 
 <style scoped lang="scss">
-$neu-1: #F5F7FA;
-$neu-2: #DCDFE6;
-$white: #FFFFFF;
-$gray: #909399;
-$black: #303133;
+$neu-1: var(--bg-hover);
+$neu-2: var(--border-color);
+$white: var(--bg-card);
+$gray: var(--text-secondary);
+$black: var(--text-primary);
 $purple: #409EFF;
 $purple-light: #66b1ff;
-$shadow-sm: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+$shadow-sm: none;
 $shadow-in: none;
 
 .favorites-page {
@@ -691,7 +691,7 @@ $shadow-in: none;
 .search-box {
   position: relative; display: flex; align-items: center;
   background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px;
-  box-shadow: $shadow-sm; padding: 0 12px; height: 38px; min-width: 220px;
+  box-shadow: none; padding: 0 12px; height: 38px; min-width: 220px;
   .search-icon { color: var(--text-secondary); font-size: 14px; flex-shrink: 0; }
   .search-input {
     flex: 1; border: none; background: transparent; outline: none;
@@ -823,18 +823,30 @@ $shadow-in: none;
 
   .page-size-select {
     :deep(.neu-select) { display: inline-flex; }
+
     :deep(.neu-select-trigger) {
+      // 对齐记录中心，避免深色模式残留浅色硬编码
       height: 38px; padding: 0 14px;
       border-radius: 11px;
-      background: $neu-1;
-      box-shadow: $shadow-sm;
+      background: var(--bg-hover);
+      box-shadow: none;
       border: none;
       font-size: 13px; font-weight: 600; color: var(--text-primary);
       gap: 8px; white-space: nowrap;
       transition: all .25s;
       outline: none;
-      &:hover { color: var(--color-primary); box-shadow: none; }
+
+      &:hover {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+
+      .trigger-arrow { color: var(--text-secondary); transition: color .25s; }
+      &:hover .trigger-arrow { color: var(--color-primary); }
+
+      .trigger-icon { display: none; }
     }
+
     :deep(.neu-select-dropdown) { min-width: 130px; }
   }
 }
@@ -842,10 +854,10 @@ $shadow-in: none;
 .neu-pagination {
   display: flex; align-items: center; gap: 16px;
   .page-btn {
-    width: 38px; height: 38px; border: none; border-radius: 11px; background: $neu-1;
-    box-shadow: $shadow-sm; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card);
+    box-shadow: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
     color: var(--text-secondary); transition: all .25s;
-    &:hover:not(:disabled) { color: var(--color-primary); box-shadow: none; }
+    &:hover:not(:disabled) { color: var(--color-primary); border-color: var(--color-primary); }
     &:disabled { opacity: .4; cursor: not-allowed; }
   }
   .page-info { font-size: 13px; color: var(--text-primary); font-weight: 600; }
