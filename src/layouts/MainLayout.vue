@@ -169,7 +169,7 @@
                   :class="{ 'is-half': hasDownloadingTasks || hasAnalyzingTasks }"
                 >
                   <span class="notice-icon">
-                    <el-icon><Upload class="rotating" /></el-icon>
+                    <el-icon><Upload class="bouncing" /></el-icon>
                   </span>
                   <span class="notice-line">{{ uploadStore.activeCount }} 个文件上传中（{{ uploadStore.overallProgress }}%）</span>
                   <div class="notice-progress" v-if="uploadStore.overallProgress < 100">
