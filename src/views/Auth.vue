@@ -179,6 +179,12 @@ onMounted(() => {
     })
   })
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+
+  // 开发版体验优化：登录页空闲时预热主布局与工作台，减少登录后首次路由切换冷启动
+  setTimeout(() => {
+    void import('@/layouts/MainLayout.vue')
+    void import('@/views/Dashboard.vue')
+  }, 0)
 })
 
 onUnmounted(() => {
