@@ -1009,6 +1009,16 @@ const confirmDelete = async () => {
       const idsToDelete = [...deleteState.ids]
       const tasksToDelete = idsToDelete.map(id => records.value.find(r => r.id === id)).filter(Boolean) as AnalysisTaskVO[]
       const videoIdsToDelete = tasksToDelete.map(t => t.videoId).filter(Boolean)
+      const optimisticTasks = tasksToDelete
+        .filter(task => ['DOWNLOADING', 'PENDING', 'PROCESSING'].includes(task.status))
+        .map(task => ({ id: task.id, status: task.status }))
+
+      optimisticTasks.forEach(task => {
+        wsStore.applyTaskStatus(task.id, 'CANCELLED')
+      })
+      if (optimisticTasks.length > 0) {
+        wsStore.notifyTaskChanged()
+      }
       deleteState.visible = false
 
       const results = await Promise.allSettled(videoIdsToDelete.map(vid => deleteVideo(vid, true)))
@@ -1020,6 +1030,16 @@ const confirmDelete = async () => {
           failedNames.push(task?.videoTitle || '未知视频')
         }
       })
+
+      if (failedNames.length > 0) {
+        tasksToDelete.forEach(task => {
+          const failed = failedNames.includes(task.videoTitle || '未知视频')
+          if (failed && ['DOWNLOADING', 'PENDING', 'PROCESSING'].includes(task.status)) {
+            wsStore.applyTaskStatus(task.id, task.status)
+          }
+        })
+        wsStore.notifyTaskChanged()
+      }
 
       const successCount = results.length - failedNames.length
       if (successCount > 0) {
@@ -1035,6 +1055,13 @@ const confirmDelete = async () => {
       folderStore.loadTree()
     } else {
       const videoId = deleteState.videoId
+      const taskToDelete = records.value.find(r => r.videoId === videoId)
+      const previousStatus = taskToDelete?.status
+      const optimisticRemoval = !!taskToDelete && ['DOWNLOADING', 'PENDING', 'PROCESSING'].includes(taskToDelete.status)
+      if (optimisticRemoval) {
+        wsStore.applyTaskStatus(taskToDelete!.id, 'CANCELLED')
+        wsStore.notifyTaskChanged()
+      }
       deleteState.visible = false
       try {
         const res = await deleteVideo(videoId)
@@ -1044,9 +1071,17 @@ const confirmDelete = async () => {
           ElMessage.success('删除成功')
           wsStore.notifyTaskChanged()
         } else {
+          if (optimisticRemoval && taskToDelete && previousStatus) {
+            wsStore.applyTaskStatus(taskToDelete.id, previousStatus)
+            wsStore.notifyTaskChanged()
+          }
           ElMessage.error(res.message || '删除失败')
         }
       } catch {
+        if (optimisticRemoval && taskToDelete && previousStatus) {
+          wsStore.applyTaskStatus(taskToDelete.id, previousStatus)
+          wsStore.notifyTaskChanged()
+        }
         // 拦截器已弹出后端错误消息，此处不重复提示
       }
       loadRecords()

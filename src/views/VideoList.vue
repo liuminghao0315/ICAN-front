@@ -684,18 +684,40 @@ const handleDelete = (video: VideoInfo) => {
 // 确认删除
 const confirmDelete = async () => {
   if (!videoToDelete.value) return
-  
+
+  const targetVideo = videoToDelete.value
+  const isOptimisticActiveRemoval = ['DOWNLOADING', 'ANALYZING'].includes(targetVideo.status)
+  const rollbackTaskStatus =
+    targetVideo.status === 'DOWNLOADING'
+      ? 'DOWNLOADING'
+      : targetVideo.status === 'ANALYZING'
+        ? 'PROCESSING'
+        : null
+  if (isOptimisticActiveRemoval) {
+    const nextStatus = targetVideo.status === 'DOWNLOADING' ? 'CANCELLED' : 'FAILED'
+    wsStore.applyTaskStatus(targetVideo.id, nextStatus)
+    notifyTaskChanged()
+  }
+
   try {
-    const response = await deleteVideo(videoToDelete.value.id)
+    const response = await deleteVideo(targetVideo.id)
     if (response.code === 200) {
       ElMessage.success('删除成功')
       fetchVideos()
       // 通知 Dashboard 等其他页面同步刷新统计数据（高校相关内容个数等）
       notifyTaskChanged()
     } else {
+      if (isOptimisticActiveRemoval && rollbackTaskStatus) {
+        wsStore.applyTaskStatus(targetVideo.id, rollbackTaskStatus, { forceActive: true })
+        notifyTaskChanged()
+      }
       ElMessage.error(response.message || '删除失败')
     }
   } catch {
+    if (isOptimisticActiveRemoval && rollbackTaskStatus) {
+      wsStore.applyTaskStatus(targetVideo.id, rollbackTaskStatus, { forceActive: true })
+      notifyTaskChanged()
+    }
     // 拦截器已弹出后端错误消息
   } finally {
     deleteDialogVisible.value = false
