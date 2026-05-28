@@ -794,29 +794,6 @@
     document.removeEventListener('click', handleClickOutside)
   })
 
-  // 从分析页退出时，若仍是收起状态，无需额外处理
-  watch(isAnalysisDetail, (_val) => {
-    // 保留 watch 以备后续扩展
-  })
-
-  // 侧边栏收起/展开时，JS 控制 nav-item 的 padding-left 实现图标居中
-  const updateNavItemPadding = (collapsed: boolean) => {
-    const items = document.querySelectorAll('.sidebar-normal .nav-item')
-    items.forEach((el) => {
-      ;(el as HTMLElement).style.paddingLeft = collapsed ? '11px' : '14px'
-    })
-  }
-
-  watch(isCollapse, (val) => {
-    updateNavItemPadding(val)
-  })
-
-  onMounted(() => {
-    if (isCollapse.value) {
-      updateNavItemPadding(true)
-    }
-  })
-
   const handleLogout = () => {
     showLogoutConfirm.value = false
     cancelProactiveRefresh()
@@ -998,6 +975,7 @@
   // 收起状态下主业务区
   &.is-collapsed .nav-item {
     gap: 0;
+    padding-left: 11px;
   }
 
   // ② 数据上下文区（平滑折叠）
