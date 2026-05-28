@@ -9,6 +9,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import config from '@/config'
 import { pushWsRuntimeTrace } from '@/utils/wsRuntimeTrace'
+import { shouldShowRateLimitedMessage } from '@/utils/messageRateLimiter'
 import type {
   Result,
   PageResult,
@@ -295,7 +296,9 @@ api.interceptors.response.use(
       })
     } else if (error.request) {
       // 请求已发出但没有收到响应（排除主动中止的情况）
-      ElMessage.error('网络错误，请检查网络连接')
+      if (shouldShowRateLimitedMessage('api:network-error')) {
+        ElMessage.error('网络错误，请检查网络连接')
+      }
       return Promise.reject({
         ...error,
         message: '网络错误，请检查网络连接',
