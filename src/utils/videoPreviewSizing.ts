@@ -36,3 +36,15 @@ export function clampPreviewOffset(
   const rawLeft = rawCenterX - previewWidth / 2
   return Math.max(0, Math.min(maxLeft, rawLeft))
 }
+
+export function canSeekPreviewVideo(readyState: number): boolean {
+  return readyState >= 1
+}
+
+export function canDrawPreviewFrame(
+  readyState: number,
+  videoWidth: number,
+  videoHeight: number,
+): boolean {
+  return readyState >= 2 && videoWidth > 0 && videoHeight > 0
+}

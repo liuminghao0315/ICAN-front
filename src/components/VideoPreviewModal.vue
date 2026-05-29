@@ -69,11 +69,11 @@
             <video
               v-if="videoSrc"
               ref="thumbVideoRef"
+              class="preview-thumb-video"
               :src="videoSrc"
               preload="metadata"
               muted
               playsinline
-              style="display:none"
               @loadedmetadata="onThumbMetadata"
               @seeked="onThumbSeeked"
             ></video>
@@ -168,6 +168,8 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted, reactive } from 'vue'
 import {
+  canDrawPreviewFrame,
+  canSeekPreviewVideo,
   clampPreviewOffset,
   computePreviewSize,
   PREVIEW_MAX_HEIGHT,
@@ -241,6 +243,15 @@ const syncPreviewSize = (videoWidth?: number, videoHeight?: number) => {
 let seekThrottleTimer: ReturnType<typeof setTimeout> | null = null
 let pendingSeekTime: number | null = null
 let isSeeking = false
+let previewFrameTicket = 0
+
+const flushPendingSeek = (thumb: HTMLVideoElement) => {
+  if (pendingSeekTime === null) return
+  if (!canSeekPreviewVideo(thumb.readyState)) return
+  isSeeking = true
+  thumb.currentTime = pendingSeekTime
+  pendingSeekTime = null
+}
 
 const onProgressHover = (e: MouseEvent) => {
   if (!progressRef.value || !duration.value) return
@@ -261,6 +272,9 @@ const onProgressHover = (e: MouseEvent) => {
     seekThrottleTimer = setTimeout(() => {
       seekThrottleTimer = null
       if (pendingSeekTime !== null && thumbVideoRef.value) {
+        if (!canSeekPreviewVideo(thumbVideoRef.value.readyState)) {
+          return
+        }
         isSeeking = true
         thumbVideoRef.value.currentTime = pendingSeekTime
         pendingSeekTime = null
@@ -275,6 +289,10 @@ const onThumbSeeked = () => {
   const canvas = captureCanvasRef.value
   const display = thumbCanvasRef.value
   if (!thumb || !canvas || !display) { isSeeking = false; return }
+  if (!canDrawPreviewFrame(thumb.readyState, thumb.videoWidth, thumb.videoHeight)) {
+    isSeeking = false
+    return
+  }
 
   canvas.width = framePreview.width
   canvas.height = framePreview.height
@@ -282,23 +300,41 @@ const onThumbSeeked = () => {
   display.height = framePreview.height
 
   const ctx = canvas.getContext('2d')
-  if (ctx) {
+  const dCtx = display.getContext('2d')
+  if (!ctx || !dCtx) {
+    isSeeking = false
+    return
+  }
+
+  const currentTicket = ++previewFrameTicket
+  const drawFrame = (attempt = 0) => {
+    if (!thumbVideoRef.value || thumbVideoRef.value !== thumb) {
+      isSeeking = false
+      return
+    }
+    if (!canDrawPreviewFrame(thumb.readyState, thumb.videoWidth, thumb.videoHeight)) {
+      if (attempt < 4) {
+        requestAnimationFrame(() => drawFrame(attempt + 1))
+        return
+      }
+      isSeeking = false
+      flushPendingSeek(thumb)
+      return
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(thumb, 0, 0, canvas.width, canvas.height)
-    const dCtx = display.getContext('2d')
-    if (dCtx) {
-      dCtx.clearRect(0, 0, display.width, display.height)
-      dCtx.drawImage(canvas, 0, 0)
-    }
-  }
-  isSeeking = false
+    dCtx.clearRect(0, 0, display.width, display.height)
+    dCtx.drawImage(canvas, 0, 0)
+    isSeeking = false
 
-  // 如果悬浮期间又积累了新的 seek 请求，立即处理
-  if (pendingSeekTime !== null && thumb) {
-    isSeeking = true
-    thumb.currentTime = pendingSeekTime
-    pendingSeekTime = null
+    flushPendingSeek(thumb)
   }
+
+  requestAnimationFrame(() => {
+    if (currentTicket !== previewFrameTicket) return
+    drawFrame()
+  })
 }
 
 const onProgressLeave = () => {
@@ -306,6 +342,7 @@ const onProgressLeave = () => {
   if (seekThrottleTimer) { clearTimeout(seekThrottleTimer); seekThrottleTimer = null }
   pendingSeekTime = null
   isSeeking = false
+  previewFrameTicket += 1
 }
 
 // captureFrame 已废弃，由 thumbVideoRef + onThumbSeeked 替代
@@ -360,6 +397,8 @@ const onMetadata = () => {
 const onThumbMetadata = () => {
   if (thumbVideoRef.value) {
     syncPreviewSize(thumbVideoRef.value.videoWidth, thumbVideoRef.value.videoHeight)
+    thumbVideoRef.value.currentTime = 0
+    flushPendingSeek(thumbVideoRef.value)
   }
 }
 
@@ -457,6 +496,7 @@ const destroyPlayer = () => {
   if (seekThrottleTimer) { clearTimeout(seekThrottleTimer); seekThrottleTimer = null }
   pendingSeekTime = null
   isSeeking = false
+  previewFrameTicket += 1
 }
 
 const close = () => {
@@ -599,6 +639,16 @@ $purple-light: #66b1ff;
   display: block;
   object-fit: contain;
   cursor: pointer;
+}
+
+.preview-thumb-video {
+  position: absolute;
+  left: -99999px;
+  top: -99999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 // ── 大播放按钮 ───────────────────────────────────────
