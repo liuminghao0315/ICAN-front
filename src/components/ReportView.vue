@@ -244,6 +244,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { Download } from '@element-plus/icons-vue'
 import type { AnalysisResult } from '@/data/mockAnalysisResult'
+import { normalizeTimeGranularity } from '@/utils/timelineGranularity'
 
 const emit = defineEmits<{ 'export-pdf': [] }>()
 
@@ -277,7 +278,7 @@ const attitudeStats = computed(() => {
 
 const riskPeakAnalysis = computed(() => {
   const risks = props.data.timelineData.comprehensiveRisks
-  const granularity = props.data.timelineData.timeGranularity
+  const granularity = normalizeTimeGranularity(props.data.timelineData.timeGranularity)
   const videoDuration = props.data.videoInfo.duration || 0
   let peakIndex = 0, peakIntensity = 0
   risks.forEach((risk: any, idx: number) => {
@@ -419,7 +420,7 @@ const initRadarChart = () => {
 const initTrendChart = () => {
   if (!trendChartRef.value) return
   const chart = echarts.init(trendChartRef.value)
-  const g = props.data.timelineData.timeGranularity
+  const g = normalizeTimeGranularity(props.data.timelineData.timeGranularity)
   const xData = props.data.timelineData.comprehensiveRisks.map((_: any, i: number) => formatTime(i * g))
   chart.setOption({
     animation: false,

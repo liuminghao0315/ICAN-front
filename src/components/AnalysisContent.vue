@@ -1540,6 +1540,11 @@ import VChart from "vue-echarts";
 import { ElMessage } from "element-plus";
 import type { RiskLevel, SentimentLabel } from "@/types";
 import config from "@/config";
+import {
+  buildTimelineTimePoints,
+  getTimelineIndex,
+  normalizeTimeGranularity,
+} from "@/utils/timelineGranularity";
 
 // 导入证据抽屉组件和数据
 import EvidenceDrawer from "@/components/EvidenceDrawer.vue";
@@ -1719,7 +1724,7 @@ const mockOpinionRisk = computed(() => {
 });
 // 提取时间轴数据（响应式）
 const timeGranularity = computed(
-  () => currentResult.value?.timelineData.timeGranularity || 5,
+  () => normalizeTimeGranularity(currentResult.value?.timelineData.timeGranularity),
 );
 const mockVideoRisksData = computed(
   () => currentResult.value?.timelineData.videoRisks || [],
@@ -2224,10 +2229,7 @@ const currentRadarData = computed(() => {
   const currentTime = currentPlayTime.value;
   const radarData = mockRadarDataByTime.value;
   if (!radarData || radarData.length === 0) return [0, 0, 0, 0, 0, 0];
-  const index = Math.min(
-    Math.floor(currentTime / timeGranularity.value),
-    radarData.length - 1,
-  );
+  const index = getTimelineIndex(currentTime, timeGranularity.value, radarData.length);
   return radarData[index]?.data || [0, 0, 0, 0, 0, 0];
 });
 
@@ -2605,9 +2607,10 @@ const multiModalRadarOption = computed<any>(() => {
         const currentTime = currentPlayTime.value;
         const comprehensiveRisks = mockComprehensiveRisksData.value;
         if (!comprehensiveRisks || comprehensiveRisks.length === 0) return 0;
-        const index = Math.min(
-          Math.floor(currentTime / timeGranularity.value),
-          comprehensiveRisks.length - 1,
+        const index = getTimelineIndex(
+          currentTime,
+          timeGranularity.value,
+          comprehensiveRisks.length,
         );
         const comprehensiveRisk = comprehensiveRisks[index];
         const avgRisk = comprehensiveRisk?.intensity
@@ -2770,7 +2773,11 @@ const peakRiskData = computed(() => {
     data: peakData?.data || [0, 0, 0, 0, 0, 0],
     avgRisk: Math.round(maxRisk),
     timeStart: peakData?.timeStart ?? peakIndex * timeGranularity.value,
-    timeEnd: peakData?.timeEnd ?? (peakIndex + 1) * timeGranularity.value,
+    timeEnd:
+      peakData?.timeEnd ??
+      (videoDuration.value > 0
+        ? Math.min(videoDuration.value, (peakIndex + 1) * timeGranularity.value)
+        : (peakIndex + 1) * timeGranularity.value),
   };
 });
 
@@ -3066,14 +3073,7 @@ const multiModalTimelineOption = computed(() => {
   const axisColor = dark ? "#b6c2df" : "#666";
   const borderColor = dark ? "rgba(110, 126, 166, 0.45)" : "rgba(209, 217, 230, 0.3)";
   const splitColor = dark ? "rgba(108, 122, 160, 0.35)" : "rgba(209, 217, 230, 0.4)";
-  const timePoints: number[] = [];
-  for (let t = 0; t <= duration; t += 5) {
-    timePoints.push(t);
-  }
-  const lastTimePoint = timePoints[timePoints.length - 1];
-  if (lastTimePoint === undefined || lastTimePoint < duration) {
-    timePoints.push(duration);
-  }
+  const timePoints = buildTimelineTimePoints(duration, timeGranularity.value);
 
   // 兼容后端各模态长度不一致：按各自长度独立钳制索引，避免越界后被置 0
   const getSeriesPointByTime = <T extends { intensity?: number; reason?: string }>(
@@ -3081,8 +3081,7 @@ const multiModalTimelineOption = computed(() => {
     time: number,
   ): T | null => {
     if (!series || series.length === 0) return null;
-    const rawIndex = Math.floor(time / timeGranularity.value);
-    const safeIndex = Math.max(0, Math.min(rawIndex, series.length - 1));
+    const safeIndex = getTimelineIndex(time, timeGranularity.value, series.length);
     return series[safeIndex] || null;
   };
 
@@ -4279,7 +4278,11 @@ const onVideoTimeUpdate = () => {
   }
 
   // 根据索引查找当前时间对应的风险点
-  const currentIndex = Math.floor(currentTime / timeGranularity.value);
+  const currentIndex = getTimelineIndex(
+    currentTime,
+    timeGranularity.value,
+    mockVideoRisks.value.length,
+  );
   const detection = mockVideoRisks.value[currentIndex];
   currentDetection.value = detection || null;
 };
@@ -4570,9 +4573,10 @@ const getCurrentRiskScore = (): number => {
   const currentTime = currentPlayTime.value;
   const comprehensiveRisks = mockComprehensiveRisksData.value;
   if (!comprehensiveRisks || comprehensiveRisks.length === 0) return 0;
-  const index = Math.min(
-    Math.floor(currentTime / timeGranularity.value),
-    comprehensiveRisks.length - 1,
+  const index = getTimelineIndex(
+    currentTime,
+    timeGranularity.value,
+    comprehensiveRisks.length,
   );
   const riskPoint = comprehensiveRisks[index];
   return riskPoint?.intensity ? Math.round(riskPoint.intensity * 100) : 0; // 转为百分比
