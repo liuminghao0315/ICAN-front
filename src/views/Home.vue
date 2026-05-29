@@ -19,21 +19,24 @@
       </div>
     </nav>
 
-    <!-- Hero：即梦式首屏大标题 + 轮播背景（TransitionGroup 驱动交叉淡入淡出） -->
+    <!-- Hero：即梦式首屏大标题 + 轮播背景（常驻 DOM，仅切换透明度，避免轮播反复重建 img） -->
     <section class="hero">
       <div class="hero-bg-wrap">
-        <TransitionGroup name="hero-fade" tag="div" class="hero-bg-list">
+        <div class="hero-bg-list">
           <div
-            :key="activeBgIndex"
+            v-for="(bg, idx) in heroBackgrounds"
+            :key="bg"
             class="hero-bg"
+            :class="{ 'is-active': idx === activeBgIndex }"
           >
             <img
-              :src="heroBackgrounds[activeBgIndex]"
-              :alt="`背景${activeBgIndex + 1}`"
+              :src="bg"
+              :alt="`背景${idx + 1}`"
+              decoding="async"
             />
             <div class="hero-mask" />
           </div>
-        </TransitionGroup>
+        </div>
       </div>
       <div class="hero-content">
         <h1>高校内容风险研判</h1>
@@ -198,15 +201,27 @@ import { computed, onMounted, onUnmounted, ref, type CSSProperties, type Compone
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { Clock, QuestionFilled, Search } from '@element-plus/icons-vue'
+import heroAnalyseImage from '@/assets/landing/analyse.jpg'
+import heroDashboardImage from '@/assets/landing/dashboard.jpg'
+import heroRecordsImage from '@/assets/landing/records.jpg'
+import heroFavoriteImage from '@/assets/landing/favorite.jpg'
+import heroWordsImage from '@/assets/landing/words.jpg'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const brandLogoImage = '/logo.jpg'
+const heroBackgroundImageUrls = [
+  heroAnalyseImage,
+  heroDashboardImage,
+  heroRecordsImage,
+  heroFavoriteImage,
+  heroWordsImage
+] as const
 
 // 首页图片资源（按区块拆分，便于后续直接替换）
 const homeImages = {
-  heroBackgrounds: ['/landing/analyse.jpg', '/landing/dashboard.jpg', '/landing/records.jpg','/landing/favorite.jpg','/landing/words.jpg'],
+  heroBackgrounds: heroBackgroundImageUrls,
   multimodalFeatures: {
     identity: '/landing/dmt_01.jpg',
     attitude: '/landing/dmt_02.jpg',
@@ -674,6 +689,11 @@ const activeUsageOutcome = computed(
 
 let timer: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
+  heroBackgroundImageUrls.forEach((src) => {
+    const img = new Image()
+    img.src = src
+  })
+
   timer = setInterval(() => {
     activeBgIndex.value = (activeBgIndex.value + 1) % heroBackgrounds.value.length
   }, 4000)
@@ -975,21 +995,14 @@ const goHelp = () => router.push('/help')
   object-fit: cover;
 }
 
-/* Vue TransitionGroup：进入/离开均为 opacity 过渡，使用明确缓动避免 var(--ease) 未定义 */
-.hero-fade-enter-from,
-.hero-fade-leave-to {
+.hero-bg {
   opacity: 0;
-}
-
-.hero-fade-enter-active,
-.hero-fade-leave-active {
   transition: opacity 1.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  pointer-events: none;
 }
 
-.hero-fade-leave-active {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.hero-bg.is-active {
+  opacity: 1;
 }
 
 /* 即梦式：更轻的遮罩，让背景图透出、更有层次 */
