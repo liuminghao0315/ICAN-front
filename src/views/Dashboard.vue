@@ -212,7 +212,7 @@
               class="task-item" 
               v-for="task in recentTasks" 
               :key="task.id"
-              @click="router.push(`/tasks?taskId=${task.id}`)"
+              @click="handleTaskClick(task)"
             >
               <div class="task-icon" :class="getTaskStatusClass(task.status)">
                 <el-icon><DataAnalysis /></el-icon>
@@ -312,6 +312,7 @@ import {
 import type { AnalysisTaskVO, AnalysisStats, RiskDistribution, TaskStatus, VideoStatus } from '@/types'
 import { useUserStore } from '@/stores/user'
 import { useWebSocket } from '@/composables/useWebSocket'
+import { resolveRecentTaskRoute, resolveRecentVideoRoute } from '@/utils/dashboardNavigation'
 
 // 注册ECharts组件
 use([
@@ -497,11 +498,11 @@ const goHighRiskRecords = () => {
 }
 
 const handleVideoClick = (video: VideoInfo) => {
-  if (video.status === 'COMPLETED') {
-    router.push(`/analysis?videoId=${video.id}`)
-  } else {
-    router.push('/records')
-  }
+  router.push(resolveRecentVideoRoute(video))
+}
+
+const handleTaskClick = (task: AnalysisTaskVO) => {
+  router.push(resolveRecentTaskRoute(task))
 }
 
 const shouldShowThumbnail = (video: VideoInfo) => {
@@ -1930,3 +1931,4 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
