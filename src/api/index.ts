@@ -899,7 +899,7 @@ export const deleteWordFromPack = async (wordId: string): Promise<ApiResponse<vo
 }
 
 /**
- * AI 扩充种子词（后端代调 DeepSeek）
+ * AI 扩充种子词（后端代调七牛云 LLM）
  */
 export interface AIWordItem {
   text: string

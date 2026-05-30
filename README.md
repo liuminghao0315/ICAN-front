@@ -54,4 +54,4 @@ npm run build
 - 项目名已从默认模板名 `vue3` 调整为 `synsight-frontend`。
 - `package-lock.json` 顶部名称已同步。
 - 调试验证工具的控制台输出仅在 `import.meta.env.DEV` 环境执行，避免生产构建暴露调试日志。
-- 前端不得硬编码 DeepSeek、SMTP、MinIO、数据库等密钥；AI 扩词等能力必须通过后端受控接口代调。
+- 前端不得硬编码七牛云 LLM、SMTP、MinIO、数据库等密钥；AI 扩词等能力必须通过后端受控接口代调。
