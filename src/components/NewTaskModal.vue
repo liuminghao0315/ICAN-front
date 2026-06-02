@@ -714,6 +714,15 @@ const handleSubmit = async () => {
   }
 }
 
+const finishLocalUploadSuccess = (videoId: string) => {
+  if (!localState.videoId || localState.status !== 'uploading') return
+  uploadStore.removeTask(videoId)
+  localState.status = 'success'
+  ElMessage.success('上传成功，分析任务已进入后台处理')
+  emit('success')
+  emit('update:visible', false)
+}
+
 // 本地上传：委托给 uploadStore，模态框可自由关闭
 const handleLocalUpload = async () => {
   if (!localState.file || !localState.title.trim()) return
@@ -736,16 +745,17 @@ const handleLocalUpload = async () => {
       // 如果 localState.videoId 已被清空（用户点了中止），立即停止轮询
       if (!localState.videoId) { clearInterval(timer); return }
       const task = uploadStore.tasks.find(t => t.videoId === videoId)
-      if (!task) { clearInterval(timer); return }
+      if (!task) {
+        clearInterval(timer)
+        if (localState.videoId && localState.status === 'uploading') {
+          finishLocalUploadSuccess(videoId)
+        }
+        return
+      }
       localState.progress = task.progress
       if (task.status === 'success') {
         clearInterval(timer)
-        // 再次检查：如果在 success 触发前用户已点中止，不弹成功提示
-        if (!localState.videoId || localState.status !== 'uploading') return
-        localState.status = 'success'
-        ElMessage.success('上传成功，分析任务已创建')
-        emit('success')
-        emit('update:visible', false)
+        finishLocalUploadSuccess(videoId)
       } else if (task.status === 'failed') {
         clearInterval(timer)
         if (localState.status !== 'uploading') return

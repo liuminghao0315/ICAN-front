@@ -169,28 +169,29 @@ export const useUploadStore = defineStore('upload', () => {
       //    即使所有分片都成功返回，如果用户在最后一刻点了中止，也不创建分析任务
       if (isCancelled()) return
 
-      // 5. 创建分析任务
-      if (finalVideoId) {
-        const currentTask = tasks.value.find(t => t.videoId === videoId)
-        if (!currentTask || currentTask.status === 'cancelled') {
-          return // 已被中止，放弃创建分析任务
-        }
-        const taskRes = await createAnalysisTask({ videoId: finalVideoId, taskType: 'FULL_ANALYSIS', selectedPackageIds })
-        if (taskRes.code !== 200) {
-          throw new Error(taskRes.message || '创建分析任务失败')
-        }
-        if (taskRes.data?.id && taskRes.data?.status) {
-          wsStore.applyTaskStatus(taskRes.data.id, taskRes.data.status, { forceActive: true })
-        }
-        // 创建任务后再次检查（极端情况：createAnalysisTask 期间被中止）
-        if (isCancelled()) return
-      }
-
+      // 5. 文件上传链路到此结束。分析任务创建走后台异步，不能继续占用“上传中”状态。
       _setStatus(videoId, 'success')
       wsStore.notifyTaskChanged()
 
-      // 成功后 3 秒自动从列表移除
-      setTimeout(() => removeTask(videoId), 3000)
+      // 6. 后台异步创建分析任务；失败不回滚上传成功态
+      if (finalVideoId) {
+        const currentTask = tasks.value.find(t => t.videoId === videoId)
+        if (currentTask && currentTask.status !== 'cancelled') {
+          void createAnalysisTask({ videoId: finalVideoId, taskType: 'FULL_ANALYSIS', selectedPackageIds })
+            .then((taskRes) => {
+              if (taskRes.code === 200 && taskRes.data?.id && taskRes.data?.status) {
+                wsStore.applyTaskStatus(taskRes.data.id, taskRes.data.status, { forceActive: true })
+              }
+              wsStore.notifyTaskChanged()
+            })
+            .catch((err: any) => {
+              console.error('createAnalysisTask failed after upload success:', err)
+            })
+        }
+      }
+
+      // 成功后短延迟移除顶部上传任务，给 UI 收尾时间
+      setTimeout(() => removeTask(videoId), 800)
 
     } catch (err: any) {
       if (isCancelled()) {
