@@ -749,12 +749,6 @@ export const validateImportUrl = async (url: string): Promise<ApiResponse<{ titl
   return response.data
 }
 
-// 保存 Cookies（供抖音等需要登录的平台使用）
-export const savePlatformCookies = async (cookies: string): Promise<ApiResponse<void>> => {
-  const response = await api.post<ApiResponse<void>>('/api/analysis/task/save-cookies', { cookies })
-  return response.data
-}
-
 // ==================== 视频管理扩展接口 ====================
 
 // 重命名视频

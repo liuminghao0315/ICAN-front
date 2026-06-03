@@ -102,7 +102,7 @@
                   class="neu-input"
                   :class="{
                     'has-error': urlState.validateError,
-                    'has-warn': urlState.errorType === 'LOGIN_REQUIRED' || urlState.errorType === 'PLATFORM_RESTRICTED',
+                    'has-warn': urlState.errorType === 'PLATFORM_RESTRICTED',
                     'is-valid': urlState.validatedTitle
                   }"
                   placeholder="粘贴平台链接或直接视频 URL（.mp4 / .flv 等）"
@@ -119,8 +119,8 @@
                 <span class="url-status-icon valid" v-else-if="urlState.validatedTitle">
                   <el-icon><CircleCheck /></el-icon>
                 </span>
-                <!-- 警告（需要 Cookie / 受限） -->
-                <span class="url-status-icon warn" v-else-if="urlState.errorType === 'LOGIN_REQUIRED' || urlState.errorType === 'PLATFORM_RESTRICTED'">
+                <!-- 警告（平台受限） -->
+                <span class="url-status-icon warn" v-else-if="urlState.errorType === 'PLATFORM_RESTRICTED'">
                   <el-icon><Warning /></el-icon>
                 </span>
                 <!-- 错误 -->
@@ -139,7 +139,6 @@
               <div class="field-error-block" v-else-if="urlState.validateError && urlState.errorType === 'UNSUPPORTED'">
                 <el-icon><CircleClose /></el-icon>
                 <span>{{ urlState.validateError }}</span>
-                <a class="inline-link" href="https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md" target="_blank">查看支持平台列表 →</a>
               </div>
 
               <!-- ③ 平台受限（Cookie未配置/过期） -->
@@ -147,68 +146,9 @@
                 <el-icon><Warning /></el-icon>
                 <div class="warn-content">
                   <span>{{ urlState.validateError }}</span>
-                  <router-link v-if="userStore.isAdmin" to="/admin/settings" class="inline-link">前往系统设置配置 Cookie →</router-link>
+                  <span class="warn-tip">请改用系统当前支持的平台分享链接，或稍后重试。</span>
                 </div>
               </div>
-
-              <!-- ④ 需要登录 -->
-              <div class="field-warn-block login-required" v-else-if="urlState.validateError && urlState.errorType === 'LOGIN_REQUIRED'">
-                <el-icon><Lock /></el-icon>
-                <div class="warn-content">
-                  <span>{{ urlState.validateError }}</span>
-                  <p class="warn-tip">该平台（如抖音）需要登录 Cookie 才能访问。请用浏览器插件导出 Cookies 后粘贴到下方。</p>
-                  <button class="cookie-trigger-btn" @click="cookiePanel.visible = !cookiePanel.visible">
-                    <el-icon><Key /></el-icon>
-                    {{ cookiePanel.visible ? '收起 Cookies 配置' : '立即配置 Cookies' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Cookie 配置面板（内嵌展开） -->
-              <Transition name="panel-slide">
-                <div class="cookie-panel" v-if="cookiePanel.visible">
-                  <div class="cookie-panel-header">
-                    <el-icon><Key /></el-icon>
-                    <span>配置平台 Cookies</span>
-                  </div>
-                  <div class="cookie-steps">
-                    <div class="step">
-                      <span class="step-num">1</span>
-                      <span>安装浏览器插件 <a class="inline-link" href="https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Get cookies.txt LOCALLY</a></span>
-                    </div>
-                    <div class="step">
-                      <span class="step-num">2</span>
-                      <span>在浏览器中登录目标平台（如抖音），然后点击插件图标导出 cookies</span>
-                    </div>
-                    <div class="step">
-                      <span class="step-num">3</span>
-                      <span>将导出的文本内容粘贴到下方，点击保存</span>
-                    </div>
-                  </div>
-                  <textarea
-                    ref="cookieTextareaRef"
-                    v-model="cookiePanel.content"
-                    class="cookie-textarea"
-                    placeholder="# Netscape HTTP Cookie File&#10;# 粘贴从插件导出的 cookies 内容..."
-                    rows="6"
-                    spellcheck="false"
-                    @keydown.enter.ctrl="handleCookieSaveShortcut"
-                  />
-                  <div class="cookie-panel-footer">
-                    <span class="cookie-saved-tip" v-if="cookiePanel.saved">
-                      <el-icon><CircleCheck /></el-icon> 已保存，重新验证中...
-                    </span>
-                    <button
-                      class="neu-btn primary cookie-save-btn"
-                      :disabled="cookiePanel.saving || !cookiePanel.content.trim()"
-                      @click="handleSaveCookies"
-                    >
-                      <el-icon v-if="cookiePanel.saving"><Loading class="rotating" /></el-icon>
-                      {{ cookiePanel.saving ? '保存中...' : '保存并重新验证' }}
-                    </button>
-                  </div>
-                </div>
-              </Transition>
 
               <!-- 校验通过：显示识别到的标题 -->
               <p class="field-hint valid" v-if="urlState.validatedTitle">
@@ -216,7 +156,7 @@
                 识别到：{{ urlState.validatedTitle }}
               </p>
               <!-- 默认提示 -->
-              <p class="field-hint" v-else-if="!urlState.validateError">支持抖音、B站、YouTube 等主流平台，或直接粘贴 .mp4 / .flv 等视频地址</p>
+              <p class="field-hint" v-else-if="!urlState.validateError">支持抖音、B站、快手、小红书及直接视频地址（.mp4 / .flv 等）</p>
             </div>
             <div class="form-field" v-if="urlState.validatedTitle">
               <label>标题（可选）</label>
@@ -323,9 +263,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { ElMessage, type UploadFile } from 'element-plus'
-import { createUrlImportTask, validateImportUrl, savePlatformCookies, getWordPackBriefList } from '@/api'
+import { createUrlImportTask, validateImportUrl, getWordPackBriefList } from '@/api'
 import { useUploadStore } from '@/stores/upload'
-import { useUserStore } from '@/stores/user'
 import { formatFileSize } from '@/types'
 import type { WordPackVO } from '@/types'
 import { useRouter } from 'vue-router'
@@ -363,11 +302,9 @@ const onOverlayMouseUp = () => {
 const activeTab = ref<'local' | 'url'>('local')
 const uploadRef = ref()
 const uploadStore = useUploadStore()
-const userStore = useUserStore()
 const localTitleInputRef = ref<HTMLInputElement | null>(null)
 const urlInputRef = ref<HTMLInputElement | null>(null)
 const urlTitleInputRef = ref<HTMLInputElement | null>(null)
-const cookieTextareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const shouldIgnoreKeyboardSubmit = (event: KeyboardEvent) =>
   event.isComposing || event.keyCode === 229
@@ -398,18 +335,10 @@ const urlState = reactive({
   /** 校验失败的错误信息 */
   validateError: '' as string,
   /**
-   * 错误类型：INVALID_URL | UNSUPPORTED | PLATFORM_RESTRICTED | LOGIN_REQUIRED
+   * 错误类型：INVALID_URL | UNSUPPORTED | PLATFORM_RESTRICTED
    * 用于前端分级展示不同的引导 UI
    */
   errorType: '' as string,
-})
-
-// Cookie 配置面板状态
-const cookiePanel = reactive({
-  visible: false,
-  content: '',
-  saving: false,
-  saved: false,
 })
 
 // 词库包状态
@@ -569,13 +498,7 @@ watch(() => localState.file, (file) => {
 
 watch(() => urlState.validatedTitle, (title) => {
   if (!props.visible || activeTab.value !== 'url' || !title) return
-  if (cookiePanel.visible) return
   focusElement(urlTitleInputRef.value)
-}, { flush: 'post' })
-
-watch(() => cookiePanel.visible, (visible) => {
-  if (!props.visible || !visible) return
-  focusElement(cookieTextareaRef.value)
 }, { flush: 'post' })
 
 function focusActiveTabPrimaryInput() {
@@ -583,11 +506,6 @@ function focusActiveTabPrimaryInput() {
     if (localState.file) {
       focusElement(localTitleInputRef.value)
     }
-    return
-  }
-
-  if (cookiePanel.visible) {
-    focusElement(cookieTextareaRef.value)
     return
   }
 
@@ -612,10 +530,6 @@ function resetForm() {
   urlState.validatedTitle = ''
   urlState.validateError = ''
   urlState.errorType = ''
-  cookiePanel.visible = false
-  cookiePanel.content = ''
-  cookiePanel.saving = false
-  cookiePanel.saved = false
   selectedPackageIds.value = []
   if (validateTimer) { clearTimeout(validateTimer); validateTimer = null }
   uploadRef.value?.clearFiles?.()
@@ -699,13 +613,6 @@ const handleUrlSubmitEnter = (event: KeyboardEvent) => {
   void handleSubmit()
 }
 
-const handleCookieSaveShortcut = (event: KeyboardEvent) => {
-  if (shouldIgnoreKeyboardSubmit(event)) return
-  event.preventDefault()
-  if (cookiePanel.saving || !cookiePanel.content.trim()) return
-  void handleSaveCookies()
-}
-
 const handleSubmit = async () => {
   if (activeTab.value === 'local') {
     await handleLocalUpload()
@@ -774,33 +681,6 @@ const handleLocalUpload = async () => {
     if (localState.status === 'uploading' && !localState.videoId) {
       localState.status = 'pending'
     }
-  }
-}
-
-// 保存 Cookie 并重新校验
-const handleSaveCookies = async () => {
-  if (!cookiePanel.content.trim()) {
-    ElMessage.warning('请先粘贴 Cookies 内容')
-    return
-  }
-  cookiePanel.saving = true
-  try {
-    const res = await savePlatformCookies(cookiePanel.content.trim())
-    if (res.code === 200) {
-      cookiePanel.saved = true
-      ElMessage.success('Cookies 保存成功，正在重新验证链接...')
-      cookiePanel.visible = false
-      // 重新触发校验
-      urlState.validateError = ''
-      urlState.errorType = ''
-      await triggerValidate()
-    } else {
-      ElMessage.error(res.message || '保存失败')
-    }
-  } catch (e: any) {
-    ElMessage.error(e.message || '保存失败，请重试')
-  } finally {
-    cookiePanel.saving = false
   }
 }
 
@@ -1188,14 +1068,7 @@ const handleUrlImport = async () => {
   color: #856404;
   line-height: 1.5;
 
-  &.login-required {
-    background: rgba(230, 126, 34, 0.07);
-    
-    color: #7d4e00;
-  }
-
   > .el-icon { flex-shrink: 0; margin-top: 2px; font-size: 14px; color: #f39c12; }
-  &.login-required > .el-icon { color: #e67e22; }
 
   .warn-content {
     flex: 1;
@@ -1210,124 +1083,7 @@ const handleUrlImport = async () => {
     font-size: 11px;
     line-height: 1.6;
   }
-
-  .cookie-trigger-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--bg-card);
-    color: var(--color-primary);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    align-self: flex-start;
-
-    &:hover {
-      border-color: var(--color-primary);
-      background: rgba(64, 158, 255, 0.05);
-    }
-  }
 }
-
-// Cookie 配置面板
-.cookie-panel {
-  margin-top: 10px;
-  padding: 16px;
-  border-radius: 8px;
-  background: var(--bg-hover);
-  border: 1px solid var(--border-color);
-
-  .cookie-panel-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    .el-icon { color: var(--color-primary); }
-  }
-
-  .cookie-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
-
-    .step {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-
-      .step-num {
-        flex-shrink: 0;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: var(--color-primary);
-        color: #fff !important;
-        font-size: 10px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-top: 1px;
-      }
-    }
-  }
-
-  .cookie-textarea {
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 11px;
-    font-family: 'Courier New', monospace;
-    color: var(--text-primary);
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    outline: none;
-    resize: vertical;
-    line-height: 1.6;
-    box-sizing: border-box;
-
-    &::placeholder { color: var(--text-secondary); font-family: 'Montserrat', sans-serif; }
-  }
-
-  .cookie-panel-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 10px;
-
-    .cookie-saved-tip {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      color: #27ae60;
-      .el-icon { font-size: 13px; }
-    }
-
-    .cookie-save-btn {
-      padding: 8px 16px;
-      font-size: 12px;
-    }
-  }
-}
-
-// Cookie 面板展开动画
-.panel-slide-enter-active { transition: all 0.25s ease; }
-.panel-slide-leave-active { transition: all 0.2s ease; }
-.panel-slide-enter-from { opacity: 0; transform: translateY(-8px); }
-.panel-slide-leave-to { opacity: 0; transform: translateY(-4px); }
 
 // URL 输入框 warn 状态
 .neu-input.has-warn {
